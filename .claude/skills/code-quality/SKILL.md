@@ -5,16 +5,19 @@ description: Apply this project's code-quality rules (specs/1-code-quality.md, C
 
 # Code quality — how to apply the rules
 
-The rules live in [`specs/1-code-quality.md`](../../../specs/1-code-quality.md). This file is the
-procedure, not a second copy of them — referencing by `CQ-` id keeps one source of truth.
+The rules live in [`specs/1-code-quality.md`](../../../specs/1-code-quality.md) (how code is
+written, `CQ-`) and [`specs/2-architecture.md`](../../../specs/2-architecture.md) (where it lives and
+what may import what, `ARC-`). This file is the procedure, not a second copy of them — referencing by
+id keeps one source of truth.
 
 ## Before writing code
 
 1. **Identify what you are touching**: a domain (`simulation`, `applications`, `documents`, `auth`),
    `core/`, or the frontend.
-2. **Read the governing sections** of `specs/1-code-quality.md` for that area. At minimum §2
-   (structure and import rules) and §3 (layering) — those decide *where* code goes, and are
-   expensive to fix afterwards.
+2. **Read `specs/2-architecture.md` §2 – §5** — the tree, what each file owns, the dependency
+   direction and the two legal cross-domain edges. Those decide *where* code goes and are expensive
+   to fix afterwards. Then read the sections of `specs/1-code-quality.md` that govern how you write
+   it.
 3. **Read the business spec** for any rule that overrides: `specs/0-business-logic.md`. It wins on
    every disagreement.
 4. **Name the requirement IDs** you are implementing, business (`SIM-`, `DOM-`, …) and code (`CQ-`).
@@ -22,14 +25,20 @@ procedure, not a second copy of them — referencing by `CQ-` id keeps one sourc
 ## Where code goes
 
 ```
-router.py      routes only — one statement per handler (CQ-017)
-service.py     business logic, orchestration
-calculator.py  pure functions, no IO, synchronous (CQ-007, CQ-048)
+router.py      routes only — one statement per handler (CQ-017, ARC-004)
+service.py     the flow: validate, call pure functions, persist, assemble (ARC-005)
+schemas.py     the wire contract in and out (ARC-006)
+models.py      internal domain representation (ARC-007)
+calculator.py  pure maths, no IO, synchronous (ARC-013, CQ-048)
 state_machine.py  pure — owns the allowed transitions (APP-009)
 checklist.py   pure — derives the required document set (DOC-005)
-schemas.py     pydantic request/response models
-repository.py  the only code that touches storage (CQ-008)
+repository.py  the only code that touches storage (ARC-009)
 ```
+
+Exactly two cross-domain calls are legal (ARC-016 – ARC-019):
+`auth.service → simulation.service.claim_for_user()` and
+`documents.service → applications.service.recompute_status()`. Both go through `service.py`, never
+into the other domain's repository.
 
 Work that does **not** belong in a route handler (CQ-019):
 
@@ -40,8 +49,8 @@ Work that does **not** belong in a route handler (CQ-019):
 | Business rules, orchestration | service |
 | Domain error → HTTP status | `core/exception_handlers.py` |
 
-If a change requires editing two domains, stop and say the boundary is wrong (CQ-009). Do not work
-around it.
+If a change requires editing two domains and it is not one of the two declared edges, stop and say
+the boundary is wrong (ARC-015). Do not work around it.
 
 ## Deciding on a try block
 
@@ -75,9 +84,12 @@ will catch them.
 - [ ] Every route handler is exactly one `return service.x(...)` — no `if`/`for`/`while`/`try`, no
       arithmetic, no repository or calculator call, no second service call (CQ-017, CQ-018)
 - [ ] No domain imports another domain's internals; `core` imports nothing from `domains`; only
-      `repository.py` touches storage (CQ-005, CQ-006, CQ-008)
-- [ ] `calculator.py` / `state_machine.py` / `checklist.py` import nothing from the framework, the
-      repository or the config, and are synchronous (CQ-007, CQ-048)
+      `repository.py` touches storage; only `main.py` knows all domains (ARC-011 – ARC-014)
+- [ ] No cross-domain call beyond the two declared edges (ARC-016)
+- [ ] `calculator.py` / `state_machine.py` / `checklist.py` import only stdlib, `decimal` and their
+      own `models.py`, and are synchronous (ARC-013, CQ-048)
+- [ ] Frontend: components take `@Input`/`@Output` and inject nothing; only `pages/` hold state;
+      `shared/` has no domain imports (ARC-022, ARC-023)
 - [ ] Every `try` block earns its place; every `except` re-raises with `from exc` (CQ-052, CQ-057 – CQ-060)
 - [ ] Functions ≤30 lines, ≤4 positional params, nesting ≤3, no boolean flag parameters
       (CQ-036 – CQ-040)
@@ -85,7 +97,8 @@ will catch them.
 - [ ] Docstrings explain *why*; no `"""Return the user."""` noise; every module states what it owns
       (CQ-045, CQ-046)
 - [ ] `frozen=True, extra="forbid"` on request and response models (CQ-025, CQ-026)
-- [ ] Money is `Decimal` in Python and `string` in TypeScript, serialised as a string (CQ-014, CQ-027)
+- [ ] Money is `Decimal` in Python and `string` in TypeScript, serialised as a string, never
+      round-tripped through `number` (CQ-014, CQ-027, ARC-026)
 - [ ] No `async def` without an `await`; no `time.sleep` or synchronous HTTP client in async code
       (CQ-050)
 - [ ] Writes are atomic via `os.replace`; repositories return domain models, never dicts

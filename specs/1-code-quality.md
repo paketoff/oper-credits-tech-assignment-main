@@ -12,8 +12,13 @@ updated: 2026-08-29
 Read [`0-business-logic.md`](0-business-logic.md) first: it defines what we are building and the
 entities.
 
-This document covers structure, typing, layering, error handling and style. It contains no business
-rules. **Where this spec and `0-business-logic.md` disagree, the business spec wins.**
+This document covers typing, error handling and style — **how code is written**. Where it lives and
+what may import what is [`2-architecture.md`](2-architecture.md); that spec is canonical for the
+folder tree, import boundaries and layering, and the rules below that moved there are kept as
+one-line statements pointing at it.
+
+It contains no business rules. **Where this spec and `0-business-logic.md` disagree, the business
+spec wins.**
 
 Rules carry stable `CQ-` ids and may be referenced from code, tests and commit messages. Appendix A
 maps every id to its source section. Appendix B records what actually enforces each rule — a linter,
@@ -34,95 +39,36 @@ Code is written for the person who opens it in a month and for the model that ha
 
 ## 2. Project structure
 
-### 2.1 Backend
+Canonical: [`2-architecture.md`](2-architecture.md) §2 – §8. These rules keep their ids and are
+stated here in one line each so a reference from code or a commit still resolves.
 
-**CQ-004.** Domain-driven. Modules are organised by domain, not by technical layer. Every domain has
-the same internal shape, so navigating an unfamiliar one requires no learning.
-
-```
-app/
-  domains/
-    simulation/
-      router.py         # routes only
-      service.py        # business logic, orchestration
-      schemas.py        # pydantic request/response models
-      calculator.py     # pure functions, no IO
-      repository.py     # data access behind a protocol
-    applications/
-      router.py
-      service.py
-      schemas.py
-      state_machine.py
-      checklist.py
-      repository.py
-    documents/
-      router.py
-      service.py
-      schemas.py
-      repository.py
-    auth/
-      router.py
-      service.py
-      schemas.py
-      repository.py
-  core/
-    config.py           # settings, pydantic-settings
-    errors.py           # domain exceptions and stable codes
-    exception_handlers.py
-    logging.py          # structured logging setup
-    storage.py          # StorageBackend protocol + local implementation
-    telemetry.py        # tracing hooks
-  main.py
-tests/
-  domains/
-    simulation/
-    applications/
-    documents/
-data/                   # JSON persistence
-```
-
-### 2.2 Import rules
-
-These are the ownership boundaries. They are also what makes parallel work safe.
-
+- **CQ-004** — Organised by domain, not by technical layer; every domain has the same internal
+  shape. → ARC-001, ARC-002, ARC-003
 - **CQ-005** — A domain never imports another domain's internals. Cross-domain access goes through
-  the other domain's `service.py` only.
-- **CQ-006** — `core` never imports from `domains`. The dependency points one way.
-- **CQ-007** — `calculator.py`, `state_machine.py` and `checklist.py` import nothing from the
-  framework, the repository or the config. They are pure.
-- **CQ-008** — `repository.py` is the only place that touches storage.
+  the other domain's `service.py`, injected as a dependency. → ARC-011
+- **CQ-006** — `core` never imports from `domains`. The dependency points one way. → ARC-012
+- **CQ-007** — Pure modules (`calculator.py`, `state_machine.py`, `checklist.py`) import only the
+  standard library, `decimal`, and their own domain's `models.py`. → ARC-013
+- **CQ-008** — `repository.py` is the only place that touches storage. → ARC-009
 - **CQ-009** — If a change requires editing two domains, the boundary is drawn wrong. Say so rather
-  than working around it.
-
-### 2.3 Frontend (Angular)
-
-**CQ-010.** Mirror the backend. Same domains, same reasoning, so the two halves stay navigable
-together.
-
-```
-src/app/
-  domains/
-    simulation/
-      simulation.service.ts
-      simulation.models.ts
-      components/
-    application/
-    documents/
-    auth/
-  core/                 # http client, interceptors, error handling
-  shared/               # reusable UI, no business logic
-```
-
-- **CQ-011** — Standalone components. No `NgModule`.
+  than working around it. → ARC-015
+- **CQ-010** — The frontend mirrors the backend: same domains, same layering. → ARC-020
+- **CQ-011** — Standalone components. No `NgModule`. → ARC-025
 - **CQ-012** — Typed reactive forms.
-- **CQ-013** — Models mirror the pydantic schemas field for field.
-- **CQ-014** — **Money is `string` on the frontend, never `number`.** JSON floats lose cents.
+- **CQ-013** — Models mirror the pydantic schemas field for field, with no renaming layer.
+  → ARC-027
+- **CQ-014** — **Money is `string` on the frontend, never `number`.** JSON floats lose cents. Parse
+  only for display; never round-trip through `number`. → ARC-026
 - **CQ-015** — A component never calls HTTP directly. It calls its domain service. This is the
-  frontend twin of the controller rule, CQ-017.
+  frontend twin of the controller rule, CQ-017. → ARC-021
+
+Only `CQ-012` and `CQ-014` are stated in full here: they are data representation, not structure.
 
 ## 3. Layering, and the controller rule
 
 **CQ-016.** Four layers: router → service → (calculator | state machine | checklist) → repository.
+The full dependency diagram, including the `core.errors` branch and the one-way constraint, is
+canonical in [`2-architecture.md`](2-architecture.md) §4. → ARC-010
 
 ### 3.1 The controller rule
 
@@ -526,19 +472,19 @@ Source: `03-code-quality.md`, superseded by this document.
 | CQ-001 | Abstraction only with a second consumer | 1 Philosophy | §1 |
 | CQ-002 | A file must be understandable in isolation | 1 Philosophy | §1 |
 | CQ-003 | Prefer the option that is easier to delete | 1 Philosophy | §1 |
-| CQ-004 | Backend organised by domain, not by layer | 2 Backend | §2.1 |
-| CQ-005 | No cross-domain internals; go through `service.py` | 2 Import rules | §2.2 |
-| CQ-006 | `core` never imports from `domains` | 2 Import rules | §2.2 |
-| CQ-007 | Calculator, state machine, checklist are pure | 2 Import rules | §2.2 |
-| CQ-008 | Only `repository.py` touches storage | 2 Import rules | §2.2 |
-| CQ-009 | Editing two domains means the boundary is wrong | 2 Import rules | §2.2 |
-| CQ-010 | Frontend mirrors the backend domains | 2 Frontend | §2.3 |
-| CQ-011 | Standalone components, no `NgModule` | 2 Frontend | §2.3 |
+| CQ-004 | Backend organised by domain, not by layer | 2 Backend | §2 — moved to `2-architecture.md` ARC-001 – ARC-003 |
+| CQ-005 | No cross-domain internals; go through `service.py` | 2 Import rules | §2 — moved to `2-architecture.md` ARC-011 |
+| CQ-006 | `core` never imports from `domains` | 2 Import rules | §2 — moved to `2-architecture.md` ARC-012 |
+| CQ-007 | Calculator, state machine, checklist are pure | 2 Import rules | §2 — moved to `2-architecture.md` ARC-013 |
+| CQ-008 | Only `repository.py` touches storage | 2 Import rules | §2 — moved to `2-architecture.md` ARC-009 |
+| CQ-009 | Editing two domains means the boundary is wrong | 2 Import rules | §2 — moved to `2-architecture.md` ARC-015 |
+| CQ-010 | Frontend mirrors the backend domains | 2 Frontend | §2 — moved to `2-architecture.md` ARC-020 |
+| CQ-011 | Standalone components, no `NgModule` | 2 Frontend | §2 — moved to `2-architecture.md` ARC-025 |
 | CQ-012 | Typed reactive forms | 2 Frontend | §2.3 |
-| CQ-013 | TS models mirror pydantic schemas field for field | 2 Frontend | §2.3 |
+| CQ-013 | TS models mirror pydantic schemas field for field | 2 Frontend | §2 — moved to `2-architecture.md` ARC-027 |
 | CQ-014 | Money is `string` on the frontend | 2 Frontend | §2.3 |
-| CQ-015 | A component never calls HTTP directly | 2 Frontend | §2.3 |
-| CQ-016 | Four layers | 3 Layering | §3 |
+| CQ-015 | A component never calls HTTP directly | 2 Frontend | §2 — moved to `2-architecture.md` ARC-021 |
+| CQ-016 | Four layers | 3 Layering | §3 — moved to `2-architecture.md` ARC-010 |
 | CQ-017 | **The controller rule** — one statement per handler | 3 The controller rule | §3.1 |
 | CQ-018 | Five things forbidden in a route handler | 3 The controller rule | §3.1 |
 | CQ-019 | Where the excluded work goes | 3 The controller rule | §3.1 |

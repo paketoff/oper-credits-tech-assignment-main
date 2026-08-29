@@ -10,9 +10,11 @@ Follow this order. Do not skip step 1 — it is what keeps the specs the source 
 
 - Read the sections of [`specs/0-business-logic.md`](../../specs/0-business-logic.md) that govern
   this task and list the business requirement IDs (`SIM-`, `DOM-`, `DOC-`, `APP-`, `ERR-`, `AC-`).
-- Read the sections of [`specs/1-code-quality.md`](../../specs/1-code-quality.md) that govern the
-  code you are about to write, and list the `CQ-` ids that constrain it. At minimum §2 (structure,
-  import rules) and §3 (layering, the controller rule).
+- Read [`specs/2-architecture.md`](../../specs/2-architecture.md) §2 – §5 to place the code: the
+  tree, what each file owns, the dependency direction, and the two legal cross-domain edges. List the
+  `ARC-` ids that constrain it.
+- Read the sections of [`specs/1-code-quality.md`](../../specs/1-code-quality.md) that govern how you
+  write it, and list the `CQ-` ids. At minimum §3 (the controller rule).
 - State both lists before writing any code. If the two specs disagree, the business spec wins.
 - If the task is not covered by a spec, say so and ask whether to extend the spec first.
 
@@ -26,8 +28,9 @@ Everything else gets tests after the fact, and only a few (CQ-071).
 
 ## 3. Implement
 
-Place code by the structure in §2 of the code-quality spec. Respect the import boundaries. If the
-change requires editing two domains, stop and report that the boundary is wrong (CQ-009).
+Place code by the tree in `2-architecture.md` §2. Respect the import boundaries (ARC-011 – ARC-014).
+If the change requires a cross-domain call beyond the two declared in ARC-017 and ARC-018, stop and
+report that the boundary is wrong (ARC-015).
 
 ## 4. Gate
 

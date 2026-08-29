@@ -9,12 +9,15 @@ to a spec.
 | File | Purpose |
 |---|---|
 | `0-business-logic.md` | Scope, domain model and simulation engine — the whole business domain |
-| `1-code-quality.md` | Structure, layering, typing, error handling, style — no business rules |
+| `1-code-quality.md` | Typing, error handling, style — how code is written |
+| `2-architecture.md` | Folder tree, import boundaries, layering, naming — where code lives |
 
 Specs are numbered in reading order. `0-business-logic.md` is the root spec; later
 specs build on it and do not restate it.
 
-**Precedence: where a spec and `0-business-logic.md` disagree, the business spec wins.**
+**Precedence: where a spec and `0-business-logic.md` disagree, the business spec wins.** Between
+the other two, `2-architecture.md` is canonical for structure and import boundaries;
+`1-code-quality.md` keeps the ids that moved there as one-line pointers.
 
 ## Conventions
 
@@ -41,7 +44,8 @@ specs build on it and do not restate it.
 | `SIM-` | Calculation rules, formulas and constants |
 | `ERR-` | Error codes and HTTP mapping |
 | `AC-` | Acceptance criteria — each maps to a test |
-| `CQ-` | Code quality — structure, layering, typing, style (`1-code-quality.md`) |
+| `CQ-` | Code quality — typing, error handling, style (`1-code-quality.md`) |
+| `ARC-` | Architecture — structure, imports, layering, naming (`2-architecture.md`) |
 
 IDs attach to verifiable statements only: an invariant, a formula, a constant, a
 transition, an error code. Narrative framing stays unlabelled prose. IDs are stable

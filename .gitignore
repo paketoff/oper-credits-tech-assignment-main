@@ -82,6 +82,13 @@ lerna-debug.log*
 secrets/
 credentials.json
 
+# ---------- Backend runtime artefacts ----------
+# JSON store: the shape is committed, the contents are not (2-architecture.md ARC-002)
+backend/data/*
+!backend/data/.gitkeep
+# built Angular bundle, served by FastAPI
+backend/static/
+
 # ---------- Infra (Docker / Terraform) ----------
 docker-compose.override.yml
 .terraform/

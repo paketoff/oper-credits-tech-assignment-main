@@ -14,10 +14,13 @@ follows.
 
 - [`specs/0-business-logic.md`](specs/0-business-logic.md) — scope, domain model, lifecycle, and the
   simulation engine specified to the cent. IDs: `SCP- DOM- DOC- APP- SIM- ERR- AC-`.
-- [`specs/1-code-quality.md`](specs/1-code-quality.md) — structure, layering, typing, error handling,
-  style. IDs: `CQ-`.
+- [`specs/1-code-quality.md`](specs/1-code-quality.md) — typing, error handling, style: how code is
+  written. IDs: `CQ-`.
+- [`specs/2-architecture.md`](specs/2-architecture.md) — where code lives and what may import what:
+  the folder tree, import boundaries, layering, naming. IDs: `ARC-`.
 
-**Where the two disagree, the business spec wins.**
+**The business spec wins over both.** For structure and imports, `2-architecture.md` is canonical
+and `1-code-quality.md` points at it.
 
 Before implementing: read the sections that govern the task and name the requirement IDs you are
 implementing. Cite them in commit messages (`feat(sim): actuarial monthly rate — SIM-001, AC-002`).
@@ -31,18 +34,32 @@ Violating one of these is a defect, not a style disagreement. Full text and reas
 - A route handler contains **exactly one statement**: a single call to a service. No `if`, `for`,
   `while`, `try`; no repository or calculator call; no arithmetic or data shaping; no building a
   response field by field; no second service call. (CQ-017, CQ-018)
-- Layers: router → service → (calculator | state machine | checklist) → repository. (CQ-016)
-- A domain never imports another domain's internals — go through its `service.py`. `core` never
-  imports from `domains`. Only `repository.py` touches storage. (CQ-005, CQ-006, CQ-008)
-- `calculator.py`, `state_machine.py`, `checklist.py` are **pure**: nothing from the framework, the
-  repository or the config, and entirely synchronous. (CQ-007, CQ-048)
+- Layers: router → service → (calculator | state machine | checklist) → repository → `core.storage`.
+  Arrows point one way only. (ARC-010)
+- A domain never imports another domain's internals — go through its `service.py`, injected as a
+  dependency. `core` never imports from `domains`. Only `repository.py` touches storage. `main.py` is
+  the only file that knows all domains. (ARC-011 – ARC-014)
+- `calculator.py`, `state_machine.py`, `checklist.py` are **pure**: they import only the standard
+  library, `decimal`, and their own domain's `models.py` — and are entirely synchronous.
+  (ARC-013, CQ-048)
+- **Exactly two cross-domain calls are legal**, both one-directional service calls:
+  `auth.service → simulation.service.claim_for_user()` and
+  `documents.service → applications.service.recompute_status()`. Do not invent a third — if a feature
+  seems to need one, the boundary is drawn wrong. (ARC-016 – ARC-019, ARC-015)
+- Organise by domain, never by technical layer. Files go where `2-architecture.md` §2 puts them.
+  (ARC-001, ARC-002)
 
 **Typing**
 - Every parameter and return annotated, including `-> None`. (CQ-020)
 - **`Any` is forbidden in `app/`.** Allowed in `tests/`. (CQ-021, CQ-074)
 - Pydantic v2 at every boundary, with `frozen=True, extra="forbid"`. (CQ-024 – CQ-026)
 - Money: `Decimal` in Python, **`string` in TypeScript**, serialised as a string over JSON. Never
-  `float`, never `number`. (CQ-014, CQ-027)
+  `float`, never `number`; parse only for display. (CQ-014, CQ-027, ARC-026)
+
+**Frontend structure**
+- A component never calls HTTP — it calls its domain service. Pages hold state; components under
+  `components/` take `@Input` and emit `@Output` and inject nothing. `shared/` has no business logic
+  and no domain imports. Standalone components, no `NgModule`. (ARC-021 – ARC-025)
 
 **Functions**
 - ≤30 lines soft, 50 hard, excluding the docstring. ≤4 positional parameters. Nesting ≤3, use early
