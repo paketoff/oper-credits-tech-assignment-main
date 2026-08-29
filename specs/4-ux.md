@@ -111,8 +111,15 @@ rate, quotiteit.
 ### 3.5 Quotiteit updates visibly
 
 **UX-017.** As the borrower moves their own contribution, quotiteit recalculates in front of them and
-crosses the 90% mark. When it goes above, a chip appears: *"Above the 90% supervisory norm —
-possible, but usually at a higher rate."*
+crosses the 90% mark. When it goes above, a chip states the actual figure: *"94% quotiteit — above
+the 90% supervisory norm. Usually available, at a higher rate."* — naming the number the borrower
+just caused makes the cause and effect obvious, corrected at T49 from a fixed sentence that never
+said what the borrower's own quotiteit actually was.
+
+The own-contribution field itself echoes the same relationship live, before the chip even has a
+result to react to: *"10% of the property price → 94% quotiteit"*, computed client-side with
+`DOM-012`'s own formula (`loan_amount = property_value - own_contribution`) so it never disagrees
+with what the result panel is about to show.
 
 Informational, never an error — `0-business-logic.md` DOM-016, ERR-006; styling `3-ui.md` UI-050.
 This turns the calculator into an explanation of how the lending decision actually works, which is

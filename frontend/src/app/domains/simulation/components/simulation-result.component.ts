@@ -4,9 +4,6 @@ import { MoneyPipe } from '../../../shared/money.pipe';
 import { PercentPipe } from '../../../shared/percent.pipe';
 import { Simulation } from '../simulation.models';
 
-const SUPERVISORY_NORM_MESSAGE =
-  'Above the 90% supervisory norm — possible, but usually at a higher rate.';
-
 /**
  * The result panel. Dumb (`ARC-022`): the page decides when a new value
  * arrives, this component only ever renders whatever it was last given.
@@ -26,8 +23,6 @@ export class SimulationResultComponent {
   readonly loading = input(false);
 
   protected readonly breakdownOpen = signal(false);
-
-  protected readonly aboveNormMessage = SUPERVISORY_NORM_MESSAGE;
 
   protected readonly aboveNorm = computed(() => this.result()?.above_supervisory_norm ?? false);
 
