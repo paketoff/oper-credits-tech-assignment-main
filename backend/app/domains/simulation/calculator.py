@@ -12,12 +12,40 @@ the test suite rather than a suggestion.
 
 from decimal import ROUND_HALF_UP, Decimal
 
+from app.core.enums import Region
 from app.core.errors import SimulationError
-from app.domains.simulation.entities import AmortisationSchedule, ScheduleEntry
+from app.domains.simulation.entities import (
+    AmortisationSchedule,
+    ScheduleEntry,
+    SimulationInput,
+    UpfrontCosts,
+)
 
 _MONTHS_PER_YEAR = 12
 _ONE = Decimal(1)
 _CENT = Decimal("0.01")
+
+# SIM-011. Standard rate, and the first-home rate where the region uses one.
+# Brussels is absent on purpose: it applies an abattement, not a reduced rate,
+# and modelling it as a rate would be the wrong mechanism (SIM-012).
+_STANDARD_DUTY = {
+    Region.FLANDERS: Decimal("0.12"),
+    Region.WALLONIA: Decimal("0.125"),
+    Region.BRUSSELS: Decimal("0.125"),
+}
+_FIRST_HOME_DUTY = {
+    Region.FLANDERS: Decimal("0.02"),
+    Region.WALLONIA: Decimal("0.03"),
+}
+_BRUSSELS_ABATTEMENT = Decimal("200000")
+
+# SIM-010, SIM-014. The notary fee is a flat stand-in for a degressive tariff
+# set by royal decree — a known simplification, flagged as SCP-016 rather than
+# hidden.
+_NOTARY_FEE = Decimal("3300.00")
+_DOSSIER_FEE = Decimal("350.00")
+_VALUATION_FEE = Decimal("285.00")
+_MORTGAGE_COST_RATE = Decimal("0.012")
 
 
 def _to_cents(value: Decimal) -> Decimal:
@@ -125,4 +153,66 @@ def build_amortisation_schedule(
         entries=tuple(entries),
         total_interest=total_interest,
         total_paid=total_paid,
+    )
+
+
+def registration_duty(property_value: Decimal, region: Region, is_first_home: bool) -> Decimal:
+    """Compute the regional purchase tax (`registratierechten`).
+
+    Two different mechanisms, not two different numbers. Flanders and Wallonia
+    give a first-home buyer a **reduced rate**; Brussels instead grants an
+    **abattement**, an allowance on the first slice of the price, and taxes the
+    remainder at the standard rate (SIM-011, SIM-012).
+
+    This is the single largest line in the upfront total. On a EUR 300 000 house
+    in Flanders, first-home status is worth EUR 30 000 of cash the buyer must
+    have on the day, and the tax cannot be financed (SIM-013, AC-005).
+
+    Args:
+        property_value: The purchase price.
+        region: Which regional regime applies.
+        is_first_home: Whether this is the buyer's only home
+            (`enige eigen woning`).
+
+    Returns:
+        The duty, rounded to the cent. Never negative: below the Brussels
+        threshold the taxable base is zero, not a refund.
+    """
+    if is_first_home and region is Region.BRUSSELS:
+        taxable = max(Decimal("0"), property_value - _BRUSSELS_ABATTEMENT)
+        return _to_cents(taxable * _STANDARD_DUTY[region])
+    if is_first_home and region in _FIRST_HOME_DUTY:
+        return _to_cents(property_value * _FIRST_HOME_DUTY[region])
+    return _to_cents(property_value * _STANDARD_DUTY[region])
+
+
+def compute_upfront_costs(request: SimulationInput, loan_amount: Decimal) -> UpfrontCosts:
+    """Total up what the borrower must have in the bank on the day of signing.
+
+    Purchase tax, the deed notary, the cost of registering the mortgage, and the
+    lender's two fees — plus their own contribution, none of which is financed
+    (SIM-010).
+
+    Args:
+        request: The borrower's inputs.
+        loan_amount: The amount actually borrowed, which is what the mortgage
+            registration cost scales with.
+
+    Returns:
+        Every component and the two totals, so the breakdown can be shown line
+        by line (UX-020) rather than as a single unexplained figure.
+    """
+    duty = registration_duty(request.property_value, request.region, request.is_first_home)
+    mortgage_costs = _to_cents(loan_amount * _MORTGAGE_COST_RATE)
+    total_costs = duty + _NOTARY_FEE + mortgage_costs + _DOSSIER_FEE + _VALUATION_FEE
+
+    return UpfrontCosts(
+        registration_duty=duty,
+        notary_fee=_NOTARY_FEE,
+        mortgage_costs=mortgage_costs,
+        dossier_fee=_DOSSIER_FEE,
+        valuation_fee=_VALUATION_FEE,
+        total_costs=total_costs,
+        own_contribution=_to_cents(request.own_contribution),
+        total_cash_needed=_to_cents(request.own_contribution) + total_costs,
     )

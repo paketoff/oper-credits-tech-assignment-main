@@ -265,10 +265,14 @@ KBC: 170 000 / 240 / 5.46% → `1152.95` ± 0.02 against the published 1152.96. 
 Owner  A
 Deps   T06
 Files  app/domains/simulation/calculator.py
+       app/domains/simulation/entities.py
        tests/domains/simulation/test_upfront_costs.py
 
 Output registration_duty(property_value, region, is_first_home) -> Decimal
        compute_upfront_costs(request, loan_amount) -> UpfrontCosts
+       SimulationInput and UpfrontCosts entities. `request` here is the entity,
+       not the pydantic schema (ARC-043); taking the five fields as separate
+       parameters would breach CQ-038's four-parameter limit anyway.
 
 Tests  test_registration_duty_regional_matrix          [parameterised, 6 cases]
        test_brussels_abattement_never_returns_negative

@@ -13,6 +13,8 @@ no validation or serialisation, and CQ-024 asks for pydantic at the *boundary*.
 from dataclasses import dataclass
 from decimal import Decimal
 
+from app.core.enums import Region
+
 
 @dataclass(frozen=True, slots=True)
 class ScheduleEntry:
@@ -39,3 +41,40 @@ class AmortisationSchedule:
     entries: tuple[ScheduleEntry, ...]
     total_interest: Decimal
     total_paid: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class SimulationInput:
+    """What the borrower told us, on its way into the calculator.
+
+    The service builds this from `SimulationRequest`. They carry the same fields
+    and are deliberately different types: a pure module may not import a
+    pydantic wire schema (ARC-013, ARC-043).
+    """
+
+    property_value: Decimal
+    own_contribution: Decimal
+    term_months: int
+    annual_nominal_rate: Decimal
+    region: Region
+    is_first_home: bool
+
+
+@dataclass(frozen=True, slots=True)
+class UpfrontCosts:
+    """The cash the borrower needs on the day of signing.
+
+    The second of the two headline figures, and the one most simulators bury or
+    omit. `registration_duty` is paid from savings and cannot be financed
+    (SIM-013), which is why `total_cash_needed` and not `total_costs` is what
+    the result panel leads with.
+    """
+
+    registration_duty: Decimal
+    notary_fee: Decimal
+    mortgage_costs: Decimal
+    dossier_fee: Decimal
+    valuation_fee: Decimal
+    total_costs: Decimal
+    own_contribution: Decimal
+    total_cash_needed: Decimal
