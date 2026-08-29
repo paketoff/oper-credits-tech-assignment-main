@@ -91,6 +91,10 @@ backend/data/*
 # `make test` and local dev serve before that build ever runs (T24).
 backend/static/*
 !backend/static/index.html
+# Playwright's own run artefacts (T26)
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
 
 # ---------- Infra (Docker / Terraform) ----------
 docker-compose.override.yml
