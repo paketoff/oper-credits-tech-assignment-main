@@ -42,6 +42,7 @@ e2e:
 	 }; \
 	 kill_stragglers; \
 	 sleep 1; \
+	 ( cd frontend && node scripts/generate-env.mjs ); \
 	 tmp_data=$$(mktemp -d); \
 	 cleanup() { kill $$uvicorn_pid $$ng_pid 2>/dev/null || true; kill_stragglers; rm -rf "$$tmp_data"; }; \
 	 trap cleanup EXIT; \

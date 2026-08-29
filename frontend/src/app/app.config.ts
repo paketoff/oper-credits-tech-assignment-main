@@ -11,6 +11,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { routes } from './app.routes';
 import { authInterceptor } from './core/auth.interceptor';
+import { PRIMENG_LICENSE_KEY } from './core/env.generated';
 import { errorInterceptor } from './core/error.interceptor';
 import { OperPreset } from './core/theme/oper-preset';
 import { AuthService } from './domains/auth/auth.service';
@@ -38,6 +39,7 @@ export const appConfig: ApplicationConfig = {
           cssLayer: { name: 'primeng', order: 'theme, base, primeng, components, utilities' },
         },
       },
+      license: PRIMENG_LICENSE_KEY,
     }),
   ],
 };
