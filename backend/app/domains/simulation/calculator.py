@@ -10,7 +10,7 @@ recoverable by good structure, so it is specified to the cent in
 the test suite rather than a suggestion.
 """
 
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Decimal, DivisionByZero, InvalidOperation, Overflow
 
 from app.core.enums import Region
 from app.core.errors import SimulationError
@@ -46,6 +46,11 @@ _NOTARY_FEE = Decimal("3300.00")
 _DOSSIER_FEE = Decimal("350.00")
 _VALUATION_FEE = Decimal("285.00")
 _MORTGAGE_COST_RATE = Decimal("0.012")
+
+# SIM-018. Bisection bracket and tolerance for the JKP solve.
+_JKP_LOW = Decimal("0.0001")
+_JKP_HIGH = Decimal("0.30")
+_JKP_TOLERANCE = Decimal("1e-10")
 
 
 def _to_cents(value: Decimal) -> Decimal:
@@ -216,3 +221,76 @@ def compute_upfront_costs(request: SimulationInput, loan_amount: Decimal) -> Upf
         own_contribution=_to_cents(request.own_contribution),
         total_cash_needed=_to_cents(request.own_contribution) + total_costs,
     )
+
+
+def _present_value(payment: Decimal, term_months: int, annual_rate: Decimal) -> Decimal:
+    """Discount a level stream of instalments at an annual rate.
+
+    Uses the same actuarial conversion as the rest of the module (SIM-018):
+    the discount factor is the monthly rate implied by `annual_rate`, not that
+    rate divided by twelve.
+    """
+    rate = monthly_rate(annual_rate)
+    if rate == 0:
+        return payment * term_months
+    return payment * (_ONE - (_ONE + rate) ** -term_months) / rate
+
+
+def compute_jkp(
+    loan_amount: Decimal,
+    monthly_payment: Decimal,
+    term_months: int,
+    fees: Decimal,
+) -> Decimal:
+    """Solve for the all-in annual cost (JKP/TAEG) by bisection.
+
+    The rate that equates the present value of what the borrower receives to the
+    present value of what they pay. What they receive is the loan **less the
+    fees deducted from it** — the mortgage registration cost, the dossier fee
+    and the valuation fee (SIM-016). Purchase tax and the deed notary fee are
+    excluded: they are costs of buying a house, not costs of credit (SIM-017).
+
+    Args:
+        loan_amount: The nominal amount borrowed.
+        monthly_payment: The instalment, already rounded to the cent.
+        term_months: The term, in months.
+        fees: The charges that legally belong in the JKP base.
+
+    Returns:
+        The effective annual rate. Always above the nominal rate, and in
+        practice strictly above it: equality means the fees were never applied
+        (SIM-019, AC-008).
+
+    Raises:
+        SimulationError: JKP_COMPUTATION_FAILED if there is no rate in the
+            bracket that balances the two sides. `Decimal` raises errors that
+            mean nothing to an API consumer, so they are translated here
+            (CQ-054).
+    """
+    advance = loan_amount - fees
+    if advance <= 0:
+        raise SimulationError(code="JKP_COMPUTATION_FAILED")
+    try:
+        return _bisect_for_effective_rate(advance, monthly_payment, term_months)
+    except (InvalidOperation, DivisionByZero, Overflow) as exc:
+        raise SimulationError(code="JKP_COMPUTATION_FAILED") from exc
+
+
+def _bisect_for_effective_rate(
+    advance: Decimal,
+    monthly_payment: Decimal,
+    term_months: int,
+) -> Decimal:
+    """Halve the bracket until it is narrower than the tolerance (SIM-018).
+
+    Present value falls as the rate rises, so the sign test is inverted
+    relative to the usual formulation.
+    """
+    low, high = _JKP_LOW, _JKP_HIGH
+    while high - low > _JKP_TOLERANCE:
+        middle = (low + high) / 2
+        if _present_value(monthly_payment, term_months, middle) > advance:
+            low = middle
+        else:
+            high = middle
+    return (low + high) / 2
