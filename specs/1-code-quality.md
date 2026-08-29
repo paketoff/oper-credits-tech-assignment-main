@@ -544,6 +544,12 @@ ones a pipeline would run, so adding one later is configuration, not rework.
 - **CQ-077** — Plus `mypy --strict` with `disallow_any_explicit = true`.
 - **CQ-078. TypeScript** — ESLint with `@typescript-eslint/no-explicit-any` as `error`, plus
   `@typescript-eslint/explicit-function-return-type`. Prettier for formatting.
+- **CQ-096. The configuration lives in `backend/pyproject.toml`** (`[tool.ruff.lint]`,
+  `[tool.ruff.lint.pydocstyle]`, `[tool.mypy]`) and `frontend/eslint.config.js`. Without it `ruff
+  check` runs its default rule set and **none of CQ-076 fires** — no `ANN`, no `D`, no `C901`, no
+  `PLR0913`. A gate that passes because nothing is configured is worse than no gate: it reports
+  green. The file is created by `10-implementation.md` T02, before anything is written that it
+  should be checking.
 - **CQ-079. Definition of done for any unit of work:** the linter is green, `mypy --strict` is clean,
   and the tests pass. Not "it runs".
 
@@ -650,6 +656,7 @@ Source: `03-code-quality.md`, superseded by this document.
 | CQ-093 | No raw SQL in services | SQLite switch | §11.3 |
 | CQ-094 | Cross-domain access still goes through `service.py` | SQLite switch | §11.3 |
 | CQ-095 | Protocols are why the swap was cheap | SQLite switch | §11.4 |
+| CQ-096 | Tool config lives in `pyproject.toml` / `eslint.config.js` | added — the rule set does not apply without it | §13 |
 
 # Appendix B — Enforcement map
 

@@ -121,11 +121,18 @@ no two invent competing layouts.
 ```
 Owner  D
 Deps   T01
-Files  app/main.py, requirements.txt
-Output GET /health returning {"status":"ok"}
+Files  app/main.py, requirements.txt, pyproject.toml
+Output GET /health returning {"status":"ok"};
+       pyproject.toml carrying the CQ-076 ruff rule set and the CQ-077 mypy settings
 Tests  test_health_returns_ok
 Done   `pytest tests/test_health.py -q` → 1 passed
+       `ruff check app` reports at least one D/ANN finding against a deliberately
+       undocumented throwaway function, proving the rule set is live
 ```
+**The `ruff check` half of the done condition is not ceremony.** With no `[tool.ruff.lint] select`,
+ruff runs its defaults and every rule in CQ-076 is silently inactive — `ANN`, `D`, `C901`, `PLR0913`
+all off, and T34's gate then passes while checking almost nothing. Prove the configuration is live
+here, once, at the point it is written (CQ-096).
 
 ### T03 | Container builds
 ```
@@ -266,6 +273,10 @@ Files  app/domains/simulation/calculator.py
 
 Output simulate(request: SimulationInput) -> SimulationResult
        (an orchestrator, per the function rules in 1-code-quality.md CQ-036 – CQ-037)
+
+       SimulationInput, SimulationResult, AmortisationSchedule and UpfrontCosts are domain
+       entities in entities.py, not the pydantic wire schemas — 2-architecture.md ARC-043.
+       calculator.py may not import a schema (ARC-013); the service converts.
 
 Tests  test_simulate_primary_case_full_output
        test_simulate_first_home_flip_changes_cash_by_thirty_thousand
@@ -545,9 +556,10 @@ This is Tier 2 in full (T-P6). Six tests over the paths a user actually takes, n
 ```
 Owner  C
 Deps   T01
-Files  src/styles.css, src/app/core/*, app.config.ts, app.routes.ts
+Files  src/styles.css, src/app/core/*, app.config.ts, app.routes.ts, eslint.config.js
 Output Tailwind v4 @theme matching 3-ui.md; PrimeNG preset with cssLayer order;
-       api client, error interceptor, auth interceptor
+       api client, error interceptor, auth interceptor;
+       eslint.config.js carrying the CQ-078 rule set (CQ-096)
 Tests  —
 Done   `npm run build` succeeds; every *.component.css is empty;
        `grep -rE "#[0-9a-fA-F]{6}" src --include=*.ts --include=*.html` returns nothing
@@ -652,7 +664,8 @@ Deps   T33
 Output —
 Tests  —
 Done   `make test` passes; the Tier 1 coverage command reports 100%;
-       `ruff check` and `mypy --strict app` are clean
+       `ruff check` and `mypy --strict app` are clean **against the configuration
+       committed in T02** — a green run with no pyproject.toml proves nothing
 ```
 This is `CQ-079` — the gate that stands in for CI, which is a deliberate non-goal
 (`1-code-quality.md` §13). → `DEP-038`.
@@ -690,7 +703,7 @@ outcome, not the model. → `AI-014` – `AI-017`, `AI-033` – `AI-034`.
 
 ### T36 | Model client
 ```
-Owner  B
+Owner  B          (ARC-028 names classification/{client,prompts}.py in unit B)
 Deps   T35
 Files  app/domains/documents/classification/{client,prompts}.py
 Output classify(image_bytes) -> ClassificationVerdict
@@ -842,3 +855,6 @@ running).
 | T19 listed `app/core/dependencies.py` among its files | **`app/domains/auth/dependencies.py`.** `core` may not import a domain (`ARC-012`); `ARC-042` made the auth dependency module a second declared public surface for exactly this reason. |
 | `classification/evaluator.py` | Kept as the source names it. `2-architecture.md` and `9-ai-classification.md` had `evaluate.py` — my invention from the function name — and were corrected to match: the module is a noun beside `calculator.py` and `state_machine.py`, the function inside stays `evaluate()`. |
 | `00-scope.md`, `02-simulation.md`, `03-code-quality.md`, `04-architecture.md`, `05-ui.md`, `07-deployment.md`, `08-auth.md`, `09-validation.md`, `11-ai-classification.md` | Rewritten to this repo's numbering, with the specific rule ids added so each ticket points at what it implements |
+| T02 did not create a linter configuration | `pyproject.toml` added to its files and to its done condition. Nothing in any spec said where the CQ-076 rule set lived, so `ruff check` would have run defaults and T34 would have gone green having checked almost nothing. |
+| T10 named `SimulationInput` with no spec defining it | `ARC-043` now separates the simulation entity types from the wire schemas; the ticket points at it. |
+| T26 did not own the ESLint configuration | added to its files, same reasoning as T02. |

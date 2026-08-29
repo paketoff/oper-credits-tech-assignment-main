@@ -53,7 +53,7 @@ anonymous simulation has to be claimable at signup, so it needs an identity and 
 
 ## 2. Error shape
 
-**API-013.** Every failure, without exception:
+**API-013.** Every failure of an `/api` route, without exception:
 
 ```json
 {
@@ -69,6 +69,11 @@ it beside that input instead of as a toast. Codes are the full catalogue in `7-v
 
 **API-015.** Validation errors from pydantic are normalised into the same shape by the global
 exception handler. A raw FastAPI `detail` array never reaches the client.
+
+**API-069.** `/health` and `/ready` are outside this contract, because they are outside `/api`
+(API-001). They are platform probes read by Fly, not by the frontend, and they answer
+`{"status": ...}` with 200 or 503 — never `{code, message, field}`. This is the only carve-out, and
+it exists because the reader is a health checker rather than a client.
 
 ## 3. Endpoints
 
@@ -336,7 +341,7 @@ Returns the full application body.
 }
 ```
 
-**API-046a.** When the optional classifier is enabled
+**API-070.** When the optional classifier is enabled
 ([`9-ai-classification.md`](9-ai-classification.md) AI-025), each object in `documents[]` also carries
 `classification_status` and `classification_message` — the latter composed server-side, so the
 frontend renders a string and never implements the decision table.
@@ -412,7 +417,7 @@ export type EmploymentType = 'EMPLOYEE' | 'SELF_EMPLOYED' | 'OTHER';
 
 export type ApplicationStatus =
   | 'DRAFT' | 'SUBMITTED' | 'DOCUMENTS_PENDING' | 'DOCUMENTS_COMPLETE'
-  | 'UNDER_REVIEW' | 'WITHDRAWN';
+  | 'UNDER_REVIEW' | 'OFFER_ISSUED' | 'WITHDRAWN';
 
 export interface ApiError {
   code: string;
@@ -570,6 +575,8 @@ Source: `10-api.md`, superseded by this document.
 | API-066 | Done: the simulation figures match AC-003 | Definition of done | §12 |
 | API-067 | Done: upload returns the resulting status | Definition of done | §12 |
 | API-068 | Done: the TS models compile with no `any` | Definition of done | §12 |
+| API-069 | `/health` and `/ready` sit outside the error contract | added in review | §2 |
+| API-070 | Checklist documents carry the classification fields | added for `9-ai-classification.md` | §7 |
 
 # Appendix B — Corrections against the specs
 

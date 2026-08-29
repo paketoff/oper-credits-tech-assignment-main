@@ -31,7 +31,9 @@ means a feature is a folder, its boundary is visible, and it can be deleted in o
 
 ```
 backend/          FastAPI service, the tree below
+  pyproject.toml  ruff + mypy configuration (CQ-096); the rule set does not apply without it
 frontend/         Angular SPA
+  eslint.config.js  the TypeScript rule set (CQ-096)
 infra/            Dockerfile, compose, fly.toml, .dockerignore
 observability/    collector and Grafana configuration
 specs/            the specifications
@@ -280,8 +282,9 @@ wrong. The design reasoning is `3-ui.md` §6.2; this is the structural half of i
 
 ## 8. Model mirroring
 
-**ARC-027.** `simulation.models.ts` mirrors `schemas.py` field for field, same names, same casing as
-the wire format. No renaming layer. If a field is `total_cash_needed` on the wire, it is
+**ARC-027.** `simulation.models.ts` mirrors `schemas.py` **field for field** — same field names, same
+casing as the wire format. Type names are per-layer and need not match (`SimulationResponse` in
+pydantic is `Simulation` in TypeScript); it is the field names that must never drift. No renaming layer. If a field is `total_cash_needed` on the wire, it is
 `total_cash_needed` in TypeScript. Renaming buys nothing and costs a mapping function that will
 drift.
 
@@ -292,7 +295,7 @@ drift.
 | Unit | Owns | Depends on |
 |---|---|---|
 | A — domain core | `domains/simulation/{calculator,entities}.py`, `domains/applications/{state_machine,checklist,entities}.py`, `domains/documents/{file_type,classification/evaluate}.py`, their tests | nothing |
-| B — API surface | all `router.py`, `service.py`, `schemas.py`, `tables.py`, `repository.py` | A's entities and function signatures, D's `core/database.py` |
+| B — API surface | all `router.py`, `service.py`, `schemas.py`, `tables.py`, `repository.py`, and `documents/classification/{client,prompts}.py` | A's entities and function signatures, D's `core/database.py` |
 | C — frontend | everything under `src/app/` | B's wire contract |
 | D — platform | `core/*` — **including `core/database.py`, `core/storage.py`, `core/health.py` and `core/rate_limit.py`** — `main.py`, `infra/*`, `observability/*`, `Makefile`, `.env.example` | nothing |
 
@@ -327,6 +330,19 @@ The route handler stays one line. Every layer below it is testable without HTTP.
 - **ARC-034** — Angular files: `<name>.<role>.ts` — `simulation.service.ts`,
   `checklist.component.ts`.
 - **ARC-035** — Test files mirror the module under test: `calculator.py` → `test_calculator.py`.
+- **ARC-043** — The simulation domain makes the three-file split concrete, and the names are not
+  interchangeable:
+
+  | Type | Lives in | Crosses |
+  |---|---|---|
+  | `SimulationRequest`, `SimulationResponse` | `schemas.py` | the wire — pydantic, `frozen`, `extra="forbid"` |
+  | `SimulationInput`, `SimulationResult`, `AmortisationSchedule`, `UpfrontCosts` | `entities.py` | service ↔ calculator |
+  | `SimulationRow` | `tables.py` | never leaves the repository (CQ-088) |
+
+  `calculator.py` takes `SimulationInput`, **not** `SimulationRequest`: a pure module may not import
+  pydantic wire schemas (ARC-013), and the service is what converts between them. The two are
+  deliberately different types with the same fields, and `10-implementation.md` T10 names the entity.
+
 - **ARC-040** — Three files in a domain hold "models"; each gets a distinct word, and the words are
   used consistently everywhere:
 
@@ -400,6 +416,7 @@ Source: `04-architecture.md`, superseded by this document.
 | ARC-040 | `tables` / `entities` / `schemas` naming | added for the SQLite switch | §11 |
 | ARC-041 | Repo-root layout; `infra/` and `observability/` are config only | added for `5-deployment.md` | §2 |
 | ARC-042 | `domains/auth/dependencies.py` is a second public surface | added for `6-auth.md` | §4 |
+| ARC-043 | Simulation entity types vs wire schema types | added — resolves the `SimulationInput` gap | §11 |
 
 ## Superseded `CQ-` rules
 

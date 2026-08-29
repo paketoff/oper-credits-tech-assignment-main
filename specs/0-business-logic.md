@@ -343,6 +343,12 @@ required_documents(application) -> list[DocumentRequirement]
 | `property_type` is `EXISTING` | `EPC` (energieprestatiecertificaat) |
 | `property_type` is `NEW_BUILD` | `BUILDING_PERMIT`, `CONSTRUCTION_QUOTE` |
 
+**DOC-011.** `employment_type` of `OTHER` adds **nothing**. It is the honest bucket for a borrower
+who is neither employed nor self-employed — a pensioner, a student, someone between jobs — and there
+is no single document set that fits all of them. Such a borrower supplies only the three base
+requirements, and a credit analyst asks for the rest by hand. The silence is deliberate, not an
+oversight in the table above.
+
 **DOC-008.** A requirement is satisfied when at least one document of that `doc_type` is attached.
 Requirements are satisfied per document type, not per file.
 
@@ -740,6 +746,7 @@ Where two sources are listed, this document carries the union of both — see Ap
 | DOC-008 | Satisfied per `doc_type`, not per file | 00 · Document set + 01 · Document checklist | §11 |
 | DOC-009 | Checklist response shape — full form in `8-api.md` §7 | 01 · Document checklist | §11 |
 | DOC-010 | Type as declared on upload; the classifier never overrides it | 00 · cut table | §11 |
+| DOC-011 | `employment_type` `OTHER` adds no requirement, deliberately | added — the enum allowed it with no rule | §11 |
 
 ## Application lifecycle (`APP-`)
 

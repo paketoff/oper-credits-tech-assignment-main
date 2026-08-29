@@ -200,7 +200,6 @@ services:
       - ../backend/data:/data
     environment:
       DATA_DIR: /data
-      DATABASE_URL: sqlite+aiosqlite:////data/app.db
       JWT_SECRET: ${JWT_SECRET:-dev-secret-not-for-production}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
     ports:
@@ -217,6 +216,10 @@ services:
     depends_on:
       - api
 ```
+
+**DEP-051.** `DATABASE_URL` is **not** an environment variable. `core/config.py` derives it from
+`DATA_DIR` as `sqlite+aiosqlite:///${DATA_DIR}/app.db` (`1-code-quality.md` CQ-081). Setting both
+would give one path two sources: change `DATA_DIR` and the database quietly stays where it was.
 
 **DEP-017.** `frontend/proxy.conf.json` forwards `/api` to `http://api:8000`, so the frontend calls
 relative paths in development exactly as it does in production.
@@ -501,6 +504,7 @@ Source: `07-deployment.md`, superseded by this document.
 | DEP-048 | Done: `make dev` brings the stack up | 8 Definition of done | §10 |
 | DEP-049 | Done: `request_id` everywhere, no payload in logs | 8 Definition of done | §10 |
 | DEP-050 | Done: `/health` and `/ready` both respond | 8 Definition of done | §10 |
+| DEP-051 | `DATABASE_URL` is derived from `DATA_DIR`, never set twice | added in review | §5 |
 
 # Appendix B — Corrections against the source
 
