@@ -40,7 +40,7 @@ e2e:
 	 cleanup() { kill $$uvicorn_pid $$ng_pid 2>/dev/null || true; rm -rf "$$tmp_data"; }; \
 	 trap cleanup EXIT; \
 	 ( cd backend && DATA_DIR="$$tmp_data" JWT_SECRET="e2e-test-secret-not-for-production-000" \
-	   ENVIRONMENT=development ../$(BIN)/uvicorn app.main:app --port 8000 \
+	   ENVIRONMENT=development $(BIN)/uvicorn app.main:app --port 8000 \
 	   > /tmp/e2e-uvicorn.log 2>&1 ) & uvicorn_pid=$$!; \
 	 ( cd frontend && npx ng serve --port 4200 --proxy-config proxy.conf.local.json \
 	   > /tmp/e2e-ng-serve.log 2>&1 ) & ng_pid=$$!; \

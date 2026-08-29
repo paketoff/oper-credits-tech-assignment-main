@@ -452,7 +452,7 @@ export type ApplicationStatus =
 export interface ApiError {
   code: string;
   message: string;
-  field?: string;
+  field: string | null;
 }
 
 export interface SimulationRequest {
@@ -502,6 +502,13 @@ export interface ChecklistItem {
 
 **API-060. Every money and rate field is `string`.** Typing them as `number` re-introduces float
 rounding at the one place the whole build is judged on.
+
+**API-072.** `field` is `string | null`, not `field?: string`. The key is always present — the
+handler builds the body as `{"code": code, "message": ..., "field": field}` unconditionally
+(`core/exception_handlers.py`) — it is the *value* that is sometimes `null`, for a code that maps to
+no single input (`NOT_AUTHENTICATED`, `EMAIL_ALREADY_REGISTERED`'s sibling codes with no field
+argument, and so on). An optional key would have the frontend writing `body.field ?? null` at every
+call site for no reason; corrected at T27.
 
 ## 11. Deliberately absent
 
@@ -562,6 +569,7 @@ Source: `10-api.md`, superseded by this document.
 | API-023 | Signup request and response | Auth | §5 |
 | API-024 | A failed claim never fails signup; no `application_id` | Auth, corrected at T17 | §5 |
 | API-071 | A seeded draft has `property_type: null` until the wizard fills it | added at T21 | §6 |
+| API-072 | `ApiError.field` is `string \| null`, always present as a key | added at T27 | §10 |
 | API-025 | 409 `EMAIL_ALREADY_REGISTERED` | Auth | §5 |
 | API-026 | Login contract and the identical 401 | Auth | §5 |
 | API-027 | Logout returns 204 either way | Auth | §5 |
