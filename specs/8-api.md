@@ -171,14 +171,17 @@ Full behaviour in [`6-auth.md`](6-auth.md). Contract only here.
 ```json
 {
   "user": { "id": "3a9e...", "email": "test@example.com", "created_at": "..." },
-  "claimed_simulation_id": "8f1c...",
-  "application_id": "b402..."
+  "claimed_simulation_id": "8f1c..."
 }
 ```
 
 **API-024.** Sets the `session` cookie. `claimed_simulation_id` is `null` when the id was missing,
-unknown or already owned — **none of which fail the request** (`AUTH-031`). `application_id` is the
-draft seeded from the claimed simulation, or `null`.
+unknown or already owned — **none of which fail the request** (`AUTH-031`).
+
+**Signup does not create an application**, and returned an `application_id` until T17. Creating one
+would make `auth.service` call a second foreign domain, and `2-architecture.md` §5.1 explains why
+the boundary moved instead of the edge count. The client calls `POST /api/applications` next, which
+is what that endpoint has always been for.
 
 **API-025.** 409 `EMAIL_ALREADY_REGISTERED`.
 
@@ -239,7 +242,11 @@ from the checklist (`DOC-005`), not stored.
 ```
 
 Creates a draft seeded from the simulation, if one is given and owned by the caller. Returns the full
-application body. Not usually called by the frontend, because signup already creates the draft.
+application body.
+
+**This is the normal path after signup**, not a fallback. It reads the simulation through
+`simulation.service` — the cross-domain edge `2-architecture.md` ARC-047 — and it is the reason that
+edge exists.
 
 ### `GET /api/applications/{id}` → 200
 
@@ -530,7 +537,7 @@ Source: `10-api.md`, superseded by this document.
 | API-021 | `GET /api/simulations/{id}` is public | Simulations | §4 |
 | API-022 | 404 `SIMULATION_NOT_FOUND` | Simulations | §4 |
 | API-023 | Signup request and response | Auth | §5 |
-| API-024 | A failed claim never fails signup | Auth | §5 |
+| API-024 | A failed claim never fails signup; no `application_id` | Auth, corrected at T17 | §5 |
 | API-025 | 409 `EMAIL_ALREADY_REGISTERED` | Auth | §5 |
 | API-026 | Login contract and the identical 401 | Auth | §5 |
 | API-027 | Logout returns 204 either way | Auth | §5 |

@@ -545,11 +545,12 @@ module a second public surface of the domain. → `AUTH-021` – `AUTH-038`.
 Owner  B
 Deps   T18, T19
 Files  app/domains/auth/service.py, app/domains/simulation/service.py
-Output claim_for_user; signup creating a seeded draft in one transaction
-Tests  test_signup_with_simulation_claims_it_and_seeds_draft
+Output claim_for_user; signup claiming inside one transaction
+Tests  test_signup_with_simulation_claims_it
        test_signup_with_unknown_simulation_still_succeeds
        test_signup_with_claimed_simulation_does_not_reassign
        test_claim_and_user_insert_share_one_transaction
+       test_post_applications_seeds_the_draft_from_the_claimed_simulation
 Done   pytest tests/domains/auth/test_claim.py -q → 4 passed
 ```
 → `DOM-025` – `DOM-027`, `ARC-017`, `AUTH-030` – `AUTH-032`, `CQ-091`.
@@ -571,11 +572,12 @@ Done   pytest tests/domains/applications/test_api.py -q → 7 passed
 ```
 → `API-029` – `API-044`, `AUTH-035`, `API-011`.
 
-### T22 | Checklist endpoint
+### T22 | Checklist endpoint — in the documents domain
 ```
 Owner  B
 Deps   T12, T21
-Files  app/domains/applications/{router,service}.py
+Files  app/domains/documents/{router,service}.py
+       app/domains/applications/service.py  (checklist(), taking uploaded types)
 Output GET /api/applications/{id}/checklist
 Tests  test_checklist_returns_counts_and_items
        test_conditional_item_carries_reason
@@ -590,8 +592,13 @@ Done   pytest tests/domains/applications/test_checklist_api.py -q → 4 passed
 Owner  B
 Deps   T16, T22
 Files  app/domains/documents/*
-Output upload, download, delete
-Tests  test_upload_pdf_succeeds_and_returns_application_status
+Output file_type.detect_content_type (pure, Tier 1 — owned by no ticket
+       before T23 despite being in the T-P5 coverage command);
+       upload, download, delete
+Tests  test_detect_content_type_recognises_pdf_jpeg_png
+       test_detect_content_type_rejects_an_unknown_signature
+       test_detect_content_type_ignores_the_extension
+       test_upload_pdf_succeeds_and_returns_application_status
        test_upload_txt_renamed_as_pdf_is_rejected_415
        test_upload_oversize_rejected_413_before_buffering
        test_upload_empty_file_rejected_422

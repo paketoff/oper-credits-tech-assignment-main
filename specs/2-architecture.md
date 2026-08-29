@@ -211,16 +211,40 @@ to require it, the boundary is drawn wrong.
 
 ## 5. Known cross-domain edges
 
-**ARC-016.** Only two exist. Both are declared here so nobody has to invent a third.
+**ARC-016.** **Exactly three exist.** All three are declared here so nobody has to invent a fourth.
 
 - **ARC-017** — `auth.service` → `simulation.service.claim_for_user()` — attaches an anonymous
   simulation to a newly registered user. Implements `0-business-logic.md` DOM-025 – DOM-027.
-- **ARC-018** — `documents.service` → `applications.service.recompute_status()` — an upload or
-  deletion can move an application between `DOCUMENTS_PENDING` and `DOCUMENTS_COMPLETE`. Implements
-  APP-003 and APP-004.
+- **ARC-047** — `applications.service` → `simulation.service.get()` — seeds a draft application from
+  the simulation the borrower just ran. Implements `8-api.md` API-032.
+- **ARC-018** — `documents.service` → `applications.service` — `recompute_status()` when an upload
+  or deletion moves an application between `DOCUMENTS_PENDING` and `DOCUMENTS_COMPLETE` (APP-003,
+  APP-004), and `checklist()` for the derived requirement list (API-045).
 
-**ARC-019.** Both are one-directional service calls. Neither reaches into the other domain's
+**ARC-019.** All three are one-directional service calls. None reaches into the other domain's
 repository.
+
+### 5.1 Why three, and why not four
+
+This rule said "only two" until T17, and the behaviour already specified needed more than two. Three
+separate endpoints demanded a third edge — `API-032` seeds a draft from a simulation, `UX-027` had
+signup create that draft, and `API-045` combines an application's profile with its documents. ARC-015
+says that when a feature seems to need a new edge the boundary is drawn wrong, so the boundary moved
+rather than the count being quietly raised to four:
+
+**Signup claims a simulation and does not create an application.** `auth.service` therefore knows
+about exactly one other domain instead of two. The draft comes from `POST /api/applications`, which
+already existed in the contract and does precisely this; the frontend makes one extra call before it
+renders the wizard. "Registration creates a mortgage application" is a sentence that needs defending
+on a walkthrough, and it should not have to be.
+
+**The checklist lives in `documents`, not in `applications`.** It reads one application's profile
+*and* its documents, and only `documents` may query the documents table (ARC-009). Had `applications`
+owned it, the two domains would import each other — the one shape these rules exist to prevent. So
+`documents/router.py` declares `GET /api/applications/{id}/checklist`, and
+`applications.service.checklist(...)` **takes the uploaded document types as an argument** rather
+than fetching them. `recompute_status()` takes the same argument for the same reason: it is what
+keeps the arrow pointing one way.
 
 ## 6. Frontend (Angular)
 
@@ -424,10 +448,10 @@ Source: `04-architecture.md`, superseded by this document.
 | ARC-013 | Pure modules import stdlib, `decimal`, own `entities.py` only | Dependency direction, rule 3 | §4 |
 | ARC-014 | `main.py` is the only file that knows all domains | Dependency direction, rule 4 | §4 |
 | ARC-015 | Violating ARC-011 or ARC-012 is a design error | Dependency direction | §4 |
-| ARC-016 | Exactly two cross-domain edges exist | Known cross-domain edges | §5 |
+| ARC-016 | Exactly three cross-domain edges exist | Known cross-domain edges, widened at T17 | §5 |
 | ARC-017 | `auth.service` → `simulation.service.claim_for_user()` | Known cross-domain edges | §5 |
-| ARC-018 | `documents.service` → `applications.service.recompute_status()` | Known cross-domain edges | §5 |
-| ARC-019 | Both edges are one-directional service calls | Known cross-domain edges | §5 |
+| ARC-018 | `documents.service` → `applications.service` | Known cross-domain edges | §5 |
+| ARC-019 | All three edges are one-directional service calls | Known cross-domain edges | §5 |
 | ARC-020 | Frontend mirrors the backend domains and layering | Frontend | §6 |
 | ARC-021 | A component never calls HTTP | Frontend rules, 1 | §7 |
 | ARC-022 | Pages hold state, components receive inputs | Frontend rules, 2 | §7 |
@@ -455,6 +479,7 @@ Source: `04-architecture.md`, superseded by this document.
 | ARC-044 | `core/enums.py` holds the two cross-domain value enums | added — `DocumentType` had no single home | §4 |
 | ARC-045 | `core/errors.py` is on the pure-module whitelist | added at T06 — CQ-054 and VAL-004 required what ARC-013 forbade | §4 |
 | ARC-046 | `entities.py` is dataclasses, `schemas.py` is pydantic | added — the spec never said, so it had to be inferred | §11 |
+| ARC-047 | `applications.service` → `simulation.service.get()` | added at T17 — API-032 needed an edge nobody had declared | §5 |
 
 ## Superseded `CQ-` rules
 
