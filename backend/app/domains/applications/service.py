@@ -86,7 +86,7 @@ class ApplicationService:
         self, session: AsyncSession, application_id: UUID, user_id: UUID
     ) -> ApplicationResponse:
         """Fetch one application, scoped to its owner (API-033, API-034)."""
-        application = await self._get_owned(session, application_id, user_id)
+        application = await self.get_owned(session, application_id, user_id)
         return self._to_response(application, frozenset())
 
     async def patch(
@@ -105,7 +105,7 @@ class ApplicationService:
             ApplicationError: APPLICATION_ALREADY_SUBMITTED once the
                 application has left the document-collection phase.
         """
-        application = await self._get_owned(session, application_id, user_id)
+        application = await self.get_owned(session, application_id, user_id)
         if application.status in _LOCKED_FOR_EDITING:
             raise ApplicationError(code="APPLICATION_ALREADY_SUBMITTED")
 
@@ -134,7 +134,7 @@ class ApplicationService:
                 (API-043); INVALID_STATE_TRANSITION from any other state, i.e.
                 WITHDRAWN (API-044).
         """
-        application = await self._get_owned(session, application_id, user_id)
+        application = await self.get_owned(session, application_id, user_id)
         self._validate_for_submission(application)
         self._assert_submittable(application.status)
         state_machine.assert_transition(application.status, ApplicationStatus.SUBMITTED)
@@ -217,10 +217,16 @@ class ApplicationService:
             purchase_price=simulation.request.property_value,
         )
 
-    async def _get_owned(
+    async def get_owned(
         self, session: AsyncSession, application_id: UUID, user_id: UUID
     ) -> Application:
         """Fetch an application owned by this user.
+
+        Public: this is the cross-domain edge `2-architecture.md` ARC-018
+        widened past `recompute_status` — `documents.service` calls it to
+        resolve the application before deriving a checklist, since only
+        `applications` may build an `ApplicationProfile` (ARC-009 keeps the
+        documents table off limits to it).
 
         Raises:
             NotFoundError: APPLICATION_NOT_FOUND for both "does not exist" and

@@ -28,6 +28,7 @@ from app.domains.applications.router import router as applications_router
 from app.domains.auth import tables as _auth_tables  # noqa: F401
 from app.domains.auth.router import router as auth_router
 from app.domains.documents import tables as _documents_tables  # noqa: F401
+from app.domains.documents.router import router as documents_router
 from app.domains.simulation import tables as _simulation_tables  # noqa: F401
 from app.domains.simulation.router import router as simulation_router
 
@@ -61,6 +62,7 @@ exception_handlers.register(app)
 app.include_router(simulation_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(applications_router, prefix="/api")
+app.include_router(documents_router, prefix="/api")
 app.add_middleware(BodySizeLimitMiddleware)
 app.middleware("http")(app_logging.request_id_middleware)
 telemetry.configure(app)
