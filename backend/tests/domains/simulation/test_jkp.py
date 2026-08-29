@@ -62,3 +62,25 @@ def test_jkp_computation_failure_raises_domain_error():
         compute_jkp(_LOAN, _PAYMENT, _TERM, _LOAN)
 
     assert exc.value.code == "JKP_COMPUTATION_FAILED"
+
+
+def test_jkp_translates_a_decimal_failure(monkeypatch):
+    # CQ-054 requires the bisection to be wrapped so that a Decimal error
+    # becomes a domain code. The inputs that reach this function are already
+    # range-checked (DOM-013), so the branch cannot be reached with real
+    # arguments — it is forced here rather than left as the one untested path
+    # in a Tier 1 module.
+    from decimal import InvalidOperation
+
+    from app.domains.simulation import calculator
+
+    def _explode(*_args: object) -> Decimal:
+        raise InvalidOperation
+
+    monkeypatch.setattr(calculator, "_bisect_for_effective_rate", _explode)
+
+    with pytest.raises(SimulationError) as exc:
+        compute_jkp(_LOAN, _PAYMENT, _TERM, _FEES)
+
+    assert exc.value.code == "JKP_COMPUTATION_FAILED"
+    assert isinstance(exc.value.__cause__, InvalidOperation)

@@ -78,3 +78,28 @@ class UpfrontCosts:
     total_costs: Decimal
     own_contribution: Decimal
     total_cash_needed: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class SimulationResult:
+    """Everything the calculator produces, on its way back to the service.
+
+    `above_supervisory_norm` is a flag and never an error: the Belgian 90% norm
+    is a supervisory expectation, not a statutory cap, and rejecting a loan for
+    exceeding it would be wrong (DOM-016, ERR-006).
+
+    The schedule is carried even though no screen renders it (SCP-013). It is
+    what the totals are derived from, and dropping it here would mean
+    recomputing it to show anything about the loan later.
+    """
+
+    loan_amount: Decimal
+    quotiteit: Decimal
+    above_supervisory_norm: bool
+    monthly_payment: Decimal
+    total_paid: Decimal
+    total_interest: Decimal
+    nominal_rate: Decimal
+    jkp: Decimal
+    upfront: UpfrontCosts
+    schedule: AmortisationSchedule

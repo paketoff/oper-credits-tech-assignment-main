@@ -18,6 +18,7 @@ from app.domains.simulation.entities import (
     AmortisationSchedule,
     ScheduleEntry,
     SimulationInput,
+    SimulationResult,
     UpfrontCosts,
 )
 
@@ -51,6 +52,11 @@ _MORTGAGE_COST_RATE = Decimal("0.012")
 _JKP_LOW = Decimal("0.0001")
 _JKP_HIGH = Decimal("0.30")
 _JKP_TOLERANCE = Decimal("1e-10")
+
+# DOM-015, API-006. Quotiteit is reported as a four-decimal fraction: 0.9000.
+_RATIO = Decimal("0.0001")
+# DOM-016. The Belgian supervisory norm. Strictly greater, never >=.
+_SUPERVISORY_NORM = Decimal("0.90")
 
 
 def _to_cents(value: Decimal) -> Decimal:
@@ -229,10 +235,12 @@ def _present_value(payment: Decimal, term_months: int, annual_rate: Decimal) -> 
     Uses the same actuarial conversion as the rest of the module (SIM-018):
     the discount factor is the monthly rate implied by `annual_rate`, not that
     rate divided by twelve.
+
+    There is no zero-rate branch here, unlike `annuity`. The only caller is the
+    bisection, whose bracket starts at 0.0001 (SIM-018), so `rate` is never zero
+    and a guard for it would be unreachable code rather than safety.
     """
     rate = monthly_rate(annual_rate)
-    if rate == 0:
-        return payment * term_months
     return payment * (_ONE - (_ONE + rate) ** -term_months) / rate
 
 
@@ -294,3 +302,45 @@ def _bisect_for_effective_rate(
         else:
             high = middle
     return (low + high) / 2
+
+
+def simulate(request: SimulationInput) -> SimulationResult:
+    """Run a full mortgage simulation.
+
+    An orchestrator, per CQ-036 and CQ-037: every step below is a named function
+    that is independently testable, and the body reads as a table of contents.
+
+    Args:
+        request: Validated borrower inputs.
+
+    Returns:
+        Payment figures, JKP, and the upfront cash breakdown.
+
+    Raises:
+        SimulationError: LOAN_AMOUNT_NOT_POSITIVE if the borrower would be
+            putting in the whole price, leaving nothing to lend (DOM-012).
+    """
+    loan_amount = _to_cents(request.property_value - request.own_contribution)
+    if loan_amount <= 0:
+        raise SimulationError(code="LOAN_AMOUNT_NOT_POSITIVE", field="own_contribution")
+
+    schedule = build_amortisation_schedule(
+        loan_amount, request.annual_nominal_rate, request.term_months
+    )
+    upfront = compute_upfront_costs(request, loan_amount)
+    jkp_fees = upfront.mortgage_costs + upfront.dossier_fee + upfront.valuation_fee
+    jkp = compute_jkp(loan_amount, schedule.monthly_payment, request.term_months, jkp_fees)
+    quotiteit = (loan_amount / request.property_value).quantize(_RATIO, rounding=ROUND_HALF_UP)
+
+    return SimulationResult(
+        loan_amount=loan_amount,
+        quotiteit=quotiteit,
+        above_supervisory_norm=quotiteit > _SUPERVISORY_NORM,
+        monthly_payment=schedule.monthly_payment,
+        total_paid=schedule.total_paid,
+        total_interest=schedule.total_interest,
+        nominal_rate=request.annual_nominal_rate,
+        jkp=jkp,
+        upfront=upfront,
+        schedule=schedule,
+    )

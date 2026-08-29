@@ -62,13 +62,18 @@ These are pure functions with a finite number of branches. Full coverage is achi
 and it is where being wrong is unrecoverable.
 
 ```bash
-pytest --cov=app/domains/simulation/calculator.py \
-       --cov=app/domains/applications/state_machine.py \
-       --cov=app/domains/applications/checklist.py \
-       --cov=app/domains/documents/file_type.py \
-       --cov=app/domains/documents/classification/evaluator.py \
+pytest --cov=app.domains.simulation.calculator \
+       --cov=app.domains.applications.state_machine \
+       --cov=app.domains.applications.checklist \
+       --cov=app.domains.documents.file_type \
+       --cov=app.domains.documents.classification.evaluator \
        --cov-fail-under=100
 ```
+
+**Module paths, not file paths.** Written as `--cov=app/domains/.../calculator.py`, which is how
+this command read until T10, coverage collects nothing: it reports `No data was collected` and a
+total of 0%. With `--cov-fail-under=100` that at least fails loudly, but it fails for the wrong
+reason and the obvious "fix" is to lower the threshold. Verified both ways at T10.
 
 **T-P6. Tier 2 — everything else: flow-level integration tests, no threshold.**
 Services, routers, repositories. Six tests covering the paths a user actually takes. Coverage is
@@ -280,7 +285,8 @@ Tests  test_registration_duty_regional_matrix          [parameterised, 6 cases]
        test_upfront_total_is_sum_of_components
        test_total_cash_needed_includes_own_contribution
 
-Done   pytest tests/domains/simulation/test_upfront_costs.py -q → 5 passed
+Done   pytest tests/domains/simulation/test_upfront_costs.py -q → 10 passed
+       (5 functions; the AC-004 matrix parameterises into 6 cases)
 ```
 The six-case matrix is `AC-004`. Brussels at 150 000 first-home must return exactly `0.00`, never a
 negative number. → `SIM-010` – `SIM-013`.
@@ -300,7 +306,7 @@ Tests  test_jkp_exceeds_nominal_rate
        test_jkp_with_zero_fees_equals_nominal_rate
        test_jkp_computation_failure_raises_domain_error
 
-Done   pytest tests/domains/simulation/test_jkp.py -q → 5 passed
+Done   pytest tests/domains/simulation/test_jkp.py -q → 6 passed
 ```
 Bisection. Fee base includes `mortgage_costs`, `dossier_fee`, `valuation_fee`. Excludes
 `registration_duty` and the purchase-deed notary fee. Primary case ≈ `0.0414`.
@@ -327,8 +333,13 @@ Tests  test_simulate_primary_case_full_output
        test_simulate_own_contribution_equals_price_raises
        test_simulate_all_money_values_are_decimal
 
-Done   pytest tests/domains/simulation/ -q → 27 passed
-       pytest --cov=app/domains/simulation/calculator.py --cov-fail-under=100
+Done   pytest tests/domains/simulation/ -q → 33 passed
+       pytest --cov=app.domains.simulation.calculator --cov-fail-under=100
+
+       33, not the 27 this ticket first recorded. T08's tax matrix is
+       parameterised over six rows (AC-004) and pytest counts cases, not
+       functions; the earlier arithmetic counted it once. One test was also
+       added to T09 to reach 100% on the CQ-054 translation branch.
 ```
 Primary case: `1414.52` / `424356.04` / `154356.04` / `43175.00`. Flipping `is_first_home` changes
 cash needed by exactly `30000.00`. → `AC-003`, `AC-005`, `DOM-016`, `VAL-009`.
