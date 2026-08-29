@@ -297,7 +297,8 @@ into the service. There is no global auth middleware: explicit dependencies make
 signature which routes are protected.
 
 **AUTH-039.** Public routes: `POST /api/simulations`, `GET /api/simulations/{id}`, signup, login,
-`/health`, `/ready`, and the static files. Everything else requires a session. The simulator is public
+**logout** (AUTH-028 makes it succeed with or without a session), `/health`, `/ready`, and the static
+files. Everything else requires a session. The simulator is public
 because DOM-008 makes a simulation anonymous by default and UX-009 opens it computed on first paint.
 
 ## 9. Rate limiting

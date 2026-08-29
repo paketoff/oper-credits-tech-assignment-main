@@ -258,13 +258,17 @@ matters when independent valuation is added.
 | `borrowers` | list | Collection from the start, even though the UI only fills one |
 | `property` | object | `region`, `is_first_home`, `property_type` (`EXISTING` / `NEW_BUILD`), `purchase_price` |
 | `submitted_at` | datetime, nullable | |
+| `created_at` | datetime | |
+| `updated_at` | datetime | Touched on every write; surfaced by `8-api.md` §6 |
 
 **DOM-021.** `borrowers` is a collection because most Belgian mortgages are joint. The UI captures
 one; the schema does not need changing to capture two. Co-borrowers in the UI are cut (SCP-010) — a
 form and aggregation problem, not a data-model change.
 
-**DOM-022. Borrower fields:** `full_name`, `date_of_birth`, `employment_type`
-(`EMPLOYEE` / `SELF_EMPLOYED` / `OTHER`), `monthly_net_income`, `has_existing_credit`.
+**DOM-022. Borrower fields:** `id` (uuid), `full_name`, `date_of_birth`, `employment_type`
+(`EMPLOYEE` / `SELF_EMPLOYED` / `OTHER`), `monthly_net_income`, `has_existing_credit`. `borrowers` is
+a table of its own (`1-code-quality.md` CQ-085), so each row carries an id; `8-api.md` §6 returns
+it.
 
 **DOM-023.** Income is captured but not yet used for a decision. See the affordability cut, SCP-011.
 
@@ -334,7 +338,9 @@ required_documents(application) -> list[DocumentRequirement]
 Requirements are satisfied per document type, not per file.
 
 **DOC-009.** The checklist response returns, per requirement: `doc_type`, `label_nl`, `label_en`,
-`required`, `satisfied`.
+`required`, `satisfied`. The full shape — which adds `reason` for conditional rows, the `documents[]`
+attached to each requirement, and the `required_count` / `satisfied_count` totals — is canonical in
+[`8-api.md`](8-api.md) §7.
 
 **DOC-010.** The checklist is satisfied by document type *as declared on upload*; real document
 classification and extraction are cut (SCP-015).
@@ -548,46 +554,13 @@ nominal rate means the fees were not applied and is a bug. → AC-008
 
 ## 19. Request and response
 
-**SIM-020.**
+**SIM-020.** The request and response contract for `POST /api/simulations` is canonical in
+[`8-api.md`](8-api.md) §4 — the endpoint table, both bodies, and the status code.
 
-```
-POST /api/simulations
-
-{
-  "property_value": "300000.00",
-  "own_contribution": "30000.00",
-  "term_months": 300,
-  "annual_nominal_rate": "0.04",
-  "region": "FLANDERS",
-  "is_first_home": true
-}
-```
-
-```
-200 OK
-
-{
-  "id": "...",
-  "loan_amount": "270000.00",
-  "quotiteit": "0.9000",
-  "above_supervisory_norm": false,
-  "monthly_payment": "1414.52",
-  "total_paid": "424355.98",
-  "total_interest": "154355.98",
-  "nominal_rate": "0.0400",
-  "jkp": "0.0414",
-  "upfront": {
-    "registration_duty": "6000.00",
-    "notary_fee": "3300.00",
-    "mortgage_costs": "3240.00",
-    "dossier_fee": "350.00",
-    "valuation_fee": "285.00",
-    "total_costs": "13175.00",
-    "own_contribution": "30000.00",
-    "total_cash_needed": "43175.00"
-  }
-}
-```
+An earlier version of this rule carried the bodies inline and had three of them wrong: `200 OK` where
+a created resource returns **201**, `"annual_nominal_rate": "0.04"` where `7-validation.md` VAL-019
+requires four decimals (`"0.0400"`), and no `created_at`. The wire contract lives in one place now;
+the **figures** stay here, as `AC-003`.
 
 **SIM-021.** Monetary values are serialised as strings to survive JSON without float rounding.
 
@@ -754,7 +727,7 @@ Where two sources are listed, this document carries the union of both — see Ap
 | DOC-006 | Base requirements (identity, statements, compromis) | 01 · Document checklist | §11 |
 | DOC-007 | Five conditional requirement rules | 00 · Why not CRUD + 01 · Document checklist | §11 |
 | DOC-008 | Satisfied per `doc_type`, not per file | 00 · Document set + 01 · Document checklist | §11 |
-| DOC-009 | Checklist response shape | 01 · Document checklist | §11 |
+| DOC-009 | Checklist response shape — full form in `8-api.md` §7 | 01 · Document checklist | §11 |
 | DOC-010 | Type as declared on upload; no classification | 00 · cut table | §11 |
 
 ## Application lifecycle (`APP-`)
@@ -806,7 +779,7 @@ Where two sources are listed, this document carries the union of both — see Ap
 | SIM-017 | JKP exclusions: purchase tax and deed notary fee | 00 · JKP/TAEG + 02 §5 | §18 | AC-008 |
 | SIM-018 | Bisection on `[0.0001, 0.30]`, tolerance `1e-10` | 02 §5 | §18 | AC-008 |
 | SIM-019 | JKP `>=` nominal; equality means the fees were not applied | 00 · JKP/TAEG + 02 §5 | §18 | AC-008 |
-| SIM-020 | `POST /api/simulations` request and response | 02 §6 | §19 | AC-003 |
+| SIM-020 | The wire contract — canonical in `8-api.md` §4 | 02 §6 | §19 | AC-003 |
 | SIM-021 | Money serialised as JSON strings | 02 §6 | §19 | — |
 
 ## Acceptance criteria (`AC-`)

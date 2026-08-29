@@ -16,6 +16,7 @@ to a spec.
 | `5-deployment.md` | Container, hosting, volume, logging, tracing, metrics — how it runs |
 | `6-auth.md` | Passwords, session cookie, authorisation, rate limiting — who may do what |
 | `7-validation.md` | Validation rules, the error registry, 57 edge cases, the manual test plan |
+| `8-api.md` | The wire contract — endpoints, bodies, status codes, TypeScript models |
 
 Specs are numbered in reading order. `0-business-logic.md` is the root spec; later
 specs build on it and do not restate it. The eight specs:
@@ -23,9 +24,13 @@ specs build on it and do not restate it. The eight specs:
 ```
 0-business-logic.md   1-code-quality.md   2-architecture.md   3-ui.md
 4-ux.md               5-deployment.md     6-auth.md           7-validation.md
+8-api.md
+
+9-ai-classification.md    reserved
+10-implementation.md      reserved
 ```
 
-The set is complete. A new spec takes the next number and declares its own namespace.
+Numbers are reserved ahead of writing so the sequence never has to be renumbered.
 
 **Precedence: where a spec and `0-business-logic.md` disagree, the business spec wins.** Between
 the other two, `2-architecture.md` is canonical for structure and import boundaries;
@@ -63,6 +68,7 @@ the other two, `2-architecture.md` is canonical for structure and import boundar
 | `DEP-` | Deployment and observability (`5-deployment.md`) |
 | `AUTH-` | Auth and security (`6-auth.md`) |
 | `VAL-` | Validation, error registry, edge cases (`7-validation.md`) |
+| `API-` | The wire contract (`8-api.md`) |
 
 IDs attach to verifiable statements only: an invariant, a formula, a constant, a
 transition, an error code. Narrative framing stays unlabelled prose. IDs are stable
