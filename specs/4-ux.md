@@ -160,6 +160,9 @@ way to lose them, and it wastes the anonymous-simulation model we deliberately b
 **UX-028.** If the id is missing or already claimed, sign-up still succeeds and the wizard opens
 empty. Losing a simulation must never block registration.
 
+Auth behaviour — where the session lives, the 401 interceptor, the route guard that preserves the
+intended URL — is [`6-auth.md`](6-auth.md) §11.
+
 ## 6. Application wizard
 
 **UX-029.** Four steps: borrower → property → loan → review.

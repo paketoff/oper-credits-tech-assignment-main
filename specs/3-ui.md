@@ -202,7 +202,8 @@ codebase.
 
 - **UI-026** — **All styling is Tailwind utility classes in the template.** No exceptions below.
 - **UI-027** — **Every `*.component.css` file stays empty.** If one has content, the work is not
-  done. This is checkable: a CI step fails the build if any component stylesheet is non-empty.
+  done. This is checkable: `make lint` fails if any component stylesheet is non-empty. (The source
+  said "a CI step"; CI is a deliberate non-goal — `1-code-quality.md` §13.)
 - **UI-028** — **No `@apply` outside the base layer.** `@apply` moves utilities into a stylesheet and
   re-creates the problem Tailwind exists to solve. If a class list repeats, extract an Angular
   component, not a CSS class.
@@ -483,13 +484,14 @@ than measurements.
 ## Enforcement
 
 `ruff` and `mypy` are irrelevant here. Of the rules above, only these are machine-checkable, and
-**none of the checks exist yet** — there is no CI and no frontend toolchain in this repo:
+**none of the checks exist yet** — there is no frontend toolchain in this repo, and CI is a
+deliberate non-goal (`1-code-quality.md` §13). The gate is `make lint`:
 
 | Would be enforced by | Rules |
 |---|---|
 | `prettier-plugin-tailwindcss` | UI-033 class order |
 | ESLint (`@angular-eslint`) | UI-029 inline styles |
-| A CI step asserting every `*.component.css` is empty | UI-027, UI-063 |
+| A `make lint` step asserting every `*.component.css` is empty | UI-027, UI-063 |
 | `grep` for a hex outside `src/styles.css` | UI-030, UI-064 |
 | `grep` for `@apply` outside `@layer base` | UI-028, UI-065 |
 | **review** | everything else — the tokens, the scale, the component recipes, the accessibility floor |

@@ -14,6 +14,7 @@ to a spec.
 | `3-ui.md` | Colour, type, Tailwind, PrimeNG, components — what the frontend looks like |
 | `4-ux.md` | Flows, states, timing, empty and error behaviour — how it behaves |
 | `5-deployment.md` | Container, hosting, volume, logging, tracing, metrics — how it runs |
+| `6-auth.md` | Passwords, session cookie, authorisation, rate limiting — who may do what |
 
 Specs are numbered in reading order. `0-business-logic.md` is the root spec; later
 specs build on it and do not restate it. Numbering is reserved ahead of writing so the
@@ -26,7 +27,7 @@ sequence never has to be renumbered:
 3-ui.md               written
 4-ux.md               written
 5-deployment.md       written
-6-auth.md             reserved
+6-auth.md             written
 7-validation.md       reserved — referenced by 4-ux.md §4
 ```
 
@@ -64,6 +65,7 @@ the other two, `2-architecture.md` is canonical for structure and import boundar
 | `UI-` | Visual system — tokens, type, styling rules, components (`3-ui.md`) |
 | `UX-` | Behaviour — flows, timing, states (`4-ux.md`) |
 | `DEP-` | Deployment and observability (`5-deployment.md`) |
+| `AUTH-` | Auth and security (`6-auth.md`) |
 
 IDs attach to verifiable statements only: an invariant, a formula, a constant, a
 transition, an error code. Narrative framing stays unlabelled prose. IDs are stable
@@ -87,7 +89,7 @@ A spec no agent reads is decoration. The rules reach the code through four layer
 | `CLAUDE.md` | always — loaded into context every session |
 | `specs/*.md` | when read |
 | `.claude/skills/code-quality`, `.claude/commands/implement.md`, `.claude/agents/code-quality-reviewer.md` | on implementation and review work |
-| `pre-commit` and CI | deterministically, on every change — the binding gate |
+| `make lint` and `make test` | the binding gate, run before a unit of work is called done |
 
 `1-code-quality.md` Appendix B records which rules a machine proves and which only review
 catches.

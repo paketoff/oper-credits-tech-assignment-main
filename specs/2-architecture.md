@@ -80,6 +80,8 @@ app/
     auth/
       router.py
       service.py
+      dependencies.py      # current_user; a public surface, see ARC-042
+      security.py          # argon2 hashing, token encode/decode
       schemas.py
       tables.py
       entities.py
@@ -89,6 +91,7 @@ app/
     config.py              # pydantic-settings
     database.py            # engine, session factory, get_session, pragmas
     health.py              # liveness and readiness probes, behind a service
+    rate_limit.py          # generic per-IP limiter; imports no domain
     errors.py              # domain exception base + stable codes
     exception_handlers.py  # domain error -> HTTP, registered once
     logging.py             # structured logging
@@ -156,12 +159,19 @@ and are **never** stored in the database. A `Document` row carries an opaque `st
 **Rules:**
 
 - **ARC-011** — A domain never imports another domain's internals. Cross-domain access goes through
-  the other domain's `service.py`, injected as a dependency.
+  the other domain's **declared public surface**: `service.py`, and for `auth` also
+  `dependencies.py` (ARC-042). Injected as a dependency.
 - **ARC-012** — `core` never imports from `domains`.
 - **ARC-013** — Pure modules (`calculator`, `state_machine`, `checklist`) import only the standard
   library, `decimal`, and their own domain's `entities.py`. They never import SQLAlchemy, a session,
   or `tables.py`.
 - **ARC-014** — `main.py` is the only file that knows about all domains.
+- **ARC-042** — `domains/auth/dependencies.py` is the auth domain's second public surface, and the
+  only such exception in the codebase. It exists because `current_user` is needed by every domain's
+  router while resolving through `AuthService`: `core` may not import a domain (ARC-012), so it
+  cannot live there. The exception is narrow — the dependency may read the request and delegate to
+  `auth.service`, and nothing else. It never touches a repository. A named exception is cheaper than
+  a protocol layer built for one consumer (`1-code-quality.md` CQ-001).
 - **ARC-039** — `core/database.py` owns the connection and nothing else: the engine, the
   `async_sessionmaker`, the declarative base, the `get_session` dependency, and pragma setup on
   connect. It knows no table and imports no domain — ARC-012 applies to it like any other `core`
@@ -276,7 +286,7 @@ drift.
 | A — domain core | `domains/simulation/{calculator,entities}.py`, `domains/applications/{state_machine,checklist,entities}.py`, their tests | nothing |
 | B — API surface | all `router.py`, `service.py`, `schemas.py`, `tables.py`, `repository.py` | A's entities and function signatures, D's `core/database.py` |
 | C — frontend | everything under `src/app/` | B's wire contract |
-| D — platform | `core/*` — **including `core/database.py`, `core/storage.py` and `core/health.py`** — `main.py`, `infra/*`, `observability/*`, `Makefile`, `.env.example`, CI | nothing |
+| D — platform | `core/*` — **including `core/database.py`, `core/storage.py`, `core/health.py` and `core/rate_limit.py`** — `main.py`, `infra/*`, `observability/*`, `Makefile`, `.env.example` | nothing |
 
 **ARC-029.** A and D can start immediately and in parallel. B starts once A's signatures exist and
 D's `get_session` dependency exists. C starts once B's schemas exist — the contract, not the
@@ -381,6 +391,7 @@ Source: `04-architecture.md`, superseded by this document.
 | ARC-039 | `core/database.py` owns the connection and nothing else | added for the SQLite switch | §4 |
 | ARC-040 | `tables` / `entities` / `schemas` naming | added for the SQLite switch | §11 |
 | ARC-041 | Repo-root layout; `infra/` and `observability/` are config only | added for `5-deployment.md` | §2 |
+| ARC-042 | `domains/auth/dependencies.py` is a second public surface | added for `6-auth.md` | §4 |
 
 ## Superseded `CQ-` rules
 

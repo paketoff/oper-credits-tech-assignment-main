@@ -407,21 +407,36 @@ except Exception:
 
 ### 10.4 Error codes
 
-**CQ-063.** Stable strings, defined in one place, used by both backend and frontend:
+**CQ-063. This table is the registry.** Stable strings, defined in one place, used by both backend
+and frontend. Every other spec points here rather than keeping its own list — a code that is not in
+this table does not exist.
 
-`LOAN_AMOUNT_NOT_POSITIVE`, `TERM_OUT_OF_RANGE`, `RATE_OUT_OF_RANGE`,
-`JKP_COMPUTATION_FAILED`, `UNSUPPORTED_DOCUMENT_TYPE`, `DOCUMENT_TOO_LARGE`,
-`INVALID_STATE_TRANSITION`, `STORAGE_UNAVAILABLE`, `STORAGE_CORRUPT`,
-`UPLOAD_READ_FAILED`, `EMAIL_ALREADY_REGISTERED`.
+| Code | HTTP | Meaning | Source |
+|---|---|---|---|
+| `LOAN_AMOUNT_NOT_POSITIVE` | 422 | Own contribution equals or exceeds the property value | ERR-002, DOM-012 |
+| `TERM_OUT_OF_RANGE` | 422 | Outside `12 <= term_months <= 360` | ERR-002, DOM-013 |
+| `RATE_OUT_OF_RANGE` | 422 | Outside `0 <= annual_nominal_rate <= 0.20` | DOM-014 |
+| `INVALID_STATE_TRANSITION` | 422 | An edge the state machine does not allow | ERR-002, APP-009 |
+| `JKP_COMPUTATION_FAILED` | 422 | The bisection could not solve for the effective rate | CQ-054 |
+| `UNSUPPORTED_DOCUMENT_TYPE` | **415** | Content type outside pdf, jpeg, png | ERR-003, DOC-001 |
+| `DOCUMENT_TOO_LARGE` | **413** | Over the 10 MB limit | ERR-004, DOC-002 |
+| `UPLOAD_READ_FAILED` | 422 | The uploaded stream could not be read | CQ-056 |
+| `STORAGE_UNAVAILABLE` | 503 | The database is unreachable or locked | CQ-055 |
+| `STORAGE_CORRUPT` | 500 | A row cannot be mapped to a domain entity | CQ-055 |
+| `EMAIL_ALREADY_REGISTERED` | **409** | Unique index on `users.email` rejected the insert | CQ-092, AUTH-022 |
+| `INVALID_CREDENTIALS` | **401** | Wrong email or wrong password — indistinguishable | AUTH-025 |
+| `NOT_AUTHENTICATED` | **401** | No session cookie on a protected route | AUTH-036 |
+| `TOO_MANY_ATTEMPTS` | **429** | Rate limit on the auth endpoints | AUTH-040 |
+| `APPLICATION_NOT_FOUND` | **404** | Absent, or owned by someone else | AUTH-035, ERR-005 |
 
-Five of these are also fixed by the business spec (`0-business-logic.md` ERR-002); the remaining six
-are introduced here and are infrastructure concerns.
+Domain rule violations default to 422 (ERR-001). The bold statuses are the deliberate exceptions:
+415 and 413 for upload failures, and 409/401/429/404 for the auth surface. A 404 is returned for a
+resource owned by another user, never a 403 — a 403 would confirm the resource exists (ERR-005,
+AUTH-035).
 
-`STORAGE_UNAVAILABLE` and `STORAGE_CORRUPT` cover **database** failures — an unreachable or locked
-database, a row that cannot be mapped to a domain entity. They kept their names through the move off
-JSON files because the meaning is the same: the store failed, and the API consumer cannot act on the
-detail. `EMAIL_ALREADY_REGISTERED` is what an `IntegrityError` on the unique email constraint maps to
-(CQ-092).
+`STORAGE_UNAVAILABLE` and `STORAGE_CORRUPT` cover **database** failures. They kept their names
+through the move off JSON files because the meaning is the same: the store failed, and the API
+consumer cannot act on the detail.
 
 ## 11. Persistence
 
@@ -535,7 +550,12 @@ it by restarting the app and logging back in.
 
 ## 13. Tooling
 
-Rules that a machine does not check are aspirations. These are enforced in pre-commit and in CI.
+Rules that a machine does not check are aspirations. The gate is `make lint` and `make test`
+(`5-deployment.md` DEP-038), run before calling any unit of work done.
+
+**CI is a deliberate non-goal at this scope.** One environment, one developer, a two-hour budget: a
+pipeline would be one more thing to debug and nothing here depends on it. The commands are the same
+ones a pipeline would run, so adding one later is configuration, not rework.
 
 - **CQ-076. Python** — `ruff` with: `ANN` (annotations), `D` with the google convention (docstrings),
   `C901` (complexity), `PLR0913` (argument count), `E501` at 100 characters.
@@ -656,7 +676,7 @@ What actually checks each rule. `review` means no tool proves it: it is caught b
 `code-quality-reviewer`, or by a human — and nowhere else.
 
 Per-edit hooks are a local convenience and are not committed. Nothing in this table depends on them:
-the binding enforcement is pre-commit and CI (CQ-076 – CQ-079).
+the binding gate is `make lint` and `make test` (CQ-076 – CQ-079, `5-deployment.md` DEP-038).
 
 | Enforced by | Rules |
 |---|---|
@@ -669,7 +689,7 @@ the binding enforcement is pre-commit and CI (CQ-076 – CQ-079).
 | `mypy --strict` | CQ-020, CQ-021, CQ-022, CQ-023, CQ-027 (`Decimal` vs `float`) |
 | `eslint` | CQ-029, CQ-028 (via `tsc`), CQ-078 |
 | `hook` *(local, not committed)* | an editor or agent hook may run the same tools per file; convenience only |
-| `CI` / `pre-commit` | the binding gate — the same ruff, mypy and eslint runs, on every change |
+| `make lint` / `make test` | the binding gate — ruff, mypy, eslint and pytest, run before done |
 | **`review`** | **CQ-001 – CQ-019** (philosophy, structure, import boundaries, the controller rule), CQ-024 – CQ-026, CQ-030 – CQ-037, CQ-040 – CQ-043, CQ-045, CQ-046, CQ-047 – CQ-057, CQ-059 – CQ-075 |
 
 The two rules the source calls load-bearing — the controller rule (CQ-017) and the import boundaries
