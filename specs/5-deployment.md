@@ -283,11 +283,13 @@ fly deploy
 **DEP-023.** Secrets are set through `fly secrets`, never committed. They land in the machine's
 environment. A secret in `fly.toml` is a finding in any fintech review.
 
-**DEP-024. `ANTHROPIC_API_KEY` has no declared consumer.** No rule in `0-business-logic.md`,
-`1-code-quality.md`, `2-architecture.md`, `3-ui.md` or `4-ux.md` describes an LLM or any Anthropic
-API call; automatic document classification is explicitly cut (SCP-015). The line is carried here
-because it was in the source, not because a feature needs it. **Open question:** if no consumer is
-specified before release, delete it — an unused secret is attack surface and a question at review.
+**DEP-024. `ANTHROPIC_API_KEY` has a consumer: the optional document classifier**,
+[`9-ai-classification.md`](9-ai-classification.md). This was an open question for two rounds — the key
+was set with nothing reading it — and it is now closed.
+
+The classifier is behind `AI_CLASSIFICATION_ENABLED`, default off (AI-004), so both variables belong
+in `.env.example`. With the flag off no client is constructed and the key is never read (AI-024),
+which is what lets the key be revoked after the interview without the deployed app degrading.
 
 ### 6.2 When it does not work
 
@@ -333,8 +335,9 @@ demonstrable in under twenty minutes.
 
 ### 7.2 Tracing
 
-**DEP-032.** OpenTelemetry with FastAPI auto-instrumentation, plus manual spans on the two operations
-that matter:
+**DEP-032.** OpenTelemetry with FastAPI auto-instrumentation, plus manual spans on the operations
+that matter — two here, and a third, `document.classify`, when the optional classifier is enabled
+(`9-ai-classification.md` AI-030):
 
 - `simulation.compute` — attributes: `region`, `term_months`, `is_first_home`, `above_norm`. Never
   the amounts.

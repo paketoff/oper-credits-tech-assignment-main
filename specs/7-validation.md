@@ -294,7 +294,7 @@ Storage rules:
 | Deep email format checking | RFC 5322 in a regex is a well-known trap. A basic shape check plus a verification email is the correct answer, and email is stubbed per the brief. |
 | Whether the address or property exists | Needs a cadastral integration. Out of scope. |
 | Whether the price is plausible for the market | Needs a valuation model. Out of scope, and noted as `SCP-014`. |
-| Whether an uploaded document is what it claims to be | This is what an extraction model does. It is the natural next step and the domain's real pain point (`SCP-015`). |
+| Whether an uploaded document is what it claims to be — as a *validation* rule | It is never a validation rule: nothing is rejected on this basis. The optional classifier in [`9-ai-classification.md`](9-ai-classification.md) compares the file to the declared type and *warns*, but the requirement stays satisfied by what the borrower declared (AI-017, DOC-010). Extracting the fields inside the document remains cut (`SCP-015`). |
 | Password strength beyond length | Composition rules reduce entropy in practice and annoy users. Length is what matters (`AUTH-010`). |
 
 ## 8. Pre-submission manual run

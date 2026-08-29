@@ -150,7 +150,7 @@ cut list is part of the deliverable.
 | SCP-012 | CKP consultation, ESIS issuance, reflection period | Legally mandatory gates. CKP in particular has a 45-day validity window, so it can expire and push a file backwards. Present in the state machine as states; not implemented as integrations. → §12 |
 | SCP-013 | Amortisation schedule in the UI | Computed and tested in the backend. Rendering 300 rows costs time and earns nothing. → §16 |
 | SCP-014 | Independent property valuation | Appraised value is assumed equal to purchase price. Real lenders use a statistical model and take the lower of the two, which matters because quotiteit is computed against value, not price. → SCP-017 |
-| SCP-015 | Real document classification / extraction | The checklist is satisfied by document type as declared on upload. Automatic classification of an uploaded file is the natural next step, and is where the domain's real pain sits. |
+| SCP-015 | Field extraction and cross-document checking | The checklist is satisfied by document type **as declared on upload**, and that has not changed. Classification itself is now built — advisory only, behind a flag, in [`9-ai-classification.md`](9-ai-classification.md); it warns, it never decides. Extracting income, dates and account numbers, and cross-checking them between documents, remain cut: they need per-type schemas and a verification story. |
 
 ## 6. Simplifications made inside what *is* built
 
@@ -292,6 +292,10 @@ borrower would encode the rule incorrectly.
 | `size_bytes` | int | |
 | `uploaded_at` | datetime | |
 
+When the optional classifier is enabled it adds two advisory columns, `classification_status` and
+`classification_outcome`, defined in [`9-ai-classification.md`](9-ai-classification.md) §7.1. They
+are deliberately not part of this entity: the domain has to stay readable with the feature off.
+
 - **DOC-001** — Accepted content types: `application/pdf`, `image/jpeg`, `image/png`. Anything else
   is rejected with 415. → ERR-003
 - **DOC-002** — Size limit 10 MB; over that is 413. → ERR-004
@@ -342,8 +346,10 @@ Requirements are satisfied per document type, not per file.
 attached to each requirement, and the `required_count` / `satisfied_count` totals — is canonical in
 [`8-api.md`](8-api.md) §7.
 
-**DOC-010.** The checklist is satisfied by document type *as declared on upload*; real document
-classification and extraction are cut (SCP-015).
+**DOC-010.** The checklist is satisfied by document type *as declared on upload*. Nothing overrides
+that — including the optional classifier in [`9-ai-classification.md`](9-ai-classification.md), which
+compares the file to the declared type and warns on a mismatch but never changes `doc_type` or
+satisfaction (AI-017). Field extraction remains cut (SCP-015).
 
 **This is the point of the whole feature.** A static checklist is a design error, not a
 simplification: the required set genuinely differs by borrower profile and property type — an
@@ -671,7 +677,7 @@ Where two sources are listed, this document carries the union of both — see Ap
 | SCP-012 | Cut: CKP, ESIS, reflection period | 00 · Deliberately not built | §5 |
 | SCP-013 | Cut: amortisation schedule in the UI | 00 · Deliberately not built | §5 |
 | SCP-014 | Cut: independent property valuation | 00 · Deliberately not built | §5 |
-| SCP-015 | Cut: document classification / extraction | 00 · Deliberately not built | §5 |
+| SCP-015 | Cut: field extraction and cross-document checking | 00 · Deliberately not built, narrowed by `9-ai-classification.md` | §5 |
 | SCP-016 | Simplification: flat notary fee | 00 · Simplifications | §6 |
 | SCP-017 | Simplification: appraised value = purchase price | 00 · Simplifications | §6 |
 | SCP-018 | Simplification: `UNDER_REVIEW` collapses 3 gates | 00 · Simplifications | §6 |
@@ -728,7 +734,7 @@ Where two sources are listed, this document carries the union of both — see Ap
 | DOC-007 | Five conditional requirement rules | 00 · Why not CRUD + 01 · Document checklist | §11 |
 | DOC-008 | Satisfied per `doc_type`, not per file | 00 · Document set + 01 · Document checklist | §11 |
 | DOC-009 | Checklist response shape — full form in `8-api.md` §7 | 01 · Document checklist | §11 |
-| DOC-010 | Type as declared on upload; no classification | 00 · cut table | §11 |
+| DOC-010 | Type as declared on upload; the classifier never overrides it | 00 · cut table | §11 |
 
 ## Application lifecycle (`APP-`)
 

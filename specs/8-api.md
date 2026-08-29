@@ -336,6 +336,11 @@ Returns the full application body.
 }
 ```
 
+**API-046a.** When the optional classifier is enabled
+([`9-ai-classification.md`](9-ai-classification.md) AI-025), each object in `documents[]` also carries
+`classification_status` and `classification_message` — the latter composed server-side, so the
+frontend renders a string and never implements the decision table.
+
 **API-046.** `reason` is populated only for conditional requirements. It is what stops the list
 feeling arbitrary and it demonstrates that the checklist is derived rather than fixed — the product
 point of the whole build (`UX-038`).
