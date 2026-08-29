@@ -15,6 +15,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.core.errors import MESSAGES, DomainError
+from app.core.health import NotReady
 
 # 7-validation.md VAL-004, column two. 422 is the default for an input
 # violation, not a blanket (VAL-005): the two computation failures are 500 and
@@ -90,7 +91,18 @@ def _first_field(exc: RequestValidationError) -> str | None:
     return None
 
 
+async def handle_not_ready(_request: Request, _exc: Exception) -> JSONResponse:
+    """Answer a failed readiness probe in the probe's own shape.
+
+    Not `{code, message, field}`: `/ready` is outside `/api` and its reader is
+    a health checker, not a client (API-069). The reason is logged, never
+    returned — it names a store and sometimes a path.
+    """
+    return JSONResponse(status_code=503, content={"status": "unavailable"})
+
+
 def register(app: FastAPI) -> None:
-    """Attach both handlers. Called once, from the app factory (CQ-019)."""
+    """Attach the handlers. Called once, from the app factory (CQ-019)."""
     app.add_exception_handler(DomainError, handle_domain_error)  # type: ignore[arg-type]  # starlette types the handler against Exception
     app.add_exception_handler(RequestValidationError, handle_validation_error)  # type: ignore[arg-type]  # same
+    app.add_exception_handler(NotReady, handle_not_ready)

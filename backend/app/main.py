@@ -9,12 +9,15 @@ work, so that the pipeline is proven while it is still cheap to fix
 from typing import Annotated
 
 from fastapi import Depends, FastAPI
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import exception_handlers, telemetry
 from app.core import logging as app_logging
-from app.core.dependencies import get_health_service
-from app.core.health import HealthService, LivenessResponse
+from app.core.database import get_session
+from app.core.dependencies import get_health_service, get_storage
+from app.core.health import HealthService, LivenessResponse, ReadinessResponse
 from app.core.limits import BodySizeLimitMiddleware
+from app.core.storage import LocalStorage
 
 app = FastAPI(
     title="Borrower Portal",
@@ -36,3 +39,13 @@ telemetry.configure(app)
 def health(probe: Annotated[HealthService, Depends(get_health_service)]) -> LivenessResponse:
     """Liveness probe. Touches nothing (DEP-036)."""
     return probe.liveness()
+
+
+@app.get("/ready", response_model=ReadinessResponse)
+async def ready(
+    probe: Annotated[HealthService, Depends(get_health_service)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    storage: Annotated[LocalStorage, Depends(get_storage)],
+) -> ReadinessResponse:
+    """Readiness probe: database reachable and the blob directory writable."""
+    return await probe.readiness(session, storage)
