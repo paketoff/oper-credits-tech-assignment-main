@@ -4,6 +4,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { ApiError } from '../../../core/error-codes';
+import { AuthBrandingPanelComponent } from '../components/auth-branding-panel.component';
 import { AuthService } from '../auth.service';
 
 interface LoginFormControls {
@@ -12,13 +13,13 @@ interface LoginFormControls {
 }
 
 /**
- * Single centred card (`UI-054`). Redirects to whatever URL the guard
- * preserved, defaulting to the root (`AUTH-048`).
+ * Two-column split layout, same shape as signup (`UI-054`). Redirects to
+ * whatever URL the guard preserved, defaulting to the root (`AUTH-048`).
  */
 @Component({
   selector: 'app-login-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, AuthBrandingPanelComponent],
   templateUrl: './login-page.component.html',
 })
 export class LoginPageComponent {

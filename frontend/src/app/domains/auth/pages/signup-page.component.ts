@@ -7,6 +7,7 @@ import { switchMap } from 'rxjs';
 import { ApiError } from '../../../core/error-codes';
 import { ApplicationService } from '../../application/application.service';
 import { SimulationService } from '../../simulation/simulation.service';
+import { AuthBrandingPanelComponent } from '../components/auth-branding-panel.component';
 import { AuthService } from '../auth.service';
 
 interface SignupFormControls {
@@ -15,15 +16,16 @@ interface SignupFormControls {
 }
 
 /**
- * Single centred card, `max-w-[24rem]` (`UI-054`). Sends the anonymous
- * simulation id along if one exists (`AUTH-049`, `UX-027`), then creates the
- * draft it seeds — signup only claims, it does not create the application
- * itself (`2-architecture.md` §5.1).
+ * Two-column split layout, `max-w-[64rem]` (`UI-054`): form left, branding
+ * panel right, single column on mobile. Sends the anonymous simulation id
+ * along if one exists (`AUTH-049`, `UX-027`), then creates the draft it
+ * seeds — signup only claims, it does not create the application itself
+ * (`2-architecture.md` §5.1).
  */
 @Component({
   selector: 'app-signup-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, AuthBrandingPanelComponent],
   templateUrl: './signup-page.component.html',
 })
 export class SignupPageComponent {
