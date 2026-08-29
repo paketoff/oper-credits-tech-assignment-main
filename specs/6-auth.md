@@ -329,7 +329,17 @@ login. Worth being able to say, because it is a question that gets asked.
 - **AUTH-045** — `withCredentials: true` on the HTTP client so the cookie travels.
 - **AUTH-046** — Auth state comes from `GET /api/auth/me` on application boot, held in a signal.
 - **AUTH-047** — An HTTP interceptor catches 401, clears local auth state and redirects to login. It
-  does not retry. Lives in `core/auth.interceptor.ts` (`2-architecture.md` ARC-020).
+  does not retry. Lives in `core/error.interceptor.ts` (corrected at T28 — the file's own name
+  matches its job; `core/auth.interceptor.ts` is the structural placeholder `ARC-020`'s tree names,
+  never populated because no bearer token is ever attached).
+
+  **The boot-time `GET /api/auth/me` (AUTH-046) must opt out of the redirect half of this rule.** A
+  401 there is the expected answer for every anonymous visitor to a public route — the simulator —
+  and redirecting them to `/login` before they have seen the app defeats `UX-009`. Found by running
+  the app for the first time as a fresh visitor: the redirect fired unconditionally on the first
+  boot check, so `/` bounced straight to `/login?redirect=%2F`. The request carries an
+  `HttpContextToken` (`core/http-context.ts`, `SKIP_AUTH_REDIRECT`) that the interceptor checks
+  before navigating; auth state is still cleared either way, only the navigation is skipped.
 - **AUTH-048** — A route guard protects the wizard and document routes, and preserves the intended
   URL so the user lands where they were going after logging in. Lives in `domains/auth/auth.guard.ts`.
 - **AUTH-049** — The signup form sends the simulation id from the simulator, if one exists.

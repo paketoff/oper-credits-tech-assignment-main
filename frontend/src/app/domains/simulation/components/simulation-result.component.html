@@ -1,0 +1,100 @@
+@if (result(); as sim) {
+  <div
+    class="rounded-card border-border bg-surface flex flex-col gap-6 border p-6 transition-opacity"
+    [class]="loading() ? 'opacity-60' : 'opacity-100'"
+  >
+    <div class="flex flex-col gap-1">
+      <span class="text-body-sm text-muted">Monthly payment</span>
+      <span class="tabular font-display text-display tracking-tightest text-ink font-bold">{{
+        sim.monthly_payment | money
+      }}</span>
+    </div>
+
+    <div class="rounded-card border-signal bg-signal-soft border-l-4 p-4">
+      <span class="text-body-sm text-muted">Total cash needed on the day</span>
+      <div class="tabular font-display text-display tracking-tightest text-ink font-bold">
+        {{ sim.upfront.total_cash_needed | money }}
+      </div>
+    </div>
+
+    @if (aboveNorm()) {
+      <span
+        class="rounded-pill bg-signal-soft text-ink w-fit px-2 py-0.5 text-xs font-semibold"
+        role="status"
+      >
+        {{ aboveNormMessage }}
+      </span>
+    }
+
+    <dl class="text-body-sm grid grid-cols-2 gap-x-4 gap-y-2">
+      <dt class="text-muted">Total repaid</dt>
+      <dd class="tabular text-ink text-right">{{ sim.total_paid | money }}</dd>
+      <dt class="text-muted">Total interest</dt>
+      <dd class="tabular text-ink text-right">{{ sim.total_interest | money }}</dd>
+      <dt class="text-muted">
+        JKP <span class="text-mono text-accent font-mono">(jaarlijks kostenpercentage)</span>
+      </dt>
+      <dd class="tabular text-ink text-right">{{ sim.jkp | percent }}</dd>
+      <dt class="text-muted">Quotiteit</dt>
+      <dd class="tabular text-ink text-right">{{ sim.quotiteit | percent }}</dd>
+    </dl>
+
+    <div>
+      <button
+        type="button"
+        (click)="toggleBreakdown()"
+        class="text-body-sm text-accent hover:text-accent-hover font-semibold"
+      >
+        {{ breakdownOpen() ? 'Hide' : 'Show' }} cost breakdown
+      </button>
+
+      @if (breakdownOpen()) {
+        <table class="mt-3 w-full text-sm">
+          <tbody>
+            <tr class="border-border border-b">
+              <td class="py-1.5">
+                <span class="text-mono text-accent font-mono">registratierechten</span>
+                <div class="text-muted text-xs">Registration duty</div>
+              </td>
+              <td class="tabular py-1.5 text-right">
+                {{ sim.upfront.registration_duty | money }}
+              </td>
+            </tr>
+            <tr class="border-border border-b">
+              <td class="py-1.5">
+                <span class="text-mono text-accent font-mono">notariskosten</span>
+                <div class="text-muted text-xs">Notary fee</div>
+              </td>
+              <td class="tabular py-1.5 text-right">{{ sim.upfront.notary_fee | money }}</td>
+            </tr>
+            <tr class="border-border border-b">
+              <td class="py-1.5">
+                <span class="text-mono text-accent font-mono">hypotheekkosten</span>
+                <div class="text-muted text-xs">Mortgage registration</div>
+              </td>
+              <td class="tabular py-1.5 text-right">{{ sim.upfront.mortgage_costs | money }}</td>
+            </tr>
+            <tr class="border-border border-b">
+              <td class="py-1.5">
+                <span class="text-mono text-accent font-mono">dossierkosten</span>
+                <div class="text-muted text-xs">Dossier fee</div>
+              </td>
+              <td class="tabular py-1.5 text-right">{{ sim.upfront.dossier_fee | money }}</td>
+            </tr>
+            <tr class="border-border border-b">
+              <td class="py-1.5">
+                <span class="text-mono text-accent font-mono">schattingskosten</span>
+                <div class="text-muted text-xs">Valuation fee</div>
+              </td>
+              <td class="tabular py-1.5 text-right">{{ sim.upfront.valuation_fee | money }}</td>
+            </tr>
+            <tr class="border-ink border-t-2 font-semibold">
+              <td class="py-1.5">Own contribution</td>
+              <td class="tabular py-1.5 text-right">{{ sim.upfront.own_contribution | money }}</td>
+            </tr>
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}

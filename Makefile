@@ -23,6 +23,36 @@ obs:            ## Run the stack with the local LGTM observability stack
 
 test:
 	cd backend && $(BIN)/pytest -q
+	@if [ -f frontend/package.json ] && grep -q '"test"' frontend/package.json; then \
+	  cd frontend && npm test -- --watch=false; \
+	 fi
+	@$(MAKE) e2e
+
+# UI-068, UX-062: Playwright is a gate, not a convenience. It needs both a
+# real backend and a real frontend running — a mocked one would prove nothing
+# about UX-055/056/057/059/061, which are claims about the actual rendered
+# page. DATA_DIR is a throwaway temp directory so this never touches
+# backend/data; both servers are killed on exit whatever the test result.
+e2e:
+	@if [ ! -d frontend/e2e ]; then echo "frontend: e2e/ arrives with T26"; exit 0; fi
+	@set -e; \
+	 kill_stragglers() { \
+	   pkill -f "uvicorn app\.main:app --port 8000" 2>/dev/null || true; \
+	   pkill -f "ng serve --port 4200 --proxy-config proxy\.conf\.local\.json" 2>/dev/null || true; \
+	 }; \
+	 kill_stragglers; \
+	 sleep 1; \
+	 tmp_data=$$(mktemp -d); \
+	 cleanup() { kill $$uvicorn_pid $$ng_pid 2>/dev/null || true; kill_stragglers; rm -rf "$$tmp_data"; }; \
+	 trap cleanup EXIT; \
+	 ( cd backend && DATA_DIR="$$tmp_data" JWT_SECRET="e2e-test-secret-not-for-production-000" \
+	   ENVIRONMENT=development $(BIN)/uvicorn app.main:app --port 8000 \
+	   > /tmp/e2e-uvicorn.log 2>&1 ) & uvicorn_pid=$$!; \
+	 ( cd frontend && npx ng serve --port 4200 --proxy-config proxy.conf.local.json \
+	   > /tmp/e2e-ng-serve.log 2>&1 ) & ng_pid=$$!; \
+	 for i in $$(seq 1 60); do curl -sf http://localhost:8000/health >/dev/null 2>&1 && break; sleep 1; done; \
+	 for i in $$(seq 1 60); do curl -sf http://localhost:4200 >/dev/null 2>&1 && break; sleep 1; done; \
+	 cd frontend && npx playwright test --project=chromium --project=chromium-375
 
 lint:
 	cd backend && $(BIN)/ruff check . && $(BIN)/mypy --strict app

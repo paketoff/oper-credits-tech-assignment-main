@@ -1,1 +1,5 @@
-<router-outlet />
+<app-header [user]="user()" [minimal]="minimalHeader()" (logout)="logout()" />
+
+<main class="mx-auto max-w-[72rem] px-4 md:px-8">
+  <router-outlet />
+</main>

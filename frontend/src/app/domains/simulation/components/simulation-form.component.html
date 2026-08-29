@@ -1,0 +1,89 @@
+<form [formGroup]="form()" class="flex flex-col gap-4">
+  <div class="flex flex-col gap-1">
+    <label for="property_value" class="text-label font-semibold">Property price</label>
+    <p-inputnumber
+      inputId="property_value"
+      formControlName="property_value"
+      mode="currency"
+      currency="EUR"
+      locale="nl-BE"
+      [min]="10000"
+      [max]="10000000"
+      class="w-full"
+    />
+  </div>
+
+  <div class="flex flex-col gap-1">
+    <label for="own_contribution" class="text-label font-semibold">Own contribution</label>
+    <p-inputnumber
+      inputId="own_contribution"
+      formControlName="own_contribution"
+      mode="currency"
+      currency="EUR"
+      locale="nl-BE"
+      [min]="0"
+      class="w-full"
+    />
+    <span class="text-body-sm text-muted">Eigen inbreng — what you put in yourself.</span>
+  </div>
+
+  <div class="flex flex-col gap-1">
+    <label for="term_months" class="text-label font-semibold">Term</label>
+    <input
+      id="term_months"
+      type="number"
+      formControlName="term_months"
+      min="12"
+      max="360"
+      class="rounded-control border-border bg-surface-3 border px-3 py-2.5 text-base"
+    />
+    <span class="text-body-sm text-muted"
+      >{{ Math.round(form().controls.term_months.value / 12) }} years</span
+    >
+  </div>
+
+  <div class="flex flex-col gap-1">
+    <label for="annual_nominal_rate_percent" class="text-label font-semibold">Interest rate</label>
+    <p-inputnumber
+      inputId="annual_nominal_rate_percent"
+      formControlName="annual_nominal_rate_percent"
+      mode="decimal"
+      suffix=" %"
+      [minFractionDigits]="2"
+      [maxFractionDigits]="2"
+      [min]="0"
+      [max]="20"
+      class="w-full"
+    />
+    <span class="text-body-sm text-muted"
+      >Indicative market rate. Your actual rate depends on your profile and quotiteit.</span
+    >
+  </div>
+
+  <div class="flex flex-col gap-1">
+    <label for="region" class="text-label font-semibold">Region</label>
+    <p-select
+      inputId="region"
+      formControlName="region"
+      [options]="regionOptions"
+      optionLabel="label"
+      optionValue="value"
+      class="w-full"
+    />
+  </div>
+
+  <div class="flex items-start gap-2">
+    <input
+      id="is_first_home"
+      type="checkbox"
+      formControlName="is_first_home"
+      class="rounded-control border-border mt-1 size-4 border"
+    />
+    <label for="is_first_home" class="flex flex-col gap-0.5">
+      <span class="text-label font-semibold">This will be my only home</span>
+      <span class="text-body-sm text-muted"
+        >Reduced purchase tax applies if this will be your only home.</span
+      >
+    </label>
+  </div>
+</form>

@@ -1,0 +1,57 @@
+<div class="rounded-card border-border flex flex-col gap-2 border p-4">
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <p class="text-body-sm text-ink font-semibold">
+        {{ item().label_en }}
+        @if (item().required) {
+          <span class="text-muted font-normal">— required</span>
+        }
+      </p>
+      <p class="text-body-sm text-muted">{{ item().label_nl }}</p>
+    </div>
+    @if (item().satisfied) {
+      <span class="bg-success-soft text-success rounded-full px-2 py-0.5 text-xs font-semibold"
+        >Uploaded</span
+      >
+    }
+  </div>
+
+  @if (item().reason) {
+    <p class="text-body-sm text-muted">{{ item().reason }}</p>
+  }
+
+  @for (document of item().documents; track document.id) {
+    <div class="flex items-center justify-between gap-4 text-sm">
+      <span>{{ document.filename }}</span>
+      <button
+        type="button"
+        (click)="documentRemoved.emit(document.id)"
+        class="text-body-sm text-accent hover:text-accent-hover font-semibold"
+      >
+        Remove
+      </button>
+    </div>
+  }
+
+  <p class="text-body-sm text-muted">PDF, JPEG or PNG, up to 10 MB.</p>
+
+  <p-fileupload
+    #upload
+    mode="basic"
+    [customUpload]="true"
+    [multiple]="false"
+    [auto]="true"
+    [accept]="acceptedTypes"
+    [maxFileSize]="maxSizeBytes"
+    [disabled]="status() === 'uploading'"
+    chooseLabel="Choose file"
+    (uploadHandler)="onUploadHandler($event)"
+  />
+
+  @if (status() === 'uploading') {
+    <p class="text-body-sm text-muted">Uploading…</p>
+  }
+  @if (status() === 'error' && errorMessage()) {
+    <p class="text-body-sm text-danger">{{ errorMessage() }}</p>
+  }
+</div>

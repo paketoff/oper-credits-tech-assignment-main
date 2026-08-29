@@ -1,1 +1,84 @@
-/* You can add global styles to this file, and also import other style files */
+@import 'tailwindcss';
+@plugin 'tailwindcss-primeui';
+
+/* UI-024. Tailwind v4, CSS-first — there is no tailwind.config.js. */
+@theme {
+  --font-display: 'Plus Jakarta Sans', sans-serif;
+  --font-sans: 'Figtree', sans-serif;
+  --font-mono: 'Fragment Mono', monospace;
+
+  --color-ink: #101413;
+  --color-ink-soft: #2b3230;
+  --color-surface: #ffffff;
+  --color-surface-2: #f5f7f6;
+  --color-surface-3: #ebefee;
+  --color-border: #dde3e1;
+  --color-border-strong: #c3ccc9;
+  --color-muted: #6b7472;
+  --color-accent: #0b5d5b;
+  --color-accent-hover: #084745;
+  --color-accent-soft: #e3efee;
+  --color-signal: #c8a415;
+  --color-signal-soft: #fbf3d8;
+  --color-danger: #a8331f;
+  --color-danger-soft: #faedea;
+  --color-success: #1f6b4a;
+  --color-success-soft: #e7f2ec;
+
+  --radius-control: 6px;
+  --radius-card: 8px;
+  --radius-pill: 999px;
+
+  --default-transition-duration: 120ms;
+
+  /* UI-016. The type scale: text-display, text-h1, text-h2, text-h3, text-body,
+     text-body-sm, text-label, text-eyebrow, text-mono. Weight and tracking per
+     role are applied as ordinary utilities at the point of use (font-bold,
+     tracking-tightest, ...) rather than baked into the size token, since
+     Tailwind's --text-* pairs only carry size and line-height. */
+  --text-display: 44px;
+  --text-display--line-height: 46px;
+  --text-h1: 32px;
+  --text-h1--line-height: 36px;
+  --text-h2: 24px;
+  --text-h2--line-height: 28px;
+  --text-h3: 18px;
+  --text-h3--line-height: 24px;
+  --text-body: 15px;
+  --text-body--line-height: 22px;
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 18px;
+  --text-label: 13px;
+  --text-label--line-height: 16px;
+  --text-eyebrow: 11px;
+  --text-eyebrow--line-height: 14px;
+  --text-mono: 13px;
+  --text-mono--line-height: 18px;
+
+  --tracking-tightest: -0.035em;
+  --tracking-tighter-2: -0.03em;
+  --tracking-tighter: -0.02em;
+  --tracking-tight-1: -0.01em;
+  --tracking-eyebrow: 0.08em;
+}
+
+/* UI-025. This is the only place `@apply` is permitted in the entire codebase. */
+@layer base {
+  body {
+    @apply bg-surface text-ink font-sans font-medium antialiased;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* UI-061: prefers-reduced-motion disables all transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

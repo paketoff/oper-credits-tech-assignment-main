@@ -297,7 +297,13 @@ on the path; the bind mount over `/app` supplies the source and `--reload` does 
 would give one path two sources: change `DATA_DIR` and the database quietly stays where it was.
 
 **DEP-017.** `frontend/proxy.conf.json` forwards `/api` to `http://api:8000`, so the frontend calls
-relative paths in development exactly as it does in production.
+relative paths in development exactly as it does in production. This is the Docker Compose
+hostname — it does not resolve for a bare `ng serve` run outside `docker compose`.
+
+**DEP-059.** `frontend/proxy.conf.local.json` is the same file with the target changed to
+`http://localhost:8000`, for a bare `ng serve` — `make e2e`'s Playwright run, or a developer working
+on the frontend without the compose stack. Added at T26, once Playwright's own server needed one and
+`api` failed to resolve outside Docker's network.
 
 **DEP-018.** Secrets come from `.env`. The repository contains `.env.example` and never `.env`.
 
@@ -609,6 +615,7 @@ Source: `07-deployment.md`, superseded by this document.
 | DEP-056 | `Dockerfile.dockerignore`; a file in `infra/` is never read | added at T03 — verified against the build context | §3.1 |
 | DEP-057 | `npm ci --legacy-peer-deps`; npm 10.9 crashes on the vitest peer graph | added at T03 | §3.1 |
 | DEP-058 | `[[http_service.checks]]` is an array of tables | added at T04 — the nested form is rejected outright | §6 |
+| DEP-059 | `proxy.conf.local.json` targets `localhost:8000` for bare `ng serve` | added at T26 | §5 |
 
 # Appendix B — Corrections against the source
 
