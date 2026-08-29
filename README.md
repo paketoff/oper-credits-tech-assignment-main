@@ -37,5 +37,6 @@ The domain — scope, entities, lifecycle and the calculation engine — is spec
 [`specs/3-ui.md`](specs/3-ui.md) (what it looks like) and [`specs/4-ux.md`](specs/4-ux.md) (how it
 behaves), and [`specs/5-deployment.md`](specs/5-deployment.md) says how it runs. The business spec
 wins over all of them. [`specs/6-auth.md`](specs/6-auth.md) covers passwords, sessions and
-authorisation. Spec conventions and ID namespaces live in [`specs/README.md`](specs/README.md), and
+authorisation, and [`specs/7-validation.md`](specs/7-validation.md) holds the validation rules, the
+error registry and the pre-submission test plan. Spec conventions and ID namespaces live in [`specs/README.md`](specs/README.md), and
 [`CLAUDE.md`](CLAUDE.md) carries the hard rules that agents load every session.

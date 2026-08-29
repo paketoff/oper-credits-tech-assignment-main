@@ -218,7 +218,8 @@ Named here rather than hidden, because an unflagged simplification reads as an e
 
 #### Invariants
 
-- **DOM-010** — `property_value > 0`
+- **DOM-010** — `10 000 <= property_value <= 10 000 000`, at 2 decimal places. (Was `> 0`; the
+  range comes from `7-validation.md` VAL-008, which also fixes the code `PROPERTY_VALUE_OUT_OF_RANGE`.)
 - **DOM-011** — `0 <= own_contribution < property_value`
 - **DOM-012** — `loan_amount = property_value - own_contribution`, and `loan_amount > 0`
 - **DOM-013** — `12 <= term_months <= 360`
@@ -266,6 +267,9 @@ form and aggregation problem, not a data-model change.
 (`EMPLOYEE` / `SELF_EMPLOYED` / `OTHER`), `monthly_net_income`, `has_existing_credit`.
 
 **DOM-023.** Income is captured but not yet used for a decision. See the affordability cut, SCP-011.
+
+**DOM-028.** A borrower is between 18 and 75 years old at submission, computed from
+`date_of_birth`. Outside that range the application cannot be submitted — `7-validation.md` VAL-011.
 
 **DOM-024. The first-home flag is a property of the application, not of a borrower.** If any
 co-borrower has previously held a mortgage, the status is lost for all of them. Modelling it per
@@ -389,9 +393,12 @@ states, not implemented as integrations (SCP-012).
 ## 13. Validation and errors
 
 - **ERR-001** — Domain rule violations return 422 with a machine-readable `code` and a human
-  `message`.
-- **ERR-002** — Codes are stable strings: `LOAN_AMOUNT_NOT_POSITIVE`, `TERM_OUT_OF_RANGE`,
-  `UNSUPPORTED_DOCUMENT_TYPE`, `DOCUMENT_TOO_LARGE`, `INVALID_STATE_TRANSITION`.
+  `message`. 422 is the **default**, not a blanket: a computation failure is 500 and a state
+  conflict is 409. The status for every code is fixed in the registry, `7-validation.md` §2.
+- **ERR-002** — Codes are stable strings. These five are required by the domain:
+  `LOAN_AMOUNT_NOT_POSITIVE`, `TERM_OUT_OF_RANGE`, `UNSUPPORTED_DOCUMENT_TYPE`,
+  `DOCUMENT_TOO_LARGE`, `INVALID_STATE_TRANSITION`. The full catalogue of 22, with statuses and
+  messages, is the registry in `7-validation.md` §2.
 - **ERR-003** — `UNSUPPORTED_DOCUMENT_TYPE` maps to 415, not 422. → DOC-001
 - **ERR-004** — `DOCUMENT_TOO_LARGE` maps to 413, not 422. → DOC-002
 - **ERR-005** — Not-found returns 404 without leaking whether the resource exists under another
@@ -715,7 +722,7 @@ Where two sources are listed, this document carries the union of both — see Ap
 | DOM-007 | `Region` enum drives purchase tax only | 01 · Region | §9.1 |
 | DOM-008 | Simulation is anonymous by default; field table | 01 · Simulation | §9.2 |
 | DOM-009 | Derived fields of a simulation | 01 · Simulation | §9.2 |
-| DOM-010 | `property_value > 0` | 01 · Invariants | §9.2 |
+| DOM-010 | `10 000 <= property_value <= 10 000 000` | 01 · Invariants, narrowed by `7-validation.md` | §9.2 |
 | DOM-011 | `0 <= own_contribution < property_value` | 01 · Invariants | §9.2 |
 | DOM-012 | `loan_amount = value - contribution`, `> 0` | 01 · Invariants | §9.2 |
 | DOM-013 | `12 <= term_months <= 360` | 01 · Invariants | §9.2 |
@@ -733,6 +740,7 @@ Where two sources are listed, this document carries the union of both — see Ap
 | DOM-025 | Anonymous simulation is attached on signup | 01 · Claiming a simulation | §10 |
 | DOM-026 | Anonymous `id` held client-side | 01 · Claiming a simulation | §10 |
 | DOM-027 | Attach iff `user_id` is null; never reassign | 01 · Claiming a simulation | §10 |
+| DOM-028 | Borrower aged 18 – 75 at submission | added for `7-validation.md` | §9.4 |
 
 ## Documents (`DOC-`)
 

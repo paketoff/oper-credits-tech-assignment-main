@@ -76,6 +76,7 @@ app/
       schemas.py
       tables.py
       entities.py
+      file_type.py         # magic-byte detection; pure
       repository.py
     auth/
       router.py
@@ -130,7 +131,7 @@ static/                    # built Angular bundle, served by FastAPI
 | ARC-006 | `schemas.py` | The wire contract in and out | Persistence models, business rules |
 | ARC-007 | `entities.py` | Internal domain representation | Serialisation or persistence concerns |
 | ARC-038 | `tables.py` | SQLAlchemy table definitions, columns, keys, indexes | Business rules, wire concerns, queries |
-| ARC-008 | `calculator.py` `state_machine.py` `checklist.py` | Pure domain logic | Imports of FastAPI, repository, config |
+| ARC-008 | `calculator.py` `state_machine.py` `checklist.py` `file_type.py` | Pure domain logic | Imports of FastAPI, repository, config |
 | ARC-009 | `repository.py` | Queries against its own tables; the only place `select`/`insert`/`update`/`delete` appear | Business rules, transaction control |
 
 `router.py` holding exactly one statement per handler is the controller rule, `1-code-quality.md`
@@ -162,8 +163,8 @@ and are **never** stored in the database. A `Document` row carries an opaque `st
   the other domain's **declared public surface**: `service.py`, and for `auth` also
   `dependencies.py` (ARC-042). Injected as a dependency.
 - **ARC-012** — `core` never imports from `domains`.
-- **ARC-013** — Pure modules (`calculator`, `state_machine`, `checklist`) import only the standard
-  library, `decimal`, and their own domain's `entities.py`. They never import SQLAlchemy, a session,
+- **ARC-013** — Pure modules (`calculator`, `state_machine`, `checklist`, `file_type`) import only
+  the standard library, `decimal`, and their own domain's `entities.py`. They never import SQLAlchemy, a session,
   or `tables.py`.
 - **ARC-014** — `main.py` is the only file that knows about all domains.
 - **ARC-042** — `domains/auth/dependencies.py` is the auth domain's second public surface, and the
@@ -283,7 +284,7 @@ drift.
 
 | Unit | Owns | Depends on |
 |---|---|---|
-| A — domain core | `domains/simulation/{calculator,entities}.py`, `domains/applications/{state_machine,checklist,entities}.py`, their tests | nothing |
+| A — domain core | `domains/simulation/{calculator,entities}.py`, `domains/applications/{state_machine,checklist,entities}.py`, `domains/documents/file_type.py`, their tests | nothing |
 | B — API surface | all `router.py`, `service.py`, `schemas.py`, `tables.py`, `repository.py` | A's entities and function signatures, D's `core/database.py` |
 | C — frontend | everything under `src/app/` | B's wire contract |
 | D — platform | `core/*` — **including `core/database.py`, `core/storage.py`, `core/health.py` and `core/rate_limit.py`** — `main.py`, `infra/*`, `observability/*`, `Makefile`, `.env.example` | nothing |

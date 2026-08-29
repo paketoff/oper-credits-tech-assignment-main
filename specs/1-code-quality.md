@@ -407,32 +407,14 @@ except Exception:
 
 ### 10.4 Error codes
 
-**CQ-063. This table is the registry.** Stable strings, defined in one place, used by both backend
-and frontend. Every other spec points here rather than keeping its own list — a code that is not in
-this table does not exist.
+**CQ-063.** Error codes are stable strings, used by both backend and frontend, and **defined in
+exactly one place**: the registry in [`7-validation.md`](7-validation.md) §2, which carries all 22
+codes with their HTTP status, their user-facing message and what raises them. A code that is not in
+that table does not exist.
 
-| Code | HTTP | Meaning | Source |
-|---|---|---|---|
-| `LOAN_AMOUNT_NOT_POSITIVE` | 422 | Own contribution equals or exceeds the property value | ERR-002, DOM-012 |
-| `TERM_OUT_OF_RANGE` | 422 | Outside `12 <= term_months <= 360` | ERR-002, DOM-013 |
-| `RATE_OUT_OF_RANGE` | 422 | Outside `0 <= annual_nominal_rate <= 0.20` | DOM-014 |
-| `INVALID_STATE_TRANSITION` | 422 | An edge the state machine does not allow | ERR-002, APP-009 |
-| `JKP_COMPUTATION_FAILED` | 422 | The bisection could not solve for the effective rate | CQ-054 |
-| `UNSUPPORTED_DOCUMENT_TYPE` | **415** | Content type outside pdf, jpeg, png | ERR-003, DOC-001 |
-| `DOCUMENT_TOO_LARGE` | **413** | Over the 10 MB limit | ERR-004, DOC-002 |
-| `UPLOAD_READ_FAILED` | 422 | The uploaded stream could not be read | CQ-056 |
-| `STORAGE_UNAVAILABLE` | 503 | The database is unreachable or locked | CQ-055 |
-| `STORAGE_CORRUPT` | 500 | A row cannot be mapped to a domain entity | CQ-055 |
-| `EMAIL_ALREADY_REGISTERED` | **409** | Unique index on `users.email` rejected the insert | CQ-092, AUTH-022 |
-| `INVALID_CREDENTIALS` | **401** | Wrong email or wrong password — indistinguishable | AUTH-025 |
-| `NOT_AUTHENTICATED` | **401** | No session cookie on a protected route | AUTH-036 |
-| `TOO_MANY_ATTEMPTS` | **429** | Rate limit on the auth endpoints | AUTH-040 |
-| `APPLICATION_NOT_FOUND` | **404** | Absent, or owned by someone else | AUTH-035, ERR-005 |
-
-Domain rule violations default to 422 (ERR-001). The bold statuses are the deliberate exceptions:
-415 and 413 for upload failures, and 409/401/429/404 for the auth surface. A 404 is returned for a
-resource owned by another user, never a 403 — a 403 would confirm the resource exists (ERR-005,
-AUTH-035).
+The registry lives there rather than here because that spec owns error behaviour end to end —
+the response shape `{code, message, field}`, the message text, and the edge case that produces each
+one. This rule stays here because it is a code-quality rule: one definition, no second list.
 
 `STORAGE_UNAVAILABLE` and `STORAGE_CORRUPT` cover **database** failures. They kept their names
 through the move off JSON files because the meaning is the same: the store failed, and the API

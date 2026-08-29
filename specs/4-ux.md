@@ -13,8 +13,7 @@ Companion to [`3-ui.md`](3-ui.md), which covers colour, type and components. Thi
 **behaviour**: what happens, in what order, and what the borrower sees while it happens.
 
 Where a value and a behaviour describe the same thing, `3-ui.md` owns the value and this file owns
-the behaviour. Edge cases and validation messages will live in `7-validation.md` — **not yet
-written**.
+the behaviour. Edge cases and validation messages are [`7-validation.md`](7-validation.md).
 
 ## 1. Principle
 
@@ -127,8 +126,8 @@ sits behind a disclosure, expanded with one click, closed by default. Present bu
 
 ## 4. Validation behaviour
 
-Rules and message text will live in `7-validation.md` (not yet written). What belongs here is *when*
-validation fires.
+Rules and message text are in [`7-validation.md`](7-validation.md) §2 – §3. What belongs here is
+*when* validation fires.
 
 - **UX-021** — **On blur, never on keystroke.** A borrower typing "3" on the way to "300000" must not
   be told the value is too small.
