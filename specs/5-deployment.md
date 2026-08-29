@@ -435,9 +435,12 @@ that matter — two here, and a third, `document.classify`, when the optional cl
 - `document.upload` — attributes: `doc_type`, `content_type`, `size_bucket` (a bucket, not the exact
   size). Never the filename.
 
-**DEP-033.** Production exports to console; the collector endpoint is read from
-`OTEL_EXPORTER_OTLP_ENDPOINT` and stays unset there. Locally, the LGTM stack is available through an
-optional compose override so it does not consume memory on every start.
+**DEP-033.** Three cases, not two. An endpoint in `OTEL_EXPORTER_OTLP_ENDPOINT` — locally, that
+means `make obs` — exports there. Production with no endpoint exports to the console, because Fly
+collects stdout. **Development with no endpoint exports nowhere:** spans are still created and the
+instrumentation is still exercised, but a console exporter would print a JSON span per request into
+the terminal the developer is reading, and at the end of a test run it writes to a stdout pytest has
+already closed. The third case was implicit until T15 and produced exactly that noise.
 
 ### 7.3 Metrics
 

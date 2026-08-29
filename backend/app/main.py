@@ -10,7 +10,8 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI
 
-from app.core import exception_handlers
+from app.core import exception_handlers, telemetry
+from app.core import logging as app_logging
 from app.core.dependencies import get_health_service
 from app.core.health import HealthService, LivenessResponse
 from app.core.limits import BodySizeLimitMiddleware
@@ -24,8 +25,11 @@ app = FastAPI(
 # Registered once, here, because this is the only module that knows the whole
 # application (ARC-014). The handlers are what make CQ-053 true: a router never
 # maps an error because there is exactly one place that can.
+app_logging.configure()
 exception_handlers.register(app)
 app.add_middleware(BodySizeLimitMiddleware)
+app.middleware("http")(app_logging.request_id_middleware)
+telemetry.configure(app)
 
 
 @app.get("/health", response_model=LivenessResponse)
