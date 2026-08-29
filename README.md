@@ -30,4 +30,6 @@ specs/           Specifications — source of truth
 3. Keep the spec and the code in sync — the spec is not documentation written
    after the fact.
 
-See [`specs/README.md`](specs/README.md) for spec conventions.
+The domain — scope, entities, lifecycle and the calculation engine — is specified in
+[`specs/0-business-logic.md`](specs/0-business-logic.md). Spec conventions and ID namespaces
+live in [`specs/README.md`](specs/README.md).
