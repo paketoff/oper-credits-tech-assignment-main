@@ -481,8 +481,16 @@ M = K * i / (1 - (1 + i)^(-n))
 
 **SIM-005. Zero-rate case:** when `I == 0`, the formula divides by zero. Return `K / n`.
 
-**SIM-006.** `M` is rounded to 2 decimals for display and for the schedule. Totals are computed from
-the rounded payment, so that the numbers shown to the borrower add up.
+**SIM-006.** `M` is rounded to 2 decimals for display and for the schedule.
+
+**Totals are the sum of the schedule** — of the instalments actually charged — not `M × n`. The
+schedule is built from the rounded payment, so this is what "computed from the rounded payment"
+was reaching for; but `M × n` and the sum of the schedule are different numbers, because the final
+instalment is adjusted (SIM-009) and because interest is rounded to the cent every month (SIM-008).
+
+The sum is the one that reconciles. It is what the borrower actually pays, and it is the only
+candidate for which `total_paid - loan_amount == total_interest` while the balance still closes at
+exactly zero. See AC-003, where this was wrong.
 
 **SIM-007.** Repayment type is an enum with one member, annuity. `vaste kapitaalaflossing` (linear),
 `bullet` and `accordeon` all exist in the market and are cut (SCP-007); adding them is additive, not
@@ -613,10 +621,25 @@ i != Decimal("0.0546") / 12
 loan_amount        == 270000.00
 quotiteit          == 0.9000
 monthly_payment    == 1414.52
-total_paid         == 424355.98
-total_interest     == 154355.98
+total_paid         == 424356.04
+total_interest     == 154356.04
 total_cash_needed  ==  43175.00
 ```
+
+**The two totals were `424355.98` and `154355.98` until T07, and they were wrong.** That figure is
+the *unrounded* payment times the term — `1414.519936… × 300 = 424355.9809…` — which is neither what
+SIM-006 asked for nor what SIM-008 produces. Three candidates existed and only one survives:
+
+| Candidate | Value | Why not |
+|---|---|---|
+| rounded `M × n` | `424356.00` | SIM-006 as literally worded, but nobody pays `M` in the final month |
+| unrounded `M × n` | `424355.98` | what this criterion recorded; an abstraction no schedule produces |
+| **sum of the schedule** | **`424356.04`** | **holds** |
+
+Only the third satisfies all of: the balance closes at exactly `0.00` (SIM-009, AC-006), the capital
+instalments sum to the loan amount (AC-006), and `total_paid - loan_amount == total_interest`. The
+first two each break at least one of those. Since SIM-008 and SIM-009 are the normative algorithm and
+AC-003 is a figure derived from it, the algorithm wins and the figure is corrected.
 
 ### AC-004 — Regional tax matrix
 

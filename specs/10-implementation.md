@@ -62,13 +62,18 @@ These are pure functions with a finite number of branches. Full coverage is achi
 and it is where being wrong is unrecoverable.
 
 ```bash
-pytest --cov=app/domains/simulation/calculator.py \
-       --cov=app/domains/applications/state_machine.py \
-       --cov=app/domains/applications/checklist.py \
-       --cov=app/domains/documents/file_type.py \
-       --cov=app/domains/documents/classification/evaluator.py \
+pytest --cov=app.domains.simulation.calculator \
+       --cov=app.domains.applications.state_machine \
+       --cov=app.domains.applications.checklist \
+       --cov=app.domains.documents.file_type \
+       --cov=app.domains.documents.classification.evaluator \
        --cov-fail-under=100
 ```
+
+**Module paths, not file paths.** Written as `--cov=app/domains/.../calculator.py`, which is how
+this command read until T10, coverage collects nothing: it reports `No data was collected` and a
+total of 0%. With `--cov-fail-under=100` that at least fails loudly, but it fails for the wrong
+reason and the obvious "fix" is to lower the threshold. Verified both ways at T10.
 
 **T-P6. Tier 2 — everything else: flow-level integration tests, no threshold.**
 Services, routers, repositories. Six tests covering the paths a user actually takes. Coverage is
@@ -212,11 +217,13 @@ A and D run in parallel. No shared files. C can also start T26 now.
 Owner  A
 Deps   T01
 Files  app/domains/simulation/calculator.py
-       app/core/enums.py
+       app/core/enums.py, app/core/errors.py
        tests/domains/simulation/test_calculator.py
 
 Output monthly_rate(annual_rate: Decimal) -> Decimal
        Region and DocumentType, written once here (ARC-044)
+       the DomainError hierarchy and the VAL-004 codes (ARC-045): the pure
+       modules raise them, so they cannot wait for T14
 
 Tests  test_monthly_rate_uses_actuarial_conversion
        test_monthly_rate_roundtrips_to_annual
@@ -237,9 +244,12 @@ so nobody "simplifies" this in six months.
 Owner  A
 Deps   T06
 Files  app/domains/simulation/calculator.py
+       app/domains/simulation/entities.py
        tests/domains/simulation/test_calculator.py
 
-Output annuity(principal, monthly_rate, term_months) -> Decimal
+Output annuity(principal, periodic_rate, term_months) -> Decimal
+       (named periodic_rate, not monthly_rate: the latter is the function
+       above it in the same module, and shadowing it reads as a bug)
        build_amortisation_schedule(principal, annual_rate, term_months) -> AmortisationSchedule
        AmortisationSchedule(monthly_payment, entries, total_interest, total_paid)
 
@@ -260,10 +270,14 @@ KBC: 170 000 / 240 / 5.46% → `1152.95` ± 0.02 against the published 1152.96. 
 Owner  A
 Deps   T06
 Files  app/domains/simulation/calculator.py
+       app/domains/simulation/entities.py
        tests/domains/simulation/test_upfront_costs.py
 
 Output registration_duty(property_value, region, is_first_home) -> Decimal
        compute_upfront_costs(request, loan_amount) -> UpfrontCosts
+       SimulationInput and UpfrontCosts entities. `request` here is the entity,
+       not the pydantic schema (ARC-043); taking the five fields as separate
+       parameters would breach CQ-038's four-parameter limit anyway.
 
 Tests  test_registration_duty_regional_matrix          [parameterised, 6 cases]
        test_brussels_abattement_never_returns_negative
@@ -271,7 +285,8 @@ Tests  test_registration_duty_regional_matrix          [parameterised, 6 cases]
        test_upfront_total_is_sum_of_components
        test_total_cash_needed_includes_own_contribution
 
-Done   pytest tests/domains/simulation/test_upfront_costs.py -q → 5 passed
+Done   pytest tests/domains/simulation/test_upfront_costs.py -q → 10 passed
+       (5 functions; the AC-004 matrix parameterises into 6 cases)
 ```
 The six-case matrix is `AC-004`. Brussels at 150 000 first-home must return exactly `0.00`, never a
 negative number. → `SIM-010` – `SIM-013`.
@@ -291,7 +306,7 @@ Tests  test_jkp_exceeds_nominal_rate
        test_jkp_with_zero_fees_equals_nominal_rate
        test_jkp_computation_failure_raises_domain_error
 
-Done   pytest tests/domains/simulation/test_jkp.py -q → 5 passed
+Done   pytest tests/domains/simulation/test_jkp.py -q → 6 passed
 ```
 Bisection. Fee base includes `mortgage_costs`, `dossier_fee`, `valuation_fee`. Excludes
 `registration_duty` and the purchase-deed notary fee. Primary case ≈ `0.0414`.
@@ -318,10 +333,15 @@ Tests  test_simulate_primary_case_full_output
        test_simulate_own_contribution_equals_price_raises
        test_simulate_all_money_values_are_decimal
 
-Done   pytest tests/domains/simulation/ -q → 27 passed
-       pytest --cov=app/domains/simulation/calculator.py --cov-fail-under=100
+Done   pytest tests/domains/simulation/ -q → 33 passed
+       pytest --cov=app.domains.simulation.calculator --cov-fail-under=100
+
+       33, not the 27 this ticket first recorded. T08's tax matrix is
+       parameterised over six rows (AC-004) and pytest counts cases, not
+       functions; the earlier arithmetic counted it once. One test was also
+       added to T09 to reach 100% on the CQ-054 translation branch.
 ```
-Primary case: `1414.52` / `424355.98` / `154355.98` / `43175.00`. Flipping `is_first_home` changes
+Primary case: `1414.52` / `424356.04` / `154356.04` / `43175.00`. Flipping `is_first_home` changes
 cash needed by exactly `30000.00`. → `AC-003`, `AC-005`, `DOM-016`, `VAL-009`.
 
 ### T11 | State machine
@@ -388,10 +408,11 @@ Done   pytest tests/core/test_database.py -q → 3 passed; app.db appears under 
 ```
 Owner  D
 Deps   T02
-Files  app/core/errors.py, app/core/exception_handlers.py,
+Files  app/core/exception_handlers.py,
        app/core/rate_limit.py, app/core/limits.py
-Output DomainError hierarchy; every code from the registry, 7-validation.md §2 (VAL-004);
-       handlers rendering {"code","message","field"};
+Output handlers rendering {"code","message","field"} for every code in the
+       registry, 7-validation.md §2 (VAL-004) — the hierarchy itself lands in
+       T06, which is the first code that raises one;
        the two request-level guards that raise registry codes —
        TOO_MANY_ATTEMPTS (AUTH-040) and DOCUMENT_TOO_LARGE (VAL-024)
 Tests  test_domain_error_renders_expected_shape

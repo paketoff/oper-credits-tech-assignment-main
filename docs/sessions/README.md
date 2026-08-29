@@ -34,3 +34,8 @@ was rewritten. Those moments are the argument that the process is real. So far:
 | p0 | `mypy --strict` with `disallow_any_explicit` rejects every pydantic model, so `CQ-023` and `CQ-024` could not both hold. The flag was dropped and `ANN401` took the rule over (T02). |
 | p0 | The `UI-027` lint check ran, matched nothing, and passed — its glob assumed a filename Angular 22 no longer generates. It was passing on an empty set (T43). |
 | p0 | The dev compose service built a stage where `uvicorn` is not on `PATH`; `make dev` could never have started (T43). |
+| p0 | `infra/.dockerignore` is never read — Docker looks at the *context* root. It would have shipped `node_modules` into the build context and said nothing (T03). |
+| p1 | **`AC-003`'s totals were wrong.** `424355.98` is the unrounded payment times the term; no schedule produces it, and it contradicted `SIM-008`. Three candidates existed and only one satisfies all the invariants at once (T07). |
+| p1 | `T-P5`'s Tier 1 coverage command used file paths. Coverage collected nothing and reported 0% — a gate that cannot pass, whose obvious "fix" is to lower the threshold (T10). |
+| p1 | `ARC-013` forbade pure modules from importing `core/errors.py`, while `CQ-054` and `VAL-004` required them to raise domain errors. The spec asked for something it also banned (T06). |
+| p1 | `ruff` B015 caught a test asserting nothing: `assert_transition(...) is None` with no `assert`. The linter found a real defect, not a style issue (T11). |

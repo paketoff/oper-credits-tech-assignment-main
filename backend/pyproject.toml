@@ -61,4 +61,5 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]          # `app` is importable without an editable install
+addopts = "--import-mode=importlib"  # test_api.py exists in three domains
 asyncio_mode = "auto"
