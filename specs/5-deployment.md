@@ -327,11 +327,15 @@ primary_region = "ams"
   auto_start_machines = true
   min_machines_running = 1
 
-  [http_service.checks]
-    [[http_service.checks.http]]
-      path = "/health"
-      interval = "30s"
-      timeout = "3s"
+  # DEP-058. An array of tables, not a nested [http_service.checks] table with
+  # [[...http]] inside it. Fly rejects that shape outright:
+  #   cannot unmarshal object into Go struct field Config.http_service.checks
+  [[http_service.checks]]
+    method = "GET"
+    path = "/health"
+    interval = "30s"
+    timeout = "3s"
+    grace_period = "5s"
 
 [[vm]]
   size = "shared-cpu-1x"
@@ -339,6 +343,8 @@ primary_region = "ams"
 ```
 
 **DEP-020.** `app` must be globally unique. If the name is taken, `fly launch` will ask for another.
+`oper-borrower-portal` **was** taken, by an app outside this organisation. The deployed name is
+`oper-credits-borrower-portal`.
 
 ### 6.1 First deploy
 
@@ -592,6 +598,7 @@ Source: `07-deployment.md`, superseded by this document.
 | DEP-055 | The dev service builds `runtime`; `deps` has no uvicorn on PATH | added at T43 — `make dev` would not start | §5 |
 | DEP-056 | `Dockerfile.dockerignore`; a file in `infra/` is never read | added at T03 — verified against the build context | §3.1 |
 | DEP-057 | `npm ci --legacy-peer-deps`; npm 10.9 crashes on the vitest peer graph | added at T03 | §3.1 |
+| DEP-058 | `[[http_service.checks]]` is an array of tables | added at T04 — the nested form is rejected outright | §6 |
 
 # Appendix B — Corrections against the source
 

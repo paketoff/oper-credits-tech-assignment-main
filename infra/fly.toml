@@ -1,0 +1,41 @@
+# DEP-019. Region ams: the brief allows Fly, and this is EU data residency in
+# one line of config (DEP-002).
+
+app = "oper-credits-borrower-portal"
+primary_region = "ams"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  DATA_DIR = "/data"
+  ENVIRONMENT = "production"
+
+# DEP-003. Without this a restart destroys every user, application and
+# document. The database, its WAL files and the blobs all sit here (DEP-004).
+[[mounts]]
+  source = "data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # DEP-005. Fly stops idle machines and cold-starts them on request; a
+  # reviewer opening the link and waiting several seconds reads as broken.
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  # DEP-058. An array of tables, not a nested [http_service.checks] table with
+  # [[...http]] inside it. Fly rejects that shape outright:
+  #   cannot unmarshal object into Go struct field Config.http_service.checks
+  [[http_service.checks]]
+    method = "GET"
+    path = "/health"
+    interval = "30s"
+    timeout = "3s"
+    grace_period = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
