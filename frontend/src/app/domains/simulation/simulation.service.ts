@@ -22,4 +22,9 @@ export class SimulationService {
       .post<Simulation>('/simulations', request)
       .pipe(tap((simulation) => this.lastIdSignal.set(simulation.id)));
   }
+
+  /** Reads a simulation back — public, since the id is an unguessable UUID4 (`API-021`). */
+  get(id: string): Observable<Simulation> {
+    return this.api.get<Simulation>(`/simulations/${id}`);
+  }
 }

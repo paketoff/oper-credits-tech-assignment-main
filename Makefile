@@ -36,8 +36,14 @@ test:
 e2e:
 	@if [ ! -d frontend/e2e ]; then echo "frontend: e2e/ arrives with T26"; exit 0; fi
 	@set -e; \
+	 kill_stragglers() { \
+	   pkill -f "uvicorn app\.main:app --port 8000" 2>/dev/null || true; \
+	   pkill -f "ng serve --port 4200 --proxy-config proxy\.conf\.local\.json" 2>/dev/null || true; \
+	 }; \
+	 kill_stragglers; \
+	 sleep 1; \
 	 tmp_data=$$(mktemp -d); \
-	 cleanup() { kill $$uvicorn_pid $$ng_pid 2>/dev/null || true; rm -rf "$$tmp_data"; }; \
+	 cleanup() { kill $$uvicorn_pid $$ng_pid 2>/dev/null || true; kill_stragglers; rm -rf "$$tmp_data"; }; \
 	 trap cleanup EXIT; \
 	 ( cd backend && DATA_DIR="$$tmp_data" JWT_SECRET="e2e-test-secret-not-for-production-000" \
 	   ENVIRONMENT=development $(BIN)/uvicorn app.main:app --port 8000 \

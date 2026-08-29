@@ -1,0 +1,57 @@
+<form [formGroup]="form()" class="flex flex-col gap-4">
+  <div class="flex flex-col gap-1">
+    <label for="full_name" class="text-label font-semibold">Full name</label>
+    <input
+      id="full_name"
+      type="text"
+      formControlName="full_name"
+      class="rounded-control border-border bg-surface-3 border px-3 py-2.5 text-base"
+    />
+  </div>
+
+  <div class="flex flex-col gap-1">
+    <label for="date_of_birth" class="text-label font-semibold">Date of birth</label>
+    <input
+      id="date_of_birth"
+      type="date"
+      formControlName="date_of_birth"
+      class="rounded-control border-border bg-surface-3 border px-3 py-2.5 text-base"
+    />
+  </div>
+
+  <div class="flex flex-col gap-1">
+    <label for="employment_type" class="text-label font-semibold">Employment</label>
+    <p-select
+      inputId="employment_type"
+      formControlName="employment_type"
+      [options]="employmentOptions"
+      optionLabel="label"
+      optionValue="value"
+      class="w-full"
+    />
+  </div>
+
+  <div class="flex flex-col gap-1">
+    <label for="monthly_net_income" class="text-label font-semibold"
+      >Monthly net income (optional)</label
+    >
+    <input
+      id="monthly_net_income"
+      type="number"
+      formControlName="monthly_net_income"
+      class="rounded-control border-border bg-surface-3 border px-3 py-2.5 text-base"
+    />
+  </div>
+
+  <div class="flex items-start gap-2">
+    <input
+      id="has_existing_credit"
+      type="checkbox"
+      formControlName="has_existing_credit"
+      class="rounded-control border-border mt-1 size-4 border"
+    />
+    <label for="has_existing_credit" class="text-label font-semibold"
+      >I have an existing credit</label
+    >
+  </div>
+</form>

@@ -1,0 +1,64 @@
+<div class="flex flex-col gap-6">
+  <section class="rounded-card border-border border p-4">
+    <div class="flex items-center justify-between">
+      <h3 class="text-h3 font-display font-semibold">Borrower</h3>
+      <button
+        type="button"
+        (click)="editStep.emit(1)"
+        class="text-body-sm text-accent hover:text-accent-hover font-semibold"
+      >
+        Edit
+      </button>
+    </div>
+    @for (borrower of application().borrowers; track borrower.id) {
+      <dl class="text-body-sm mt-2 grid grid-cols-2 gap-y-1">
+        <dt class="text-muted">Name</dt>
+        <dd>{{ borrower.full_name }}</dd>
+        <dt class="text-muted">Employment</dt>
+        <dd>{{ borrower.employment_type }}</dd>
+      </dl>
+    }
+  </section>
+
+  <section class="rounded-card border-border border p-4">
+    <div class="flex items-center justify-between">
+      <h3 class="text-h3 font-display font-semibold">Property</h3>
+      <button
+        type="button"
+        (click)="editStep.emit(2)"
+        class="text-body-sm text-accent hover:text-accent-hover font-semibold"
+      >
+        Edit
+      </button>
+    </div>
+    @if (application().property; as property) {
+      <dl class="text-body-sm mt-2 grid grid-cols-2 gap-y-1">
+        <dt class="text-muted">Region</dt>
+        <dd>{{ property.region }}</dd>
+        <dt class="text-muted">Purchase price</dt>
+        <dd class="tabular">{{ property.purchase_price | money }}</dd>
+      </dl>
+    }
+  </section>
+
+  @if (simulation(); as sim) {
+    <section class="rounded-card border-border border p-4">
+      <h3 class="text-h3 font-display font-semibold">Loan</h3>
+      <dl class="text-body-sm mt-2 grid grid-cols-2 gap-y-1">
+        <dt class="text-muted">Monthly payment</dt>
+        <dd class="tabular">{{ sim.monthly_payment | money }}</dd>
+        <dt class="text-muted">Cash needed on the day</dt>
+        <dd class="tabular">{{ sim.upfront.total_cash_needed | money }}</dd>
+      </dl>
+    </section>
+  }
+
+  <button
+    type="button"
+    [disabled]="submitting()"
+    (click)="submitApplication.emit()"
+    class="rounded-control bg-accent hover:bg-accent-hover h-10 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+  >
+    {{ submitting() ? 'Submitting…' : 'Submit application' }}
+  </button>
+</div>
