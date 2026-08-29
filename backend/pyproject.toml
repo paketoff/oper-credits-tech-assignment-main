@@ -1,0 +1,64 @@
+# The rule set from 1-code-quality.md CQ-076 and CQ-077.
+#
+# CQ-096: without this file `ruff check` runs its defaults and none of those
+# rules fire — no ANN, no D, no C901, no PLR0913 — so the gate in T34 would
+# report green having checked almost nothing. T02 proves the configuration is
+# live before anything exists for it to check.
+
+[project]
+name = "borrower-portal"
+version = "0.1.0"
+description = "Borrower portal for a Belgian mortgage lender"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 100          # CQ-076: E501 at 100 characters
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",       # pycodestyle errors, including E501
+    "W",       # pycodestyle warnings
+    "F",       # pyflakes
+    "I",       # import order
+    "B",       # bugbear; B008 is why dependencies use Annotated, not a default
+    "UP",      # pyupgrade
+    "ANN",     # CQ-020 annotations, and ANN401 is what enforces CQ-021
+    "D",       # CQ-044: docstrings, google convention
+    "C901",    # CQ-039: complexity
+    "PLR0913", # CQ-038: argument count
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"       # CQ-044
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10         # CQ-039
+
+[tool.ruff.lint.pylint]
+max-args = 4                # CQ-038: four positional parameters, self excluded
+
+[tool.ruff.lint.per-file-ignores]
+# CQ-074 relaxes the docstring and annotation rules for tests. It does not
+# relax them for app/, and there is no entry here that would.
+"tests/**" = ["ANN", "D"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["app"]             # DEP-038 runs `mypy --strict app`
+strict = true               # CQ-023
+# `disallow_any_explicit` is deliberately absent — see CQ-023. It reports every
+# pydantic BaseModel subclass, which CQ-024 puts at every boundary, so the two
+# rules cannot both hold. Ruff's ANN401 enforces CQ-021 on our own annotations
+# and does not false-positive on a third-party base class.
+
+[[tool.mypy.overrides]]
+# These ship no type information. Ignoring their stubs does not weaken any
+# rule about our own code.
+module = ["pdf2image.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]          # `app` is importable without an editable install
+asyncio_mode = "auto"

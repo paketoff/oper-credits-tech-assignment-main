@@ -60,7 +60,7 @@ goes *inside* each of these files:
 infra/
   Dockerfile                        # multi-stage, production
   docker-compose.yml                # local development
-  .dockerignore
+  Dockerfile.dockerignore           # named for the context root, DEP-056
   fly.toml
 observability/
   otel-collector.yaml
@@ -98,6 +98,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PORT=8080 \
     DATA_DIR=/data
 
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends poppler-utils \
+ && rm -rf /var/lib/apt/lists/*
+
 RUN useradd --create-home --uid 1000 app
 WORKDIR /app
 
@@ -115,6 +119,12 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
 ```
 
+**DEP-053. `poppler-utils` is a runtime dependency, not a convenience.** `pdf2image`
+(`9-ai-classification.md` AI-008) is a thin wrapper that shells out to `pdftoppm`; the package is
+not in `python:3.12-slim`, and `pip install pdf2image` does not bring it. Without this line
+classification works on a developer machine with Homebrew poppler and fails in the container — at
+T37, in the last phase, which is the worst place to find it.
+
 **DEP-009. `--host 0.0.0.0` is not optional.** Binding to `127.0.0.1` produces a container that works
 locally and returns nothing on Fly. It is the most common first-deploy failure and it costs half an
 hour to diagnose.
@@ -123,6 +133,19 @@ hour to diagnose.
 to `dist/<project>/browser`; an older layout omits the `browser` directory.
 
 ### 3.1 `.dockerignore`
+
+**DEP-056. The file is `infra/Dockerfile.dockerignore`, not `infra/.dockerignore`.** The build
+context is the repository root — `docker build -f infra/Dockerfile .` — and Docker looks for
+`.dockerignore` at the *context* root, not beside the Dockerfile. A file at `infra/.dockerignore`,
+which is where DEP-011 and DEP-007 put it, is silently never read: the build succeeds, the context
+carries `node_modules`, and nothing reports a problem. BuildKit additionally reads
+`<dockerfile-path>.dockerignore`, which keeps the file next to the Dockerfile and actually applies
+it.
+
+**DEP-057. `npm ci --legacy-peer-deps` in stage 1.** npm 10.9 — the version bundled with both
+Node 22 and Node 23 — crashes resolving the peer graph Angular 22 scaffolds with, on the vitest
+branch: `Cannot read properties of null (reading 'edgesOut')`. The flag skips the peer walk that
+crashes and does not change which versions the lockfile pins. Reproduced locally and in the image.
 
 **DEP-011.**
 
@@ -141,6 +164,32 @@ backend/data/
 
 **DEP-012.** Without this, the build context includes `node_modules` and the build slows to a crawl.
 
+### 3.2 Python dependencies
+
+**DEP-052.** Two manifests. `backend/requirements.txt` is runtime and is the only one the image
+installs; `backend/requirements-dev.txt` carries the toolchain and never ships.
+
+| `requirements.txt` | For |
+|---|---|
+| `fastapi`, `uvicorn[standard]` | the service (DEP-008) |
+| `pydantic`, `pydantic-settings` | boundaries and config (CQ-024) |
+| `sqlalchemy[asyncio]`, `aiosqlite`, `greenlet` | persistence (CQ-080) |
+| `argon2-cffi` | passwords (AUTH-006) |
+| `pyjwt` | the session token (AUTH-013) |
+| `python-multipart` | document upload (API-048) |
+| `structlog` | logging (DEP-029) |
+| `opentelemetry-sdk`, `opentelemetry-instrumentation-fastapi`, `opentelemetry-exporter-otlp` | tracing (DEP-032) |
+| `anthropic`, `pdf2image`, `pillow` | the optional classifier (AI-013, AI-008) |
+
+`requirements-dev.txt`: `pytest`, `pytest-asyncio`, `pytest-cov`, `httpx`, `ruff`, `mypy`.
+
+Three of these are easy to omit and fail in ways that do not name themselves. **`python-multipart`**
+is not a FastAPI dependency: without it every `multipart/form-data` request is rejected before a
+handler runs, so document upload returns an error that says nothing about a missing package.
+**`greenlet`** is what SQLAlchemy's async layer bridges through; without it the first query raises a
+`MissingGreenlet` far from the cause. **`pdf2image` additionally needs the system package** in
+DEP-053.
+
 ## 4. Serving the SPA from FastAPI
 
 **DEP-013.** Mount order matters, and the catch-all matters more.
@@ -151,19 +200,19 @@ app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
 
 
 @app.get("/health", response_model=LivenessResponse)
-async def health(probe: HealthService = Depends(get_health_service)) -> LivenessResponse:
+def health(probe: Annotated[HealthService, Depends(get_health_service)]) -> LivenessResponse:
     """Liveness probe. Touches nothing."""
     return probe.liveness()
 
 
 @app.get("/ready", response_model=ReadinessResponse)
-async def ready(probe: HealthService = Depends(get_health_service)) -> ReadinessResponse:
+async def ready(probe: Annotated[HealthService, Depends(get_health_service)]) -> ReadinessResponse:
     """Readiness probe: database reachable and the blob directory writable."""
     return await probe.readiness()
 
 
 @app.get("/{path:path}")
-async def spa(path: str) -> FileResponse:
+def spa(path: str) -> FileResponse:
     """Serve the Angular shell for any non-API route.
 
     Angular owns client-side routing, so a direct hit or a refresh on a deep
@@ -180,6 +229,17 @@ CQ-018). The probes are one statement each; `SELECT 1` and the blob-directory ch
 `core/health.py`, not in a route handler, so `CQ-093` holds as well. The controller rule has no
 exceptions and does not acquire its first one here.
 
+**DEP-054. `/health` and the SPA catch-all are `def`, not `async def`; `/ready` is `async`.** The
+difference is not cosmetic and it is not a free choice: `CQ-050` forbids an `async def` with no
+`await` in its body. Liveness touches nothing by definition (DEP-036) and so has nothing to await;
+readiness runs `SELECT 1` and does. An earlier version of the block above made all three `async`,
+which put two of them in breach of a hard rule.
+
+Dependencies are declared with `Annotated[...]` rather than as a default value. `Depends()` in a
+default argument is what ruff's `B008` reports, and `Annotated` is FastAPI's current idiom for
+exactly this reason. The other code samples in these specs predate the linter configuration and use
+the older form; the rule they illustrate — one statement in the body — is unaffected either way.
+
 ## 5. Local development
 
 **DEP-016.** Two services with hot reload. Production runs one container; development runs two,
@@ -192,7 +252,7 @@ services:
     build:
       context: ..
       dockerfile: infra/Dockerfile
-      target: deps
+      target: runtime
     working_dir: /app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
@@ -216,6 +276,12 @@ services:
     depends_on:
       - api
 ```
+
+**DEP-055. The dev service builds the `runtime` stage, not `deps`.** The `deps` stage installs with
+`--prefix=/install/deps`, which is what makes the multi-stage copy work — and it means `uvicorn` is
+not on `PATH` in that stage and nothing sets `PYTHONPATH`. Targeting it, as this block did until T43,
+produces `uvicorn: not found` on the first `make dev`. The `runtime` stage already has the packages
+on the path; the bind mount over `/app` supplies the source and `--reload` does the rest.
 
 **DEP-051.** `DATABASE_URL` is **not** an environment variable. `core/config.py` derives it from
 `DATA_DIR` as `sqlite+aiosqlite:///${DATA_DIR}/app.db` (`1-code-quality.md` CQ-081). Setting both
@@ -399,6 +465,12 @@ test:
 lint:
 	cd backend && ruff check . && mypy --strict app
 	cd frontend && npm run lint
+	@! find frontend/src -name "*.css" ! -name "styles.css" -size +0c | grep -q . \
+	  || { echo "UI-027: a component stylesheet is not empty"; exit 1; }
+	@! grep -rEl "#[0-9a-fA-F]{3,8}\b" frontend/src \
+	     --include='*.ts' --include='*.html' \
+	     --exclude-dir=theme \
+	  || { echo "UI-030/UI-064: hex colour outside a token surface"; exit 1; }
 
 build:
 	docker build -f infra/Dockerfile -t borrower-portal .
@@ -477,7 +549,7 @@ Source: `07-deployment.md`, superseded by this document.
 | DEP-021 | The first-deploy sequence | 4 First deploy | §6.1 |
 | DEP-022 | `--no-deploy` before the volume exists | 4 First deploy | §6.1 |
 | DEP-023 | Secrets via `fly secrets`, never in `fly.toml` | 4 First deploy | §6.1 |
-| DEP-024 | `ANTHROPIC_API_KEY` has no declared consumer | added — flagged | §6.1 |
+| DEP-024 | `ANTHROPIC_API_KEY`'s consumer is the optional classifier | added — closed by `9-ai-classification.md` | §6.1 |
 | DEP-025 | The six-row failure table | 4 When it does not work | §6.2 |
 | DEP-026 | `fly logs`, `fly ssh console` | 4 When it does not work | §6.2 |
 | DEP-027 | Teardown commands | 4 Teardown | §6.3 |
@@ -505,6 +577,12 @@ Source: `07-deployment.md`, superseded by this document.
 | DEP-049 | Done: `request_id` everywhere, no payload in logs | 8 Definition of done | §10 |
 | DEP-050 | Done: `/health` and `/ready` both respond | 8 Definition of done | §10 |
 | DEP-051 | `DATABASE_URL` is derived from `DATA_DIR`, never set twice | added in review | §5 |
+| DEP-052 | The two dependency manifests, and the three easy omissions | added — nothing named the packages | §3.2 |
+| DEP-053 | `poppler-utils` in the runtime stage for `pdf2image` | added — `pip install pdf2image` is not enough | §3 |
+| DEP-054 | `/health` is `def`, `/ready` is `async`; dependencies use `Annotated` | added at T02 — the block breached CQ-050 | §4 |
+| DEP-055 | The dev service builds `runtime`; `deps` has no uvicorn on PATH | added at T43 — `make dev` would not start | §5 |
+| DEP-056 | `Dockerfile.dockerignore`; a file in `infra/` is never read | added at T03 — verified against the build context | §3.1 |
+| DEP-057 | `npm ci --legacy-peer-deps`; npm 10.9 crashes on the vitest peer graph | added at T03 | §3.1 |
 
 # Appendix B — Corrections against the source
 

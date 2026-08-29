@@ -1,0 +1,40 @@
+# Local development: two services with hot reload (DEP-016).
+#
+# Production runs one container (DEP-001); development runs two, because
+# reloading Angular through a production build is unusable.
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+      # The runtime stage, not `deps`. The deps stage installs with
+      # --prefix=/install/deps, so uvicorn is not on PATH there and the command
+      # below would fail with "not found". Only the runtime stage copies those
+      # packages onto the path. See DEP-055.
+      target: runtime
+    working_dir: /app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ../backend:/app
+      - ../backend/data:/data
+    environment:
+      DATA_DIR: /data
+      ENVIRONMENT: development
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-not-for-production-0123456789abcdef}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      AI_CLASSIFICATION_ENABLED: ${AI_CLASSIFICATION_ENABLED:-false}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ports:
+      - "8000:8000"
+
+  web:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm ci && npm start -- --host 0.0.0.0 --proxy-config proxy.conf.json"
+    volumes:
+      - ../frontend:/app
+    ports:
+      - "4200:4200"
+    depends_on:
+      - api

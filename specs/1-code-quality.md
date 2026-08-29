@@ -121,9 +121,20 @@ is the first thing to check in review.
 
 - **CQ-020** — Every parameter and every return value is annotated, including `-> None`.
 - **CQ-021** — **`Any` is forbidden in `app/`.** It is allowed in `tests/` (CQ-074). Use `object`, a
-  `TypeVar`, a `Protocol`, or an explicit union instead.
+  `TypeVar`, a `Protocol`, or an explicit union instead. Enforced by **ruff `ANN401`**, which reports
+  `Any` in a parameter or a return annotation we wrote.
 - **CQ-022** — `# type: ignore` must name the error code and carry a one-line reason.
-- **CQ-023** — Enforced, not suggested: `mypy --strict` with `disallow_any_explicit = true`.
+- **CQ-023** — Enforced, not suggested: `mypy --strict`.
+
+  **Not `disallow_any_explicit`,** although an earlier version of this rule required it. That flag
+  reports *every* `pydantic.BaseModel` subclass — the base class's own signatures contain `Any`, and
+  mypy attributes them to the subclass — so it fires on the first frozen request model and on every
+  one after it. CQ-024 puts a pydantic model at every boundary, which makes the two rules jointly
+  unsatisfiable: no code passes both. Verified at T02 against a two-line model with and without
+  `model_config`; both are reported.
+
+  The rule the flag was standing in for is CQ-021, and `ANN401` enforces it more precisely: it reads
+  our annotations and is not confused by a third-party base class.
 
 ### 4.2 Pydantic
 
@@ -541,7 +552,8 @@ ones a pipeline would run, so adding one later is configuration, not rework.
 
 - **CQ-076. Python** — `ruff` with: `ANN` (annotations), `D` with the google convention (docstrings),
   `C901` (complexity), `PLR0913` (argument count), `E501` at 100 characters.
-- **CQ-077** — Plus `mypy --strict` with `disallow_any_explicit = true`.
+- **CQ-077** — Plus `mypy --strict`. `Any` is caught by `ANN401`, not by `disallow_any_explicit`,
+  for the reason in CQ-023.
 - **CQ-078. TypeScript** — ESLint with `@typescript-eslint/no-explicit-any` as `error`, plus
   `@typescript-eslint/explicit-function-return-type`. Prettier for formatting.
 - **CQ-096. The configuration lives in `backend/pyproject.toml`** (`[tool.ruff.lint]`,
@@ -581,9 +593,9 @@ Source: `03-code-quality.md`, superseded by this document.
 | CQ-018 | Five things forbidden in a route handler | 3 The controller rule | §3.1 |
 | CQ-019 | Where the excluded work goes | 3 The controller rule | §3.1 |
 | CQ-020 | Every parameter and return annotated | 4 Python | §4.1 |
-| CQ-021 | `Any` forbidden in `app/` | 4 Python | §4.1 |
+| CQ-021 | `Any` forbidden in `app/`, enforced by ruff ANN401 | 4 Python | §4.1 |
 | CQ-022 | `# type: ignore` names its code and reason | 4 Python | §4.1 |
-| CQ-023 | `mypy --strict`, `disallow_any_explicit` | 4 Python | §4.1 |
+| CQ-023 | `mypy --strict`; not `disallow_any_explicit` | 4 Python, corrected at T02 | §4.1 |
 | CQ-024 | Pydantic v2 at every boundary | 4 Pydantic | §4.2 |
 | CQ-025 | `extra="forbid"` | 4 Pydantic | §4.2 |
 | CQ-026 | `frozen=True` on request and response models | 4 Pydantic | §4.2 |
@@ -623,7 +635,7 @@ Source: `03-code-quality.md`, superseded by this document.
 | CQ-060 | Always `raise ... from exc` | 10 Hard rules | §10.3 |
 | CQ-061 | Never log and swallow | 10 Hard rules | §10.3 |
 | CQ-062 | No stack traces or internal paths in responses | 10 Hard rules | §10.3 |
-| CQ-063 | Eleven stable error codes in one place | 10 Error codes | §10.4 |
+| CQ-063 | The 22 error codes are defined in one place | 10 Error codes | §10.4 |
 | CQ-064 | SQLite behind a repository protocol | 11 Persistence | §11 |
 | CQ-065 | ~~Atomic writes via `os.replace`~~ — **withdrawn**, superseded by CQ-091 | 11 Persistence | §11.5 |
 | CQ-066 | ~~A single asyncio lock guards writes~~ — **withdrawn**, superseded by CQ-084 | 11 Persistence | §11.5 |
@@ -637,7 +649,7 @@ Source: `03-code-quality.md`, superseded by this document.
 | CQ-074 | `Any` allowed in tests | 12 Tests | §12 |
 | CQ-075 | The acceptance criteria are the test suite | 12 Tests | §12 |
 | CQ-076 | ruff: `ANN`, `D`, `C901`, `PLR0913`, `E501` at 100 | 13 Tooling | §13 |
-| CQ-077 | `mypy --strict`, `disallow_any_explicit` | 13 Tooling | §13 |
+| CQ-077 | `mypy --strict`; `Any` is ANN401's job | 13 Tooling, corrected at T02 | §13 |
 | CQ-078 | ESLint rules plus Prettier | 13 Tooling | §13 |
 | CQ-079 | Definition of done: green, clean, passing | 13 Tooling | §13 |
 | CQ-080 | SQLAlchemy 2.0 async with `aiosqlite` | SQLite switch | §11.1 |
@@ -670,12 +682,13 @@ the binding gate is `make lint` and `make test` (CQ-076 – CQ-079, `5-deploymen
 | Enforced by | Rules |
 |---|---|
 | `ruff:ANN` | CQ-020 |
+| `ruff:ANN401` | CQ-021 — `Any` in our own annotations |
 | `ruff:D` (google) | CQ-044 |
 | `ruff:C901` | CQ-039 (partly — complexity, not nesting depth) |
 | `ruff:PLR0913` | CQ-038 |
 | `ruff:E501` | line length, CQ-076 |
 | `ruff:E722` | CQ-058 (bare `except:`) |
-| `mypy --strict` | CQ-020, CQ-021, CQ-022, CQ-023, CQ-027 (`Decimal` vs `float`) |
+| `mypy --strict` | CQ-020, CQ-022, CQ-023, CQ-027 (`Decimal` vs `float`) |
 | `eslint` | CQ-029, CQ-028 (via `tsc`), CQ-078 |
 | `hook` *(local, not committed)* | an editor or agent hook may run the same tools per file; convenience only |
 | `make lint` / `make test` | the binding gate — ruff, mypy, eslint and pytest, run before done |
