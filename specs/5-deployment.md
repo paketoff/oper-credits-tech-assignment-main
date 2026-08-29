@@ -438,7 +438,7 @@ lint:
 	@! find frontend/src -name "*.component.css" -size +0c | grep -q . \
 	  || { echo "UI-027: a component stylesheet is not empty"; exit 1; }
 	@! grep -rEl "#[0-9a-fA-F]{3,8}\b" frontend/src \
-	     --include=*.ts --include=*.html \
+	     --include='*.ts' --include='*.html' \
 	     --exclude-dir=theme \
 	  || { echo "UI-030/UI-064: hex colour outside a token surface"; exit 1; }
 
