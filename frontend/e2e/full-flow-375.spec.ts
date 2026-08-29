@@ -11,7 +11,7 @@ function uniqueEmail(): string {
 test('simulate, sign up, complete the wizard and upload a document at 375px', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('/calculator');
   await expect(page.getByText('1.414,52')).toBeVisible();
 
   await page.goto('/signup');

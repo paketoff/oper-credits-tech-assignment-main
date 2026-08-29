@@ -8,13 +8,13 @@ import { expect, test } from '@playwright/test';
 test('the result panel holds a computed figure on first paint, with no interaction', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('/calculator');
 
   await expect(page.getByText('1.414,52')).toBeVisible();
 });
 
 test('changing an input never empties the previous result', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/calculator');
   await expect(page.getByText('1.414,52')).toBeVisible();
 
   const contribution = page.locator('#own_contribution');
@@ -33,7 +33,7 @@ test('changing an input never empties the previous result', async ({ page }) => 
 test('the above-norm chip appears once quotiteit crosses 90%, and reads as informational', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('/calculator');
 
   const contribution = page.locator('#own_contribution');
   await contribution.click();
@@ -53,7 +53,7 @@ test('the above-norm chip appears once quotiteit crosses 90%, and reads as infor
 test('clearing a field mid-edit and retyping does not freeze future recompute', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('/calculator');
   await expect(page.getByText('1.414,52')).toBeVisible();
 
   const term = page.locator('#term_months');

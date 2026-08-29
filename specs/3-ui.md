@@ -373,14 +373,22 @@ text-danger`.
 
 | Screen | Layout | Components |
 |---|---|---|
-| Simulator | Two columns on `md:` and up: form left, sticky result right. Stacked on mobile. | `p-inputnumber`, `p-select`, result panel, cost table |
-| Sign up | Single centred card, `max-w-[24rem]` | Plain inputs, primary button |
+| Home | Hero, "how it works", benefits grid, closing CTA banner. Single column, `max-w-[72rem]` cap throughout. | Logo mark, CTA links, plain elements only |
+| Simulator (`/calculator`) | Two columns on `md:` and up: form left, sticky result right. Stacked on mobile. | `p-inputnumber`, `p-select`, result panel, cost table |
+| Sign up | Two columns on `md:` and up: form left, branding panel right, inside `max-w-[64rem]`. Single column, form only, on mobile. | Plain inputs, primary button, branding panel |
+| Log in | Same layout as Sign up. | Plain inputs, primary button, branding panel |
 | Application wizard | `p-stepper`, one step per panel, `max-w-[42rem]` | Stepper, inputs, selects |
 | Documents | Checklist, one row per requirement | `p-fileupload` per row, status chips |
 | Application detail | Header with status chip, checklist below | Chips, checklist rows |
 
-**UI-055.** Header: near-black band, `bg-ink`, 56px tall, product name on the left in `display` at
-18px, account menu on the right. It is the only dark surface in the application.
+**UI-069.** Home (`/`): the anonymous visitor's first screen (`T46`). A hero (headline, one-line
+subhead, two CTAs — `/calculator` and `/signup`), a three-step "how it works" section, a short
+benefits grid, and a closing CTA banner. No full-bleed breakout: everything sits inside the same
+`max-w-[72rem]` cap as every other screen (`UI-056`). The simulator itself is unchanged — still
+public, still computed-and-prefilled on load (`UX-009`) — it simply is not the first screen reached.
+
+**UI-055.** Header: near-black band, `bg-ink`, 56px tall, product name and a `Calculator` nav link on
+the left, account state on the right. It is the only dark surface in the application.
 
 **UI-056.** Page width caps at `max-w-[72rem]` with `px-4 md:px-8`.
 
@@ -465,8 +473,9 @@ Source: `05-ui.md`, superseded by this document.
 | UI-051 | Cost breakdown table | 6 Cost breakdown | §7.4 |
 | UI-052 | Checklist row grid and states | 6 Checklist row | §7.5 |
 | UI-053 | Status chip styling per status | 6 Status chips | §7.6 |
-| UI-054 | The five screens and their layouts | 7 Screens | §8 |
+| UI-054 | The screens and their layouts | 7 Screens | §8 |
 | UI-055 | Header band, the only dark surface | 7 Screens | §8 |
+| UI-069 | Home screen — hero, how it works, benefits, CTA | 7 Screens | §8 |
 | UI-056 | Page width caps at `max-w-[72rem]` | 7 Screens | §8 |
 | UI-057 | Visible focus ring on every interactive element | 8 Accessibility floor | §9 |
 | UI-058 | Every input has a `<label for>` | 8 Accessibility floor | §9 |
