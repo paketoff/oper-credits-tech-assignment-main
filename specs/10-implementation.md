@@ -408,7 +408,7 @@ Done   pytest tests/core/test_database.py -q → 3 passed; app.db appears under 
 ```
 Owner  D
 Deps   T02
-Files  app/core/exception_handlers.py,
+Files  app/core/exception_handlers.py, app/main.py,
        app/core/rate_limit.py, app/core/limits.py
 Output handlers rendering {"code","message","field"} for every code in the
        registry, 7-validation.md §2 (VAL-004) — the hierarchy itself lands in
@@ -419,7 +419,10 @@ Tests  test_domain_error_renders_expected_shape
        test_pydantic_error_normalised_to_same_shape
        test_every_declared_code_maps_to_a_status
        test_error_response_contains_no_stack_trace
-Done   pytest tests/core/test_errors.py -q → 4 passed
+Done   pytest tests/core/test_errors.py tests/core/test_limits.py
+       tests/core/test_rate_limit.py -q → all passed
+       (main.py is in the file list because a handler that is never registered
+       maps nothing; ARC-014 makes this the only module that may do it)
 ```
 → `VAL-004` – `VAL-007`, `API-013` – `API-015`, `CQ-053`.
 

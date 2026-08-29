@@ -10,14 +10,22 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI
 
+from app.core import exception_handlers
 from app.core.dependencies import get_health_service
 from app.core.health import HealthService, LivenessResponse
+from app.core.limits import BodySizeLimitMiddleware
 
 app = FastAPI(
     title="Borrower Portal",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
 )
+
+# Registered once, here, because this is the only module that knows the whole
+# application (ARC-014). The handlers are what make CQ-053 true: a router never
+# maps an error because there is exactly one place that can.
+exception_handlers.register(app)
+app.add_middleware(BodySizeLimitMiddleware)
 
 
 @app.get("/health", response_model=LivenessResponse)
