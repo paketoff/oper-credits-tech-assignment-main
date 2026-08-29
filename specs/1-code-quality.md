@@ -623,7 +623,7 @@ Source: `03-code-quality.md`, superseded by this document.
 | CQ-060 | Always `raise ... from exc` | 10 Hard rules | §10.3 |
 | CQ-061 | Never log and swallow | 10 Hard rules | §10.3 |
 | CQ-062 | No stack traces or internal paths in responses | 10 Hard rules | §10.3 |
-| CQ-063 | Eleven stable error codes in one place | 10 Error codes | §10.4 |
+| CQ-063 | The 22 error codes are defined in one place | 10 Error codes | §10.4 |
 | CQ-064 | SQLite behind a repository protocol | 11 Persistence | §11 |
 | CQ-065 | ~~Atomic writes via `os.replace`~~ — **withdrawn**, superseded by CQ-091 | 11 Persistence | §11.5 |
 | CQ-066 | ~~A single asyncio lock guards writes~~ — **withdrawn**, superseded by CQ-084 | 11 Persistence | §11.5 |

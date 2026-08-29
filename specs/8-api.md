@@ -376,8 +376,8 @@ request. The document row and the status transition happen in **one transaction*
 
 - **API-050** — 415 `UNSUPPORTED_DOCUMENT_TYPE` — decided by magic bytes, not by extension or the
   client's `Content-Type` (`VAL-022`).
-- **API-051** — 413 `DOCUMENT_TOO_LARGE` — enforced at the ASGI layer, before the body is buffered
-  into memory (`VAL-024`).
+- **API-051** — 413 `DOCUMENT_TOO_LARGE` — enforced by the body-size middleware before the body is
+  buffered into memory (`VAL-024`).
 - **API-052** — 422 `DOCUMENT_EMPTY`, `DOCUMENT_TYPE_NOT_REQUIRED`.
 - **API-053** — 404 `APPLICATION_NOT_FOUND`.
 
@@ -557,7 +557,7 @@ Source: `10-api.md`, superseded by this document.
 | API-048 | Document upload is multipart; the response body | Documents | §8 |
 | API-049 | `application_status` returned; one transaction | Documents | §8 |
 | API-050 | 415 decided by magic bytes | Documents | §8 |
-| API-051 | 413 enforced at the ASGI layer | Documents | §8 |
+| API-051 | 413 enforced by the body-size middleware | Documents | §8 |
 | API-052 | 422 `DOCUMENT_EMPTY`, `DOCUMENT_TYPE_NOT_REQUIRED` | Documents | §8 |
 | API-053 | 404 `APPLICATION_NOT_FOUND` | Documents | §8 |
 | API-054 | Download re-checks ownership; never static | Documents | §8 |

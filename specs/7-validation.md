@@ -219,7 +219,7 @@ never an error. Belgium has no statutory LTV cap; rejecting it would be a domain
 |---|---|---|
 | `.exe` renamed to `.pdf` | Rejected. Magic-byte check, not extension. | `UNSUPPORTED_DOCUMENT_TYPE` |
 | `.docx` upload | Rejected | `UNSUPPORTED_DOCUMENT_TYPE` |
-| 100 MB file | Rejected at the ASGI layer, **before** the body is read into memory | `DOCUMENT_TOO_LARGE` |
+| 100 MB file | Rejected by the size middleware, **before** the body is read into memory | `DOCUMENT_TOO_LARGE` |
 | 0-byte file | Rejected | `DOCUMENT_EMPTY` |
 | Filename `../../etc/passwd` | Sanitised. Stored under a generated key; the original name is never used as a path. | — |
 | Filename with unicode or emoji | Accepted, stored as metadata only | — |
@@ -279,8 +279,15 @@ Storage rules:
 
 - **VAL-023** — The stored key is generated (`{application_id}/{uuid4}`). The original filename is
   metadata only and never touches a filesystem path. → `DOC-003`.
-- **VAL-024** — The size limit is enforced by ASGI configuration, so an oversized body is rejected
-  before it is buffered into memory.
+- **VAL-024** — The size limit is enforced **before the body reaches a route handler**, by an ASGI
+  middleware in `app/core/limits.py` (`2-architecture.md` ARC-002). It rejects on `Content-Length`
+  when the header is present and honest, and counts bytes as the stream arrives when it is not,
+  aborting the moment the count passes 10 MB.
+
+  Stated this way because neither Starlette nor uvicorn has a maximum-body-size setting: "configure
+  the ASGI layer" names no switch that exists, and an implementer reading it would either hunt for a
+  flag or fall back to `await upload.read()` and check the length afterwards — which is the one
+  behaviour this rule exists to prevent.
 - **VAL-025** — Files are served through an authenticated endpoint that re-checks ownership, never as
   static files. Blobs are not the static files on the public route list (`6-auth.md` AUTH-039); the
   ownership rule is AUTH-034.
@@ -363,7 +370,7 @@ Source: `09-validation.md`, superseded by this document.
 | VAL-021 | Known gap: the orphan blob is never collected | 5 Edge cases | §5.5 |
 | VAL-022 | Magic-byte detection, not extension or Content-Type | 6 File validation detail | §6 |
 | VAL-023 | Generated storage key; filename is metadata only | 6 File validation detail | §6 |
-| VAL-024 | Size limit enforced at the ASGI layer | 6 File validation detail | §6 |
+| VAL-024 | Size limit enforced by a body-size middleware, not a framework switch | 6 File validation detail, corrected | §6 |
 | VAL-025 | Blobs served through an authenticated endpoint | 6 File validation detail | §6 |
 | VAL-026 | Five things deliberately not validated | 7 Not validated | §7 |
 | VAL-027 | The 18-step pre-submission run | 8 Pre-submission manual run | §8 |

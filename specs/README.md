@@ -18,7 +18,7 @@ to a spec.
 | `7-validation.md` | Validation rules, the error registry, 57 edge cases, the manual test plan |
 | `8-api.md` | The wire contract — endpoints, bodies, status codes, TypeScript models |
 | `9-ai-classification.md` | Optional: advisory document classification behind a feature flag |
-| `10-implementation.md` | **A plan, not a contract** — 42 tickets, owners, file boundaries, done conditions |
+| `10-implementation.md` | **A plan, not a contract** — 44 tickets, owners, file boundaries, done conditions |
 
 Specs are numbered in reading order. `0-business-logic.md` is the root spec; later
 specs build on it and do not restate it. The eight specs:
@@ -71,7 +71,7 @@ the other two, `2-architecture.md` is canonical for structure and import boundar
 | `VAL-` | Validation, error registry, edge cases (`7-validation.md`) |
 | `API-` | The wire contract (`8-api.md`) |
 | `AI-` | Document classification, advisory only (`9-ai-classification.md`) |
-| `T-` | Implementation tickets `T01`–`T42` and standing rules `T-P1`–`T-P13` (`10-implementation.md`) |
+| `T-` | Implementation tickets `T01`–`T44` and standing rules `T-P1`–`T-P13` (`10-implementation.md`) |
 
 IDs attach to verifiable statements only: an invariant, a formula, a constant, a
 transition, an error code. Narrative framing stays unlabelled prose. IDs are stable

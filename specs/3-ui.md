@@ -212,6 +212,13 @@ codebase.
 - **UI-030** — **Colours come from theme tokens only.** `bg-accent`, `text-muted`, `border-border`.
   Never `bg-[#0B5D5B]`, never `text-teal-700`. If a colour is needed that is not in `@theme`, it is
   added to `@theme` first.
+
+  **There are exactly two token surfaces, and a hex literal is legal in both:** `src/styles.css`
+  (the `@theme` block) and `src/app/core/theme/oper-preset.ts` (the PrimeNG palette, UI-039). They
+  are the same layer expressed twice because PrimeNG's preset is TypeScript, not CSS — ARC-037 names
+  them together for this reason. The `make lint` check excludes the `theme/` directory accordingly;
+  an earlier wording forbade hex in every `.ts` file, which would have failed against the preset
+  this spec itself mandates.
 - **UI-031** — **Spacing comes from the scale.** `p-4`, `gap-6`, `mt-8`. Never `p-[13px]`.
 - **UI-032** — **Arbitrary values are forbidden** except for one-off layout constraints that
   genuinely have no token, for example `max-w-[42rem]`. Colours, spacing and radii never qualify.
@@ -385,7 +392,7 @@ Not negotiable, and cheap:
 ## 10. Definition of done
 
 - **UI-063** — Every `*.component.css` is empty.
-- **UI-064** — No hex value appears anywhere outside `@theme`.
+- **UI-064** — No hex value appears outside the two token surfaces named in UI-030.
 - **UI-065** — No `@apply` outside `@layer base`.
 - **UI-066** — The result panel shows the cash-needed figure on the signal surface.
 - **UI-067** — Focus is visible on every control, and the flow completes with the keyboard alone.
@@ -483,15 +490,16 @@ than measurements.
 
 ## Enforcement
 
-`ruff` and `mypy` are irrelevant here. Of the rules above, only these are machine-checkable, and
-**none of the checks exist yet** — there is no frontend toolchain in this repo, and CI is a
-deliberate non-goal (`1-code-quality.md` §13). The gate is `make lint`:
+`ruff` and `mypy` are irrelevant here. Of the rules above, only these are machine-checkable, and the
+gate for all of them is `make lint` — CI is a deliberate non-goal (`1-code-quality.md` §13). The
+last two rows are shell checks written directly into the `lint` target (`5-deployment.md` DEP-038);
+the first three arrive with the frontend toolchain at `10-implementation.md` T26:
 
 | Would be enforced by | Rules |
 |---|---|
 | `prettier-plugin-tailwindcss` | UI-033 class order |
 | ESLint (`@angular-eslint`) | UI-029 inline styles |
 | A `make lint` step asserting every `*.component.css` is empty | UI-027, UI-063 |
-| `grep` for a hex outside `src/styles.css` | UI-030, UI-064 |
+| `make lint` greps for a hex outside `src/styles.css` and `core/theme/` | UI-030, UI-064 |
 | `grep` for `@apply` outside `@layer base` | UI-028, UI-065 |
 | **review** | everything else — the tokens, the scale, the component recipes, the accessibility floor |

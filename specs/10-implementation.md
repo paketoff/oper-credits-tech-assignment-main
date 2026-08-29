@@ -13,7 +13,7 @@ The order of work, broken into tickets. Read [`2-architecture.md`](2-architectur
 ownership boundaries this plan depends on (ARC-028, ARC-029).
 
 **This is the one document in `specs/` that is a plan, not a contract.** Specs 0 – 9 describe what
-the system does; this one describes the order in which it gets built. Ticket ids `T01` – `T42` are
+the system does; this one describes the order in which it gets built. Ticket ids `T01` – `T44` are
 the identifiers — they go in commit messages, and there is no second numbering on top of them.
 
 ## Principles
@@ -107,22 +107,30 @@ DEP-040 – DEP-042).
 ```
 Owner  D
 Deps   —
-Files  the whole tree, once
+Files  the whole backend tree, once; the Angular scaffold
 Output The directory structure from 2-architecture.md ARC-002, every package with
-       __init__.py, every module containing only its docstring header
+       __init__.py, every module containing only its docstring header;
+       `ng new borrower-portal` under frontend/
 Tests  —
-Done   `find app -name "*.py" | wc -l` matches the spec tree; one commit exists:
-       "chore: repository skeleton"
+Done   `find backend/app -name "*.py" | wc -l` → 54; `frontend/angular.json` exists;
+       one commit: "chore: repository skeleton [T01]"
 ```
 Empty modules with docstrings only. Every later agent then has a target file that already exists, so
 no two invent competing layouts.
+
+**The Angular scaffold belongs here, not in T26.** Two reasons, and the second is blocking. It had no
+owner in any ticket — T26 edits `src/app/core/*` but nothing created the project around it. And
+T03's Dockerfile stage 1 runs `npm ci` against `frontend/package*.json`: without the scaffold the
+container build fails, so a P0 ticket would have depended on a P3 one. The project name is not free
+— `5-deployment.md` DEP-008 copies `dist/borrower-portal/browser`.
 
 ### T02 | Backend boots
 ```
 Owner  D
 Deps   T01
-Files  app/main.py, requirements.txt, pyproject.toml
+Files  app/main.py, requirements.txt, requirements-dev.txt, pyproject.toml
 Output GET /health returning {"status":"ok"};
+       both manifests from 5-deployment.md DEP-052;
        pyproject.toml carrying the CQ-076 ruff rule set and the CQ-077 mypy settings
 Tests  test_health_returns_ok
 Done   `pytest tests/test_health.py -q` → 1 passed
@@ -169,6 +177,27 @@ Tests  —
 Done   CLAUDE.md exists and docs/sessions/ contains its index file
 ```
 Logs start here. Part C is 20 minutes and they cannot be reconstructed afterwards.
+
+### T43 | Local orchestration
+```
+Owner  D
+Deps   T02
+Files  Makefile, .env.example, infra/docker-compose.yml, frontend/proxy.conf.json
+Output make dev/test/lint/build/deploy/obs/clean per 5-deployment.md DEP-038;
+       every required variable documented with no values (DEP-018, DEP-047);
+       the two-service dev stack (DEP-016) and the /api proxy (DEP-017)
+Tests  —
+Done   `make lint` and `make test` both run; `.env.example` names DATA_DIR,
+       JWT_SECRET, ENVIRONMENT, OTEL_EXPORTER_OTLP_ENDPOINT,
+       AI_CLASSIFICATION_ENABLED and ANTHROPIC_API_KEY, and no value
+```
+**Added: these four files were specified and unowned.** `DEP-047` and `DEP-048` are definitions of
+done that depended on them, `CQ-079` calls `make lint` the binding gate, and no ticket created any of
+it. `ARC-028` assigns them to unit D; this is the ticket that makes that assignment real, because
+`T-P2` requires a file to be named by a ticket before an agent may write it.
+
+`make dev` is only half-usable until T26: the `web` service runs `npm ci` against a frontend that
+T01 scaffolded but has not yet been themed. The `api` half works from here.
 
 ---
 
@@ -370,9 +399,13 @@ Done   pytest tests/core/test_errors.py -q → 4 passed
 ```
 Owner  D
 Deps   T02
-Files  app/core/logging.py, app/core/telemetry.py
+Files  app/core/logging.py, app/core/telemetry.py,
+       observability/otel-collector.yaml,
+       observability/docker-compose.observability.yml,
+       observability/grafana/datasources.yml
 Output structlog JSON config, request_id middleware, X-Request-ID header,
-       redaction denylist, OTel setup
+       redaction denylist, OTel setup; the collector and Grafana configuration
+       that DEP-007 and DEP-033 require and no ticket previously owned
 Tests  test_log_line_is_json_with_request_id
        test_response_carries_request_id_header
        test_email_is_redacted_from_log_output
@@ -394,6 +427,21 @@ Tests  test_save_returns_generated_key
 Done   pytest tests/core/test_storage.py -q → 4 passed
 ```
 → `CQ-033`, `CQ-034`, `DOC-003`, `VAL-023`.
+
+### T44 | Test fixtures
+```
+Owner  D
+Deps   T13
+Files  tests/conftest.py
+Output An in-memory async engine and session fixture, a FastAPI app fixture with
+       get_session overridden, an httpx.AsyncClient fixture, a tmp blob root
+Tests  —
+Done   `pytest -q` collects with no fixture errors; T17 and T25 import nothing local
+```
+**Added: `tests/conftest.py` is in the ARC-002 tree and was owned by no ticket.** It is the one file
+units A, B and D all need — T13 for the session, T17 for the repositories, T25 for the flow tests —
+so leaving it unowned guarantees the collision `T-P2` exists to prevent: three agents writing the
+same file. It lands before Sync point 1 so P2 opens with fixtures already there.
 
 **Sync point 1.** A's signatures and D's session dependency exist. P2 can start.
 
@@ -561,11 +609,15 @@ Output Tailwind v4 @theme matching 3-ui.md; PrimeNG preset with cssLayer order;
        api client, error interceptor, auth interceptor;
        eslint.config.js carrying the CQ-078 rule set (CQ-096)
 Tests  —
-Done   `npm run build` succeeds; every *.component.css is empty;
-       `grep -rE "#[0-9a-fA-F]{6}" src --include=*.ts --include=*.html` returns nothing
+Done   `npm run build` succeeds; `make lint` passes, which is where the UI-027
+       and UI-030/UI-064 shell checks now live (5-deployment.md DEP-038)
 ```
-Can start before the backend exists. That last grep is the machine check for `UI-030` and `UI-064`
-that `3-ui.md` Appendix B recorded as not yet existing — it exists here, as a done condition.
+Can start before the backend exists. Those two checks are the machine enforcement for `UI-027`,
+`UI-030` and `UI-064` that `3-ui.md` Appendix B recorded as not yet existing. They sit in `make lint`
+rather than in this done condition so they keep firing after the ticket closes. **The hex grep
+excludes `src/app/core/theme/`**: `UI-039` mandates a PrimeNG preset written as hex literals, so a
+blanket ban on hex in `.ts` would have failed against the file the same spec requires — `UI-030` now
+names both token surfaces.
 → `UI-024` – `UI-039`, `ARC-037`.
 
 ### T27 | Simulator
@@ -801,8 +853,8 @@ of generalities.
 
 | Wave | Concurrent |
 |---|---|
-| 1 | T01 → T02 → T03 → T04 (serial, one agent) |
-| 2 | **A:** T06–T12 · **D:** T13–T16 · **C:** T26 |
+| 1 | T01 → T02 → T43 → T03 → T04 (serial, one agent) |
+| 2 | **A:** T06–T12 · **D:** T13–T16 → T44 · **C:** T26 |
 | 3 | **B:** T17 → T18, T19 → T20, T21 → T22 → T23 → T25 · **D:** T24 |
 | 4 | **C:** T27–T30 |
 | 5 | you: T31–T34 |
@@ -835,8 +887,8 @@ Source: `12-implementation.md`, superseded by this document.
 
 | Phase | Tickets | Owner(s) |
 |---|---|---|
-| P0 Deploy skeleton | T01 – T05 | D |
-| P1 Domain core and platform | T06 – T16 | A, D |
+| P0 Deploy skeleton | T01 – T05, T43 | D |
+| P1 Domain core and platform | T06 – T16, T44 | A, D |
 | P2 API surface | T17 – T25 | B, D |
 | P3 Frontend | T26 – T30 | C |
 | P4 Integration | T31 – T34 | you |
@@ -858,3 +910,17 @@ running).
 | T02 did not create a linter configuration | `pyproject.toml` added to its files and to its done condition. Nothing in any spec said where the CQ-076 rule set lived, so `ruff check` would have run defaults and T34 would have gone green having checked almost nothing. |
 | T10 named `SimulationInput` with no spec defining it | `ARC-043` now separates the simulation entity types from the wire schemas; the ticket points at it. |
 | T26 did not own the ESLint configuration | added to its files, same reasoning as T02. |
+
+# Appendix C — Corrections made at the start of implementation
+
+Six gaps found by reading the whole set against this plan before writing code. All of them are files
+or checks that a spec required and no ticket produced.
+
+| Gap | Resolution |
+|---|---|
+| `Makefile`, `.env.example`, `infra/docker-compose.yml`, `frontend/proxy.conf.json` had no owning ticket | **T43** |
+| `tests/conftest.py` had no owning ticket, and three units need it | **T44**, before Sync point 1 |
+| `observability/*` had no owning ticket | folded into T15, which already owns the instrumentation |
+| The Angular scaffold had no owning ticket, and T03's build needs it | folded into T01 |
+| `make lint` did not run the checks `UI-027` and `UI-064` claim it runs | added to `DEP-038`; T26 points at them |
+| The UI-064 hex grep would have failed against the preset `UI-039` mandates | `UI-030` now names both token surfaces; the check excludes `theme/` |

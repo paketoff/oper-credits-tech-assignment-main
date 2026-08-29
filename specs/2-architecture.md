@@ -98,7 +98,9 @@ app/
   core/
     config.py              # pydantic-settings
     database.py            # engine, session factory, get_session, pragmas
+    enums.py               # value enums shared by two domains; imports nothing (ARC-044)
     health.py              # liveness and readiness probes, behind a service
+    limits.py              # request body size guard (VAL-024); imports no domain
     rate_limit.py          # generic per-IP limiter; imports no domain
     errors.py              # domain exception base + stable codes
     exception_handlers.py  # domain error -> HTTP, registered once
@@ -171,10 +173,10 @@ and are **never** stored in the database. A `Document` row carries an opaque `st
   `dependencies.py` (ARC-042). Injected as a dependency.
 - **ARC-012** — `core` never imports from `domains`.
 - **ARC-013** — Pure modules (`calculator`, `state_machine`, `checklist`, `file_type`,
-  `classification/evaluator`) import only the standard library, `decimal`, and their own domain's
-  `entities.py`. `evaluate` in particular imports no API client and no session — that is what makes
-  the classifier's decision table testable without a network (`9-ai-classification.md` AI-014). They never import SQLAlchemy, a session,
-  or `tables.py`.
+  `classification/evaluator`) import only the standard library, `decimal`, their own domain's
+  `entities.py`, and `core/enums.py` (ARC-044). `evaluate` in particular imports no API client and no
+  session — that is what makes the classifier's decision table testable without a network
+  (`9-ai-classification.md` AI-014). They never import SQLAlchemy, a session, or `tables.py`.
 - **ARC-014** — `main.py` is the only file that knows about all domains.
 - **ARC-042** — `domains/auth/dependencies.py` is the auth domain's second public surface, and the
   only such exception in the codebase. It exists because `current_user` is needed by every domain's
@@ -186,6 +188,15 @@ and are **never** stored in the database. A `Document` row carries an opaque `st
   `async_sessionmaker`, the declarative base, the `get_session` dependency, and pragma setup on
   connect. It knows no table and imports no domain — ARC-012 applies to it like any other `core`
   module.
+- **ARC-044** — `core/enums.py` holds the value enums that **two domains genuinely share**, and only
+  those: `Region` (simulation prices the tax, applications stores the property) and `DocumentType`
+  (applications derives the checklist from it, documents validates an upload against it). It is a
+  leaf: it imports nothing, not even `decimal`, which is why ARC-013 can admit it without weakening
+  the purity rule. The alternative is a second definition of `DocumentType` in each domain, and the
+  first time one of them gains a member the checklist and the uploader disagree about what satisfies
+  a requirement — the one thing `0-business-logic.md` DOC-008 cannot survive. Enums with a single
+  domain stay in that domain's `entities.py`: `PropertyType`, `EmploymentType` and
+  `ApplicationStatus` all belong to `applications/`.
 
 **ARC-015.** Violating rule ARC-011 or ARC-012 is a design error, not a shortcut. If a feature seems
 to require it, the boundary is drawn wrong.
@@ -294,7 +305,7 @@ drift.
 
 | Unit | Owns | Depends on |
 |---|---|---|
-| A — domain core | `domains/simulation/{calculator,entities}.py`, `domains/applications/{state_machine,checklist,entities}.py`, `domains/documents/{file_type,classification/evaluate}.py`, their tests | nothing |
+| A — domain core | `domains/simulation/{calculator,entities}.py`, `domains/applications/{state_machine,checklist,entities}.py`, `domains/documents/{file_type,classification/evaluator}.py`, their tests | nothing |
 | B — API surface | all `router.py`, `service.py`, `schemas.py`, `tables.py`, `repository.py`, and `documents/classification/{client,prompts}.py` | A's entities and function signatures, D's `core/database.py` |
 | C — frontend | everything under `src/app/` | B's wire contract |
 | D — platform | `core/*` — **including `core/database.py`, `core/storage.py`, `core/health.py` and `core/rate_limit.py`** — `main.py`, `infra/*`, `observability/*`, `Makefile`, `.env.example` | nothing |
@@ -417,6 +428,7 @@ Source: `04-architecture.md`, superseded by this document.
 | ARC-041 | Repo-root layout; `infra/` and `observability/` are config only | added for `5-deployment.md` | §2 |
 | ARC-042 | `domains/auth/dependencies.py` is a second public surface | added for `6-auth.md` | §4 |
 | ARC-043 | Simulation entity types vs wire schema types | added — resolves the `SimulationInput` gap | §11 |
+| ARC-044 | `core/enums.py` holds the two cross-domain value enums | added — `DocumentType` had no single home | §4 |
 
 ## Superseded `CQ-` rules
 

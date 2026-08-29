@@ -98,6 +98,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PORT=8080 \
     DATA_DIR=/data
 
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends poppler-utils \
+ && rm -rf /var/lib/apt/lists/*
+
 RUN useradd --create-home --uid 1000 app
 WORKDIR /app
 
@@ -114,6 +118,12 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
 ```
+
+**DEP-053. `poppler-utils` is a runtime dependency, not a convenience.** `pdf2image`
+(`9-ai-classification.md` AI-008) is a thin wrapper that shells out to `pdftoppm`; the package is
+not in `python:3.12-slim`, and `pip install pdf2image` does not bring it. Without this line
+classification works on a developer machine with Homebrew poppler and fails in the container — at
+T37, in the last phase, which is the worst place to find it.
 
 **DEP-009. `--host 0.0.0.0` is not optional.** Binding to `127.0.0.1` produces a container that works
 locally and returns nothing on Fly. It is the most common first-deploy failure and it costs half an
@@ -140,6 +150,32 @@ backend/data/
 ```
 
 **DEP-012.** Without this, the build context includes `node_modules` and the build slows to a crawl.
+
+### 3.2 Python dependencies
+
+**DEP-052.** Two manifests. `backend/requirements.txt` is runtime and is the only one the image
+installs; `backend/requirements-dev.txt` carries the toolchain and never ships.
+
+| `requirements.txt` | For |
+|---|---|
+| `fastapi`, `uvicorn[standard]` | the service (DEP-008) |
+| `pydantic`, `pydantic-settings` | boundaries and config (CQ-024) |
+| `sqlalchemy[asyncio]`, `aiosqlite`, `greenlet` | persistence (CQ-080) |
+| `argon2-cffi` | passwords (AUTH-006) |
+| `pyjwt` | the session token (AUTH-013) |
+| `python-multipart` | document upload (API-048) |
+| `structlog` | logging (DEP-029) |
+| `opentelemetry-sdk`, `opentelemetry-instrumentation-fastapi`, `opentelemetry-exporter-otlp` | tracing (DEP-032) |
+| `anthropic`, `pdf2image`, `pillow` | the optional classifier (AI-013, AI-008) |
+
+`requirements-dev.txt`: `pytest`, `pytest-asyncio`, `pytest-cov`, `httpx`, `ruff`, `mypy`.
+
+Three of these are easy to omit and fail in ways that do not name themselves. **`python-multipart`**
+is not a FastAPI dependency: without it every `multipart/form-data` request is rejected before a
+handler runs, so document upload returns an error that says nothing about a missing package.
+**`greenlet`** is what SQLAlchemy's async layer bridges through; without it the first query raises a
+`MissingGreenlet` far from the cause. **`pdf2image` additionally needs the system package** in
+DEP-053.
 
 ## 4. Serving the SPA from FastAPI
 
@@ -399,6 +435,12 @@ test:
 lint:
 	cd backend && ruff check . && mypy --strict app
 	cd frontend && npm run lint
+	@! find frontend/src -name "*.component.css" -size +0c | grep -q . \
+	  || { echo "UI-027: a component stylesheet is not empty"; exit 1; }
+	@! grep -rEl "#[0-9a-fA-F]{3,8}\b" frontend/src \
+	     --include=*.ts --include=*.html \
+	     --exclude-dir=theme \
+	  || { echo "UI-030/UI-064: hex colour outside a token surface"; exit 1; }
 
 build:
 	docker build -f infra/Dockerfile -t borrower-portal .
@@ -477,7 +519,7 @@ Source: `07-deployment.md`, superseded by this document.
 | DEP-021 | The first-deploy sequence | 4 First deploy | §6.1 |
 | DEP-022 | `--no-deploy` before the volume exists | 4 First deploy | §6.1 |
 | DEP-023 | Secrets via `fly secrets`, never in `fly.toml` | 4 First deploy | §6.1 |
-| DEP-024 | `ANTHROPIC_API_KEY` has no declared consumer | added — flagged | §6.1 |
+| DEP-024 | `ANTHROPIC_API_KEY`'s consumer is the optional classifier | added — closed by `9-ai-classification.md` | §6.1 |
 | DEP-025 | The six-row failure table | 4 When it does not work | §6.2 |
 | DEP-026 | `fly logs`, `fly ssh console` | 4 When it does not work | §6.2 |
 | DEP-027 | Teardown commands | 4 Teardown | §6.3 |
@@ -505,6 +547,8 @@ Source: `07-deployment.md`, superseded by this document.
 | DEP-049 | Done: `request_id` everywhere, no payload in logs | 8 Definition of done | §10 |
 | DEP-050 | Done: `/health` and `/ready` both respond | 8 Definition of done | §10 |
 | DEP-051 | `DATABASE_URL` is derived from `DATA_DIR`, never set twice | added in review | §5 |
+| DEP-052 | The two dependency manifests, and the three easy omissions | added — nothing named the packages | §3.2 |
+| DEP-053 | `poppler-utils` in the runtime stage for `pdf2image` | added — `pip install pdf2image` is not enough | §3 |
 
 # Appendix B — Corrections against the source
 
