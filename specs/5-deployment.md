@@ -187,19 +187,19 @@ app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
 
 
 @app.get("/health", response_model=LivenessResponse)
-async def health(probe: HealthService = Depends(get_health_service)) -> LivenessResponse:
+def health(probe: Annotated[HealthService, Depends(get_health_service)]) -> LivenessResponse:
     """Liveness probe. Touches nothing."""
     return probe.liveness()
 
 
 @app.get("/ready", response_model=ReadinessResponse)
-async def ready(probe: HealthService = Depends(get_health_service)) -> ReadinessResponse:
+async def ready(probe: Annotated[HealthService, Depends(get_health_service)]) -> ReadinessResponse:
     """Readiness probe: database reachable and the blob directory writable."""
     return await probe.readiness()
 
 
 @app.get("/{path:path}")
-async def spa(path: str) -> FileResponse:
+def spa(path: str) -> FileResponse:
     """Serve the Angular shell for any non-API route.
 
     Angular owns client-side routing, so a direct hit or a refresh on a deep
@@ -215,6 +215,17 @@ kind of edge case the reviewer will try.
 CQ-018). The probes are one statement each; `SELECT 1` and the blob-directory check live in
 `core/health.py`, not in a route handler, so `CQ-093` holds as well. The controller rule has no
 exceptions and does not acquire its first one here.
+
+**DEP-054. `/health` and the SPA catch-all are `def`, not `async def`; `/ready` is `async`.** The
+difference is not cosmetic and it is not a free choice: `CQ-050` forbids an `async def` with no
+`await` in its body. Liveness touches nothing by definition (DEP-036) and so has nothing to await;
+readiness runs `SELECT 1` and does. An earlier version of the block above made all three `async`,
+which put two of them in breach of a hard rule.
+
+Dependencies are declared with `Annotated[...]` rather than as a default value. `Depends()` in a
+default argument is what ruff's `B008` reports, and `Annotated` is FastAPI's current idiom for
+exactly this reason. The other code samples in these specs predate the linter configuration and use
+the older form; the rule they illustrate — one statement in the body — is unaffected either way.
 
 ## 5. Local development
 
@@ -549,6 +560,7 @@ Source: `07-deployment.md`, superseded by this document.
 | DEP-051 | `DATABASE_URL` is derived from `DATA_DIR`, never set twice | added in review | §5 |
 | DEP-052 | The two dependency manifests, and the three easy omissions | added — nothing named the packages | §3.2 |
 | DEP-053 | `poppler-utils` in the runtime stage for `pdf2image` | added — `pip install pdf2image` is not enough | §3 |
+| DEP-054 | `/health` is `def`, `/ready` is `async`; dependencies use `Annotated` | added at T02 — the block breached CQ-050 | §4 |
 
 # Appendix B — Corrections against the source
 
