@@ -74,12 +74,21 @@
       </div>
     </div>
   } @else {
-    <div class="mx-auto max-w-[42rem] py-6">
-      <h1 class="text-h2 font-display font-semibold">Application submitted</h1>
-      <p class="text-body-sm text-muted mt-2">
-        Status: <span class="text-ink font-semibold">{{ app.status }}</span
-        >. Your document checklist is next.
-      </p>
+    <div class="mx-auto flex max-w-[42rem] flex-col gap-6 py-6">
+      <div>
+        <h1 class="text-h2 font-display font-semibold">Application submitted</h1>
+        <p class="text-body-sm text-muted mt-2">
+          Status: <span class="text-ink font-semibold">{{ app.status }}</span>
+        </p>
+      </div>
+      @if (checklist(); as list) {
+        <app-checklist
+          [checklist]="list"
+          [rowStatus]="rowStatus()"
+          (fileSelected)="onFileSelected($event)"
+          (documentRemoved)="onDocumentRemoved($event)"
+        />
+      }
     </div>
   }
 }

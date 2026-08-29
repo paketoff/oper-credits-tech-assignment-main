@@ -52,7 +52,7 @@ e2e:
 	   > /tmp/e2e-ng-serve.log 2>&1 ) & ng_pid=$$!; \
 	 for i in $$(seq 1 60); do curl -sf http://localhost:8000/health >/dev/null 2>&1 && break; sleep 1; done; \
 	 for i in $$(seq 1 60); do curl -sf http://localhost:4200 >/dev/null 2>&1 && break; sleep 1; done; \
-	 cd frontend && npx playwright test --project=chromium
+	 cd frontend && npx playwright test --project=chromium --project=chromium-375
 
 lint:
 	cd backend && $(BIN)/ruff check . && $(BIN)/mypy --strict app

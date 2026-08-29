@@ -1,10 +1,20 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Step, StepItem, StepList, StepPanel, StepPanels, Stepper } from 'primeng/stepper';
 import { switchMap, tap } from 'rxjs';
 
+import { ApiError } from '../../../core/error-codes';
 import { EmploymentType, PropertyType, Region } from '../../../core/models';
+import {
+  ChecklistComponent,
+  DocumentRemoval,
+  FileSelection,
+  RowStatus,
+} from '../../documents/components/checklist.component';
+import { Checklist } from '../../documents/documents.models';
+import { DocumentsService } from '../../documents/documents.service';
 import { Simulation } from '../../simulation/simulation.models';
 import { SimulationService } from '../../simulation/simulation.service';
 import { Application } from '../application.models';
@@ -33,6 +43,7 @@ const TOTAL_STEPS = 4;
     BorrowerStepComponent,
     PropertyStepComponent,
     ReviewStepComponent,
+    ChecklistComponent,
   ],
   templateUrl: './application-wizard.component.html',
 })
@@ -40,6 +51,7 @@ export class ApplicationWizardComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly applicationService = inject(ApplicationService);
   private readonly simulationService = inject(SimulationService);
+  private readonly documentsService = inject(DocumentsService);
 
   private readonly applicationId = this.route.snapshot.paramMap.get('id') ?? '';
 
@@ -47,6 +59,8 @@ export class ApplicationWizardComponent {
   protected readonly application = signal<Application | null>(null);
   protected readonly simulation = signal<Simulation | null>(null);
   protected readonly submitting = signal(false);
+  protected readonly checklist = signal<Checklist | null>(null);
+  protected readonly rowStatus = signal<Record<string, RowStatus>>({});
 
   // VAL-011: at least one borrower, each requiring full_name, date_of_birth,
   // employment_type. Only this step's own fields are validated (UX-032) —
@@ -83,6 +97,51 @@ export class ApplicationWizardComponent {
       .subscribe((simulation) => this.simulation.set(simulation));
   }
 
+  protected onFileSelected({ docType, file }: FileSelection): void {
+    this.setRowStatus(docType, { status: 'uploading', errorMessage: null });
+    this.documentsService.upload(this.applicationId, docType, file).subscribe({
+      next: (document) => {
+        this.setRowStatus(docType, { status: 'idle', errorMessage: null });
+        this.application.update((application) =>
+          application ? { ...application, status: document.application_status } : application,
+        );
+        this.refreshChecklist();
+      },
+      error: (error: unknown) => {
+        this.setRowStatus(docType, { status: 'error', errorMessage: this.messageFor(error) });
+      },
+    });
+  }
+
+  protected onDocumentRemoved({ documentId }: DocumentRemoval): void {
+    this.documentsService.delete(this.applicationId, documentId).subscribe((result) => {
+      this.application.update((application) =>
+        application ? { ...application, status: result.application_status } : application,
+      );
+      this.refreshChecklist();
+    });
+  }
+
+  private refreshChecklist(): void {
+    this.documentsService
+      .checklist(this.applicationId)
+      .subscribe((checklist) => this.checklist.set(checklist));
+  }
+
+  private setRowStatus(docType: string, status: RowStatus): void {
+    this.rowStatus.update((current) => ({ ...current, [docType]: status }));
+  }
+
+  private messageFor(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      const body = error.error as ApiError | undefined;
+      if (body?.message) {
+        return body.message;
+      }
+    }
+    return 'Something went wrong. Please try again.';
+  }
+
   protected goToStep(step: number): void {
     this.activeStep.set(step);
   }
@@ -110,6 +169,7 @@ export class ApplicationWizardComponent {
       next: (application) => {
         this.application.set(application);
         this.submitting.set(false);
+        this.refreshChecklist();
       },
       error: () => {
         this.submitting.set(false);
@@ -176,6 +236,9 @@ export class ApplicationWizardComponent {
         property_type: application.property.property_type ?? 'EXISTING',
         purchase_price: Number(application.property.purchase_price),
       });
+    }
+    if (application.status !== 'DRAFT') {
+      this.refreshChecklist();
     }
   }
 }

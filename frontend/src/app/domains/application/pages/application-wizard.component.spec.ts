@@ -23,7 +23,7 @@ function draftApplication(overrides: Partial<Application> = {}): Application {
 describe('ApplicationWizardComponent', () => {
   let httpMock: HttpTestingController;
 
-  async function createFixture() {
+  async function createFixture(application: Application = draftApplication()) {
     await TestBed.configureTestingModule({
       imports: [ApplicationWizardComponent],
       providers: [
@@ -38,7 +38,7 @@ describe('ApplicationWizardComponent', () => {
     httpMock = TestBed.inject(HttpTestingController);
     const fixture = TestBed.createComponent(ApplicationWizardComponent);
     fixture.detectChanges();
-    httpMock.expectOne('/api/applications/app-1').flush(draftApplication());
+    httpMock.expectOne('/api/applications/app-1').flush(application);
     fixture.detectChanges();
     return fixture;
   }
@@ -119,4 +119,35 @@ describe('ApplicationWizardComponent', () => {
     expect(fixture.componentInstance['borrowerForm'].controls.full_name.value).toBe('Jan Test');
     httpMock.verify();
   });
+
+  it('a failed upload reverts its row (UX-041)', async () => {
+    const fixture = await createSubmittedFixture();
+
+    fixture.componentInstance['onFileSelected']({
+      docType: 'PAYSLIPS',
+      file: new File(['x'], 'payslip.pdf', { type: 'application/pdf' }),
+    });
+    expect(fixture.componentInstance['rowStatus']()['PAYSLIPS'].status).toBe('uploading');
+
+    httpMock
+      .expectOne('/api/applications/app-1/documents')
+      .flush(
+        { code: 'DOCUMENT_TOO_LARGE', message: 'Files must be under 10 MB.', field: null },
+        { status: 413, statusText: 'Payload Too Large' },
+      );
+
+    const row = fixture.componentInstance['rowStatus']()['PAYSLIPS'];
+    expect(row.status).toBe('error');
+    expect(row.errorMessage).toBe('Files must be under 10 MB.');
+    httpMock.verify();
+  });
+
+  async function createSubmittedFixture() {
+    const fixture = await createFixture(draftApplication({ status: 'SUBMITTED' }));
+    httpMock
+      .expectOne('/api/applications/app-1/checklist')
+      .flush({ required_count: 1, satisfied_count: 0, items: [] });
+    fixture.detectChanges();
+    return fixture;
+  }
 });
