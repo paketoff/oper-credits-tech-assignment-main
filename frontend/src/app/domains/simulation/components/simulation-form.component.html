@@ -38,11 +38,20 @@
       formControlName="term_months"
       min="12"
       max="360"
-      class="rounded-control border-border bg-surface-3 border px-3 py-2.5 text-base"
+      class="rounded-control bg-surface-3 border px-3 py-2.5 text-base"
+      [class]="
+        form().controls.term_months.invalid && form().controls.term_months.touched
+          ? 'border-danger'
+          : 'border-border'
+      "
     />
-    <span class="text-body-sm text-muted"
-      >{{ Math.round(form().controls.term_months.value / 12) }} years</span
-    >
+    @if (form().controls.term_months.invalid && form().controls.term_months.touched) {
+      <span class="text-danger text-sm">Between 12 and 360 months.</span>
+    } @else {
+      <span class="text-body-sm text-muted"
+        >{{ Math.round(form().controls.term_months.value / 12) }} years</span
+      >
+    }
   </div>
 
   <div class="flex flex-col gap-1">

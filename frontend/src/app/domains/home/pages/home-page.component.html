@@ -1,5 +1,5 @@
 <section
-  class="rounded-card border-border relative overflow-hidden border bg-[radial-gradient(circle_at_top_right,var(--color-accent-soft),transparent_60%)] p-8 md:p-12"
+  class="rounded-card border-border relative mt-8 overflow-hidden border bg-[radial-gradient(circle_at_top_right,var(--color-accent-soft),transparent_60%)] p-8 md:p-12"
 >
   <app-logo-mark [size]="48" />
   <h1 class="font-display text-display tracking-tightest mt-6 max-w-[36rem] font-bold">
@@ -44,8 +44,17 @@
 
 <section class="mt-16">
   <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-    @for (item of benefits; track item.title) {
-      <div class="rounded-card border-border border p-5">
+    @for (item of benefits; track item.title; let i = $index) {
+      <div
+        class="rounded-card border-border overflow-hidden border p-5"
+        [class]="
+          i === 0
+            ? 'bg-[radial-gradient(circle_at_bottom_left,var(--color-accent-soft),transparent_70%)]'
+            : i === 2
+              ? 'bg-[radial-gradient(circle_at_top_right,var(--color-signal-soft),transparent_70%)]'
+              : 'bg-surface'
+        "
+      >
         <h3 class="text-h3 font-display font-semibold">{{ item.title }}</h3>
         <p class="text-body-sm text-muted mt-1">{{ item.body }}</p>
       </div>

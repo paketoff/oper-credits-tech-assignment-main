@@ -2,7 +2,7 @@
 # the binding gate that stands in for CI, which is a deliberate non-goal
 # (CQ-079, 1-code-quality.md §13).
 
-.PHONY: dev obs test lint build deploy clean venv help
+.PHONY: dev obs test lint build deploy clean venv help backend frontend
 
 VENV := backend/.venv
 BIN  := .venv/bin
@@ -20,6 +20,15 @@ dev:            ## Run the full stack locally with hot reload
 obs:            ## Run the stack with the local LGTM observability stack
 	docker compose -f infra/docker-compose.yml \
 	               -f observability/docker-compose.observability.yml up --build
+
+backend:        ## Run the backend alone, bare uvicorn with reload, against backend/data
+	cd backend && DATA_DIR="$(CURDIR)/backend/data" ENVIRONMENT=development \
+	  JWT_SECRET=dev-secret-not-for-production-0123456789abcdef \
+	  $(BIN)/uvicorn app.main:app --port 8000 --reload
+
+frontend:       ## Run the frontend alone, ng serve proxying /api to localhost:8000
+	cd frontend && node scripts/generate-env.mjs && \
+	  npx ng serve --port 4200 --proxy-config proxy.conf.local.json
 
 test:
 	cd backend && $(BIN)/pytest -q
