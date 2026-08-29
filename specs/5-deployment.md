@@ -60,7 +60,7 @@ goes *inside* each of these files:
 infra/
   Dockerfile                        # multi-stage, production
   docker-compose.yml                # local development
-  .dockerignore
+  Dockerfile.dockerignore           # named for the context root, DEP-056
   fly.toml
 observability/
   otel-collector.yaml
@@ -133,6 +133,19 @@ hour to diagnose.
 to `dist/<project>/browser`; an older layout omits the `browser` directory.
 
 ### 3.1 `.dockerignore`
+
+**DEP-056. The file is `infra/Dockerfile.dockerignore`, not `infra/.dockerignore`.** The build
+context is the repository root — `docker build -f infra/Dockerfile .` — and Docker looks for
+`.dockerignore` at the *context* root, not beside the Dockerfile. A file at `infra/.dockerignore`,
+which is where DEP-011 and DEP-007 put it, is silently never read: the build succeeds, the context
+carries `node_modules`, and nothing reports a problem. BuildKit additionally reads
+`<dockerfile-path>.dockerignore`, which keeps the file next to the Dockerfile and actually applies
+it.
+
+**DEP-057. `npm ci --legacy-peer-deps` in stage 1.** npm 10.9 — the version bundled with both
+Node 22 and Node 23 — crashes resolving the peer graph Angular 22 scaffolds with, on the vitest
+branch: `Cannot read properties of null (reading 'edgesOut')`. The flag skips the peer walk that
+crashes and does not change which versions the lockfile pins. Reproduced locally and in the image.
 
 **DEP-011.**
 
@@ -568,6 +581,8 @@ Source: `07-deployment.md`, superseded by this document.
 | DEP-053 | `poppler-utils` in the runtime stage for `pdf2image` | added — `pip install pdf2image` is not enough | §3 |
 | DEP-054 | `/health` is `def`, `/ready` is `async`; dependencies use `Annotated` | added at T02 — the block breached CQ-050 | §4 |
 | DEP-055 | The dev service builds `runtime`; `deps` has no uvicorn on PATH | added at T43 — `make dev` would not start | §5 |
+| DEP-056 | `Dockerfile.dockerignore`; a file in `infra/` is never read | added at T03 — verified against the build context | §3.1 |
+| DEP-057 | `npm ci --legacy-peer-deps`; npm 10.9 crashes on the vitest peer graph | added at T03 | §3.1 |
 
 # Appendix B — Corrections against the source
 

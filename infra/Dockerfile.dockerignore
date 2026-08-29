@@ -1,0 +1,22 @@
+# Named Dockerfile.dockerignore, not .dockerignore.
+#
+# The build context is the repository root (`docker build -f infra/Dockerfile .`),
+# and Docker looks for .dockerignore at the context root. A file at
+# infra/.dockerignore — which is where DEP-011 put it — would simply be ignored,
+# and the context would include node_modules. BuildKit reads
+# <dockerfile-path>.dockerignore, which keeps the file next to the Dockerfile
+# and actually applies it. See DEP-056.
+
+**/node_modules
+**/__pycache__
+**/.venv
+**/dist
+**/.angular
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+.git
+.github
+backend/data/
+*.md
+.env
