@@ -12,7 +12,12 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: true,
+  // Serial, not parallel. Every scenario shares one backend process and one
+  // SQLite file; several browser contexts hitting it at once produced a real
+  // timing flake under load, not a bug in the app itself. This suite is five
+  // or six tests — correctness matters far more here than wall-clock speed.
+  fullyParallel: false,
+  workers: 1,
   forbidOnly: !!process.env['CI'],
   retries: 0,
   reporter: 'list',

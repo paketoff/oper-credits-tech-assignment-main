@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
@@ -11,12 +11,12 @@ import { Observable } from 'rxjs';
 export class ApiClient {
   private readonly http = inject(HttpClient);
 
-  get<T>(path: string, params?: Record<string, string>): Observable<T> {
-    return this.http.get<T>(this.url(path), { withCredentials: true, params });
+  get<T>(path: string, params?: Record<string, string>, context?: HttpContext): Observable<T> {
+    return this.http.get<T>(this.url(path), { withCredentials: true, params, context });
   }
 
-  post<T>(path: string, body: unknown): Observable<T> {
-    return this.http.post<T>(this.url(path), body, { withCredentials: true });
+  post<T>(path: string, body: unknown, context?: HttpContext): Observable<T> {
+    return this.http.post<T>(this.url(path), body, { withCredentials: true, context });
   }
 
   patch<T>(path: string, body: unknown): Observable<T> {

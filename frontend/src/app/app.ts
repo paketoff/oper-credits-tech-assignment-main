@@ -4,8 +4,8 @@ import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
 
 import { AppHeaderComponent } from './core/shell/app-header.component';
-import { ApiClient } from './core/api-client.service';
 import { AuthState } from './core/auth-state.service';
+import { AuthService } from './domains/auth/auth.service';
 
 const AUTH_ROUTES = ['/login', '/signup'];
 
@@ -23,7 +23,7 @@ const AUTH_ROUTES = ['/login', '/signup'];
 export class App {
   private readonly router = inject(Router);
   private readonly authState = inject(AuthState);
-  private readonly api = inject(ApiClient);
+  private readonly authService = inject(AuthService);
 
   protected readonly user = this.authState.currentUser;
 
@@ -41,12 +41,10 @@ export class App {
   );
 
   protected logout(): void {
-    // AUTH-028: the httpOnly cookie only clears server-side, so this has to
-    // hit the endpoint rather than merely forgetting the local signal. It
-    // succeeds whether or not a session existed, so the local state is
-    // cleared unconditionally rather than waiting on the response.
-    this.api.post('/auth/logout', {}).subscribe();
-    this.authState.clear();
-    void this.router.navigate(['/login']);
+    // AUTH-028: succeeds whether or not a session existed; AuthService.logout
+    // clears the local signal once the endpoint responds.
+    this.authService.logout().subscribe(() => {
+      void this.router.navigate(['/login']);
+    });
   }
 }
