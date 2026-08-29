@@ -14,7 +14,9 @@ interface LoginFormControls {
 
 /**
  * Two-column split layout, same shape as signup (`UI-054`). Redirects to
- * whatever URL the guard preserved, defaulting to the root (`AUTH-048`).
+ * whatever URL the guard preserved (`AUTH-048`); with no preserved URL —
+ * arriving here without being redirected — a returning borrower lands on
+ * their own applications, not the marketing home page.
  */
 @Component({
   selector: 'app-login-page',
@@ -44,7 +46,7 @@ export class LoginPageComponent {
 
     this.authService.login(this.form.getRawValue()).subscribe({
       next: () => {
-        const redirect = this.route.snapshot.queryParamMap.get('redirect') ?? '/';
+        const redirect = this.route.snapshot.queryParamMap.get('redirect') ?? '/applications';
         void this.router.navigateByUrl(redirect);
       },
       error: (error: unknown) => {

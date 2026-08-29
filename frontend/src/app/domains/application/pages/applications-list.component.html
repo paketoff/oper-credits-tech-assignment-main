@@ -1,0 +1,48 @@
+<div class="py-8">
+  <h1 class="text-h2 font-display font-semibold tracking-tighter">Your applications</h1>
+
+  @if (items(); as list) {
+    @if (list.length === 0) {
+      <div class="rounded-card border-border mt-6 border p-8 text-center">
+        <p class="text-body-sm text-muted">No applications yet.</p>
+        <a
+          routerLink="/calculator"
+          class="text-accent hover:text-accent-hover mt-2 inline-block font-semibold"
+        >
+          Start a simulation
+        </a>
+      </div>
+    } @else {
+      <div class="mt-6 flex flex-col gap-4">
+        @for (item of list; track item.id) {
+          <a
+            [routerLink]="['/applications', item.id]"
+            class="rounded-card border-border hover:bg-surface-2 flex items-center justify-between border p-5 transition-colors"
+          >
+            <div>
+              <div class="flex items-center gap-3">
+                @if (item.property; as property) {
+                  <span class="font-display text-h3 font-semibold">{{
+                    property.purchase_price | money
+                  }}</span>
+                } @else {
+                  <span class="font-display text-h3 font-semibold">Draft application</span>
+                }
+                <span
+                  class="rounded-pill px-2.5 py-1 text-xs font-semibold"
+                  [class]="statusChips[item.status].classes"
+                >
+                  {{ statusChips[item.status].label }}
+                </span>
+              </div>
+              <p class="text-body-sm text-muted mt-1">
+                {{ item.documents_satisfied }} of {{ item.documents_required }} required documents
+                uploaded
+              </p>
+            </div>
+          </a>
+        }
+      </div>
+    }
+  }
+</div>

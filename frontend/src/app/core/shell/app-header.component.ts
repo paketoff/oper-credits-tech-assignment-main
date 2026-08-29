@@ -40,6 +40,12 @@ import { User } from '../auth-state.service';
         <app-theme-toggle />
         @if (!minimal()) {
           @if (user(); as currentUser) {
+            <a
+              routerLink="/applications"
+              class="rounded-control text-body-sm text-surface-fixed px-3 py-1.5 font-semibold transition-colors hover:bg-white/10"
+            >
+              My applications
+            </a>
             <span class="text-body-sm text-surface-fixed/80">{{ currentUser.email }}</span>
             <button
               type="button"
