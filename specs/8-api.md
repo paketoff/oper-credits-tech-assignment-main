@@ -248,6 +248,13 @@ application body.
 `simulation.service` — the cross-domain edge `2-architecture.md` ARC-047 — and it is the reason that
 edge exists.
 
+**API-071.** A simulation seeds `region`, `is_first_home` and `purchase_price` — never
+`property_type`, because the simulator never asks existing-vs-new-build. The response's `property`
+object therefore carries `property_type: null` on a freshly seeded draft, and the wizard's property
+step is what fills it in. `2-architecture.md` names the domain type this produces, `PropertySeed`;
+added at T21, once this endpoint existed and had to decide what a partially known property section
+renders as.
+
 ### `GET /api/applications/{id}` → 200
 
 **API-033.**
@@ -298,7 +305,19 @@ edge exists.
 - **API-038** — `status` is **not** writable here. Sending it is a 422 (API-011).
 - **API-039** — Changing `employment_type` or `property_type` changes the checklist. The response
   includes the updated `status`, and the frontend refetches the checklist.
-- **API-040** — 409 `APPLICATION_ALREADY_SUBMITTED` once submitted.
+- **API-040** — 409 `APPLICATION_ALREADY_SUBMITTED` once the application has left the
+  document-collection phase — `status` is `UNDER_REVIEW`, `OFFER_ISSUED` or `WITHDRAWN`. **Not**
+  once `status` is merely past `DRAFT`: `DOCUMENTS_PENDING` and `DOCUMENTS_COMPLETE` stay writable,
+  because `7-validation.md` VAL-020 requires exactly this — "change employment type after uploading
+  payslips" only makes sense once documents exist to upload, which is after submission. This
+  narrowed at T21; the wording until then said "once submitted" and would have blocked the scenario
+  VAL-020 names as expected behaviour. `UNDER_REVIEW` is reached by a manual advance (APP-005), which
+  is the point past which the file is being read by a person rather than assembled by the borrower.
+
+  PATCH's own lock (this rule) and submit's re-submission check (API-043) are two different rules
+  guarding two different verbs, and each keeps its own code — the PATCH lock stays
+  `APPLICATION_ALREADY_SUBMITTED` regardless of state, while submit distinguishes a repeat call from
+  a genuinely unreachable one (see API-043 – API-044).
 
 Returns the full application body.
 
@@ -308,10 +327,14 @@ Returns the full application body.
 `DRAFT → SUBMITTED` (`APP-001`). Returns the full application body.
 
 - **API-042** — 422 `VALIDATION_ERROR` with `field` naming the first missing input.
-- **API-043** — 409 `APPLICATION_ALREADY_SUBMITTED` on a second call. **Idempotent from the client's
-  point of view:** the frontend disables the button while in flight (`UX-035`), and a duplicate
-  returns a clear conflict rather than corrupting state.
-- **API-044** — 409 `INVALID_STATE_TRANSITION` from any other state.
+- **API-043** — 409 `APPLICATION_ALREADY_SUBMITTED` on a second call — any state reached *by*
+  submitting once, which in this build means anything but `DRAFT` and `WITHDRAWN`. **Idempotent from
+  the client's point of view:** the frontend disables the button while in flight (`UX-035`), and a
+  duplicate returns a clear conflict rather than corrupting state.
+- **API-044** — 409 `INVALID_STATE_TRANSITION` from `WITHDRAWN` specifically — the one state
+  submission was never a path to, so it gets the generic state-machine code rather than the
+  submission-specific one. The bare state machine cannot make this distinction on its own (both are
+  simply "not `DRAFT`"), so the service checks it before calling `assert_transition` (T21).
 
 ## 7. Checklist
 
@@ -538,6 +561,7 @@ Source: `10-api.md`, superseded by this document.
 | API-022 | 404 `SIMULATION_NOT_FOUND` | Simulations | §4 |
 | API-023 | Signup request and response | Auth | §5 |
 | API-024 | A failed claim never fails signup; no `application_id` | Auth, corrected at T17 | §5 |
+| API-071 | A seeded draft has `property_type: null` until the wizard fills it | added at T21 | §6 |
 | API-025 | 409 `EMAIL_ALREADY_REGISTERED` | Auth | §5 |
 | API-026 | Login contract and the identical 401 | Auth | §5 |
 | API-027 | Logout returns 204 either way | Auth | §5 |
@@ -553,7 +577,7 @@ Source: `10-api.md`, superseded by this document.
 | API-037 | `borrowers` is replaced wholesale | Applications | §6 |
 | API-038 | `status` is not writable via PATCH | Applications | §6 |
 | API-039 | Changing employment or property type changes the checklist | Applications | §6 |
-| API-040 | 409 once submitted | Applications | §6 |
+| API-040 | 409 once past document collection, not once past DRAFT | Applications, corrected at T21 | §6 |
 | API-041 | `submit` runs full validation and transitions | Applications | §6 |
 | API-042 | 422 with `field` naming the first missing input | Applications | §6 |
 | API-043 | 409 on a second submit; client-side idempotent | Applications | §6 |

@@ -67,6 +67,18 @@ class SimulationService:
             raise NotFoundError(code="SIMULATION_NOT_FOUND")
         return self._to_response(stored, calculator.simulate(stored.request))
 
+    async def get_stored(self, session: AsyncSession, simulation_id: UUID) -> Simulation | None:
+        """Fetch the stored entity, or None. No 404 here.
+
+        Distinct from `get()`, which is the public API endpoint and raises
+        `NotFoundError` for the wire contract. This is for a caller in another
+        domain that needs to decide silently — `applications.service` uses it
+        to seed a draft, and a missing or foreign simulation must not turn into
+        an error there (ARC-047, AUTH-031's reasoning applied to a second
+        caller).
+        """
+        return await self._repository.get(session, simulation_id)
+
     async def claim_for_user(
         self, session: AsyncSession, simulation_id: UUID, user_id: UUID
     ) -> UUID | None:

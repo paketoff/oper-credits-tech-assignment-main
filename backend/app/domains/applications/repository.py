@@ -14,6 +14,7 @@ from app.domains.applications.entities import (
     Borrower,
     EmploymentType,
     PropertyDetails,
+    PropertySeed,
     PropertyType,
 )
 from app.domains.applications.tables import ApplicationRow, BorrowerRow
@@ -26,7 +27,7 @@ class ApplicationRepository(Protocol):
         self,
         session: AsyncSession,
         user_id: UUID,
-        seed: PropertyDetails | None,
+        seed: PropertySeed | None,
         simulation_id: UUID | None,
     ) -> Application:
         """Insert a draft application, optionally seeded from a simulation."""
@@ -60,6 +61,7 @@ class ApplicationRepository(Protocol):
 def _to_borrower(row: BorrowerRow) -> Borrower:
     """Map a borrower row to the domain type."""
     return Borrower(
+        id=row.id,
         full_name=row.full_name,
         date_of_birth=row.date_of_birth,
         employment_type=EmploymentType(row.employment_type),
@@ -68,14 +70,35 @@ def _to_borrower(row: BorrowerRow) -> Borrower:
     )
 
 
-def _to_property(row: ApplicationRow) -> PropertyDetails | None:
-    """Assemble the property section, which is absent until the borrower fills it."""
+def _to_property_details(row: ApplicationRow) -> PropertyDetails | None:
+    """Assemble the *complete* property section, or None if it is not yet whole.
+
+    Requires all four columns, `property_type` included — this is the
+    checklist-ready view `ApplicationProfile` depends on (DOC-005).
+    """
     if row.region is None or row.property_type is None or row.purchase_price is None:
         return None
     return PropertyDetails(
         region=Region(row.region),
         is_first_home=bool(row.is_first_home),
         property_type=PropertyType(row.property_type),
+        purchase_price=row.purchase_price,
+    )
+
+
+def _to_property_seed(row: ApplicationRow) -> PropertySeed | None:
+    """Assemble whatever is known about the property, `property_type` aside.
+
+    Present as soon as a simulation seeds a draft (API-032), even though the
+    complete, checklist-ready section is not — a simulation never asks
+    existing-vs-new-build, so this is what lets the wizard show a prefilled
+    price and region while still asking that one question (UX-027).
+    """
+    if row.region is None or row.purchase_price is None:
+        return None
+    return PropertySeed(
+        region=Region(row.region),
+        is_first_home=bool(row.is_first_home),
         purchase_price=row.purchase_price,
     )
 
@@ -88,7 +111,8 @@ def _to_entity(row: ApplicationRow) -> Application:
         simulation_id=row.simulation_id,
         status=ApplicationStatus(row.status),
         borrowers=tuple(_to_borrower(borrower) for borrower in row.borrowers),
-        property_details=_to_property(row),
+        property_details=_to_property_details(row),
+        property_seed=_to_property_seed(row),
         submitted_at=row.submitted_at,
         created_at=row.created_at,
         updated_at=row.updated_at,
@@ -107,17 +131,22 @@ class SqlApplicationRepository:
         self,
         session: AsyncSession,
         user_id: UUID,
-        seed: PropertyDetails | None,
+        seed: PropertySeed | None,
         simulation_id: UUID | None,
     ) -> Application:
-        """Insert a draft, carrying over what the simulation already told us."""
+        """Insert a draft, carrying over what the simulation already told us.
+
+        `property_type` is never seeded: a simulation does not ask for it, so
+        the column stays null and the property section stays incomplete until
+        the borrower answers that question in the wizard.
+        """
         row = ApplicationRow(
             user_id=user_id,
             simulation_id=simulation_id,
             status=ApplicationStatus.DRAFT.value,
             region=seed.region.value if seed else None,
             is_first_home=seed.is_first_home if seed else None,
-            property_type=seed.property_type.value if seed else None,
+            property_type=None,
             purchase_price=seed.purchase_price if seed else None,
         )
         session.add(row)

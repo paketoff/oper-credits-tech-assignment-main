@@ -398,6 +398,17 @@ The route handler stays one line. Every layer below it is testable without HTTP.
   `models` is not used as a filename: it is the word SQLAlchemy uses for its own classes, so it
   cannot distinguish the three.
 
+- **ARC-048** — **`PropertySeed` is a distinct type from `PropertyDetails`, not an optional field on
+  it.** `applications/entities.py`. A simulation prefills region, first-home status and price but
+  never existing-vs-new-build, which it never asks. Rather than making
+  `PropertyDetails.property_type` optional — which would force every consumer of the checklist-ready
+  type to null-check a field the domain treats as always present — `Application` carries both:
+  `property_seed: PropertySeed | None` (set as soon as a simulation seeds the draft) and
+  `property_details: PropertyDetails | None` (set only once `property_type` is also known, and the
+  only one `ApplicationProfile`/the checklist ever sees). `8-api.md` API-071 is the wire-visible half
+  — added at T21, once `POST /api/applications` existed and had to decide what a partially known
+  property section renders as.
+
 - **ARC-046** — **`entities.py` holds frozen dataclasses; `schemas.py` holds pydantic models.** The
   tool is part of the distinction, not an accident of who wrote the file first.
 
@@ -480,6 +491,7 @@ Source: `04-architecture.md`, superseded by this document.
 | ARC-045 | `core/errors.py` is on the pure-module whitelist | added at T06 — CQ-054 and VAL-004 required what ARC-013 forbade | §4 |
 | ARC-046 | `entities.py` is dataclasses, `schemas.py` is pydantic | added — the spec never said, so it had to be inferred | §11 |
 | ARC-047 | `applications.service` → `simulation.service.get()` | added at T17 — API-032 needed an edge nobody had declared | §5 |
+| ARC-048 | `PropertySeed` is a distinct type, not an optional field on `PropertyDetails` | added at T21 | §11 |
 
 ## Superseded `CQ-` rules
 

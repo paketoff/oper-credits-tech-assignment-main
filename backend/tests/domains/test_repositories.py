@@ -18,8 +18,6 @@ from app.core.enums import DocumentType, Region
 from app.domains.applications.entities import (
     Borrower,
     EmploymentType,
-    PropertyDetails,
-    PropertyType,
 )
 from app.domains.applications.repository import SqlApplicationRepository
 from app.domains.auth.repository import SqlUserRepository
@@ -173,21 +171,28 @@ async def test_replacing_borrowers_is_wholesale(session):
 
 
 async def test_a_draft_can_be_seeded_from_a_simulation(session):
-    # API-032, ARC-047: the property section arrives already filled, which is
-    # what stops the borrower being asked twice (UX-002).
+    # API-032, ARC-047: region, first-home status and price arrive already
+    # filled — what stops the borrower being asked twice (UX-002). property_type
+    # is deliberately absent: a simulation never asks existing-vs-new-build, so
+    # the section stays incomplete (property_details is None) until the
+    # borrower answers that in the wizard.
+    from app.domains.applications.entities import PropertySeed
+
     users = SqlUserRepository()
     applications = SqlApplicationRepository()
     user = await users.create(session, "seeded@example.com", "hash")
-    seed = PropertyDetails(
+    seed = PropertySeed(
         region=Region.FLANDERS,
         is_first_home=True,
-        property_type=PropertyType.EXISTING,
         purchase_price=Decimal("300000.00"),
     )
 
     application = await applications.create(session, user.id, seed, None)
 
-    assert application.property_details == seed
+    # property_details stays None (property_type is unknown), but property_seed
+    # carries what a simulation actually can prefill (UX-027).
+    assert application.property_details is None
+    assert application.property_seed == seed
 
 
 async def test_documents_round_trip_and_list_by_application(session):

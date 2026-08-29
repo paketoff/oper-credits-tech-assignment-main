@@ -24,7 +24,7 @@ from app.core.storage import LocalStorage
 # Imported for their side effect: a table is only in Base.metadata once its
 # module has been imported, and create_all builds what the metadata knows.
 # main.py is the only file allowed to know every domain (ARC-014).
-from app.domains.applications import tables as _applications_tables  # noqa: F401
+from app.domains.applications.router import router as applications_router
 from app.domains.auth import tables as _auth_tables  # noqa: F401
 from app.domains.auth.router import router as auth_router
 from app.domains.documents import tables as _documents_tables  # noqa: F401
@@ -60,6 +60,7 @@ exception_handlers.register(app)
 # are not, and that is the whole of API-069's carve-out.
 app.include_router(simulation_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
+app.include_router(applications_router, prefix="/api")
 app.add_middleware(BodySizeLimitMiddleware)
 app.middleware("http")(app_logging.request_id_middleware)
 telemetry.configure(app)

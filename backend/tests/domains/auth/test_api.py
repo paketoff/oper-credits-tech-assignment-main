@@ -9,15 +9,9 @@ import time
 import pytest
 
 from app.core.config import get_settings
-from app.domains.auth.dependencies import SESSION_COOKIE, _auth_limiter
+from app.domains.auth.dependencies import SESSION_COOKIE
 
 _CREDENTIALS = {"email": "jan@example.com", "password": "hunter2hunter2"}
-
-
-@pytest.fixture(autouse=True)
-def _no_throttle():
-    # The limiter is process-wide and would otherwise leak between tests.
-    _auth_limiter._attempts.clear()
 
 
 async def test_signup_sets_httponly_samesite_cookie(client, engine):

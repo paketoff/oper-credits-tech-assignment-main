@@ -31,6 +31,22 @@ from app.core.database import Base, _engine, _session_factory, create_all  # noq
 from app.main import app as fastapi_app  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Clear the per-IP auth limiter between tests.
+
+    It is process-wide and in-memory by design (AUTH-041), which means it also
+    persists across tests in the same file unless something clears it: several
+    tests signing up from the same client would otherwise share one budget of
+    ten attempts and start failing with 429 partway through the suite.
+    """
+    from app.domains.auth.dependencies import _auth_limiter
+
+    _auth_limiter._attempts.clear()
+    yield
+    _auth_limiter._attempts.clear()
+
+
 @pytest.fixture(scope="session")
 def settings():
     """The settings the whole test session runs against."""
