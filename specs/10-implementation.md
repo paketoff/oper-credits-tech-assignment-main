@@ -128,8 +128,10 @@ container build fails, so a P0 ticket would have depended on a P3 one. The proje
 ```
 Owner  D
 Deps   T01
-Files  app/main.py, requirements.txt, requirements-dev.txt, pyproject.toml
-Output GET /health returning {"status":"ok"};
+Files  app/main.py, app/core/health.py, app/core/dependencies.py,
+       requirements.txt, requirements-dev.txt, pyproject.toml
+Output GET /health returning {"status":"ok"}, delegating to a HealthService so
+       the controller rule holds from the first endpoint (CQ-017, DEP-015);
        both manifests from 5-deployment.md DEP-052;
        pyproject.toml carrying the CQ-076 ruff rule set and the CQ-077 mypy settings
 Tests  test_health_returns_ok
@@ -210,9 +212,11 @@ A and D run in parallel. No shared files. C can also start T26 now.
 Owner  A
 Deps   T01
 Files  app/domains/simulation/calculator.py
+       app/core/enums.py
        tests/domains/simulation/test_calculator.py
 
 Output monthly_rate(annual_rate: Decimal) -> Decimal
+       Region and DocumentType, written once here (ARC-044)
 
 Tests  test_monthly_rate_uses_actuarial_conversion
        test_monthly_rate_roundtrips_to_annual
@@ -380,13 +384,16 @@ Done   pytest tests/core/test_database.py -q → 3 passed; app.db appears under 
 ```
 → `ARC-039`, `CQ-080` – `CQ-084`.
 
-### T14 | Errors and handlers
+### T14 | Errors, handlers and request guards
 ```
 Owner  D
 Deps   T02
-Files  app/core/errors.py, app/core/exception_handlers.py
+Files  app/core/errors.py, app/core/exception_handlers.py,
+       app/core/rate_limit.py, app/core/limits.py
 Output DomainError hierarchy; every code from the registry, 7-validation.md §2 (VAL-004);
-       handlers rendering {"code","message","field"}
+       handlers rendering {"code","message","field"};
+       the two request-level guards that raise registry codes —
+       TOO_MANY_ATTEMPTS (AUTH-040) and DOCUMENT_TOO_LARGE (VAL-024)
 Tests  test_domain_error_renders_expected_shape
        test_pydantic_error_normalised_to_same_shape
        test_every_declared_code_maps_to_a_status
@@ -924,3 +931,8 @@ or checks that a spec required and no ticket produced.
 | The Angular scaffold had no owning ticket, and T03's build needs it | folded into T01 |
 | `make lint` did not run the checks `UI-027` and `UI-064` claim it runs | added to `DEP-038`; T26 points at them |
 | The UI-064 hex grep would have failed against the preset `UI-039` mandates | `UI-030` now names both token surfaces; the check excludes `theme/` |
+| Five `core/` modules had no owning ticket | `health.py` and `dependencies.py` → **T02**, which is what creates `/health`; `enums.py` → **T06**, the first unit-A ticket and the only one that can write it before anything reads it; `rate_limit.py` and `limits.py` → **T14**, now *Errors, handlers and request guards* — both are request-level guards whose only output is a registry code |
+
+`ARC-028` gave unit D all of `core/*`, but four tickets between them named only six of the thirteen
+modules. Ownership at the unit level is not ownership at the file level, and `T-P2` needs the
+second.
