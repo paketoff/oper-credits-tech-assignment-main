@@ -120,6 +120,12 @@ desktop.ini
 # ---------- Claude Code ----------
 .claude/settings.local.json
 
+# Local quality hooks: personal convenience, not part of the deliverable.
+# settings.json goes with them -- committed on its own it would point at
+# scripts that do not exist on a fresh clone. The enforced gate is CI.
+.claude/settings.json
+.claude/hooks/
+
 # ---------- Logs / temp ----------
 *.log
 logs/

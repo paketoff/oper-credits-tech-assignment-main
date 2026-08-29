@@ -9,9 +9,12 @@ to a spec.
 | File | Purpose |
 |---|---|
 | `0-business-logic.md` | Scope, domain model and simulation engine — the whole business domain |
+| `1-code-quality.md` | Structure, layering, typing, error handling, style — no business rules |
 
 Specs are numbered in reading order. `0-business-logic.md` is the root spec; later
-specs (architecture, API, infrastructure) build on it and do not restate it.
+specs build on it and do not restate it.
+
+**Precedence: where a spec and `0-business-logic.md` disagree, the business spec wins.**
 
 ## Conventions
 
@@ -38,7 +41,22 @@ specs (architecture, API, infrastructure) build on it and do not restate it.
 | `SIM-` | Calculation rules, formulas and constants |
 | `ERR-` | Error codes and HTTP mapping |
 | `AC-` | Acceptance criteria — each maps to a test |
+| `CQ-` | Code quality — structure, layering, typing, style (`1-code-quality.md`) |
 
 IDs attach to verifiable statements only: an invariant, a formula, a constant, a
 transition, an error code. Narrative framing stays unlabelled prose. IDs are stable
 once published — supersede, never renumber.
+
+## Enforcement
+
+A spec no agent reads is decoration. The rules reach the code through four layers:
+
+| Layer | Fires |
+|---|---|
+| `CLAUDE.md` | always — loaded into context every session |
+| `specs/*.md` | when read |
+| `.claude/skills/code-quality`, `.claude/commands/implement.md`, `.claude/agents/code-quality-reviewer.md` | on implementation and review work |
+| `pre-commit` and CI | deterministically, on every change — the binding gate |
+
+`1-code-quality.md` Appendix B records which rules a machine proves and which only review
+catches.
