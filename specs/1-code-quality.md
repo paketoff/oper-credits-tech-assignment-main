@@ -110,6 +110,7 @@ async def create_simulation(
 | Authorisation | dependency |
 | Business rules, orchestration | service |
 | Domain error → HTTP status | global exception handler in `core/exception_handlers.py` |
+| Liveness and readiness probes | `core/health.py`, called from the handler like any service |
 
 This rule is not stylistic. It is what makes the service layer testable without a HTTP client, and it
 is the first thing to check in review.
@@ -514,10 +515,11 @@ resolves.
 
 ### 11.6 Known limitation
 
-**CQ-069. To be stated in the README:** the container filesystem is ephemeral, so unless `DATA_DIR`
-is a mounted volume neither `app.db` nor the uploaded blobs survive a restart. That is acceptable for
-a demo with fake test data. The caveat outlived the JSON store because both artefacts still live on
-the filesystem — only its subject changed.
+**CQ-069.** The container filesystem is ephemeral, so unless `DATA_DIR` is a mounted volume neither
+`app.db` nor the uploaded blobs survive a restart. **This is closed, not accepted:**
+[`5-deployment.md`](5-deployment.md) DEP-003 mounts a 1 GB volume at `/data`, and DEP-004 requires the
+WAL and SHM files to sit on it beside the database. The README states the arrangement; DEP-045 tests
+it by restarting the app and logging back in.
 
 ## 12. Tests
 

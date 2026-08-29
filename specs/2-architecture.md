@@ -27,7 +27,27 @@ means a feature is a folder, its boundary is visible, and it can be deleted in o
 
 ## 2. Backend
 
-**ARC-002.** The canonical tree:
+**ARC-002.** The repository root:
+
+```
+backend/          FastAPI service, the tree below
+frontend/         Angular SPA
+infra/            Dockerfile, compose, fly.toml, .dockerignore
+observability/    collector and Grafana configuration
+specs/            the specifications
+.claude/          agent configuration
+Makefile          make dev is the single command
+.env.example      every required variable, no values
+CLAUDE.md
+README.md
+```
+
+**ARC-041.** `infra/` and `observability/` hold **configuration only**. Instrumentation —
+`core/telemetry.py` and `core/logging.py` — is application code and stays in `app/`. Splitting the
+code away from the app would be worse, not tidier. What goes inside each infra file is
+[`5-deployment.md`](5-deployment.md) §2 – §8; this spec owns only where they sit.
+
+The backend tree, rooted at `backend/`:
 
 ```
 app/
@@ -68,6 +88,7 @@ app/
   core/
     config.py              # pydantic-settings
     database.py            # engine, session factory, get_session, pragmas
+    health.py              # liveness and readiness probes, behind a service
     errors.py              # domain exception base + stable codes
     exception_handlers.py  # domain error -> HTTP, registered once
     logging.py             # structured logging
@@ -255,7 +276,7 @@ drift.
 | A — domain core | `domains/simulation/{calculator,entities}.py`, `domains/applications/{state_machine,checklist,entities}.py`, their tests | nothing |
 | B — API surface | all `router.py`, `service.py`, `schemas.py`, `tables.py`, `repository.py` | A's entities and function signatures, D's `core/database.py` |
 | C — frontend | everything under `src/app/` | B's wire contract |
-| D — platform | `core/*` — **including `core/database.py` and `core/storage.py`** — `main.py`, `Dockerfile`, `fly.toml`, CI | nothing |
+| D — platform | `core/*` — **including `core/database.py`, `core/storage.py` and `core/health.py`** — `main.py`, `infra/*`, `observability/*`, `Makefile`, `.env.example`, CI | nothing |
 
 **ARC-029.** A and D can start immediately and in parallel. B starts once A's signatures exist and
 D's `get_session` dependency exists. C starts once B's schemas exist — the contract, not the
@@ -359,6 +380,7 @@ Source: `04-architecture.md`, superseded by this document.
 | ARC-038 | `tables.py` owns the SQLAlchemy table definitions | added for the SQLite switch | §3 |
 | ARC-039 | `core/database.py` owns the connection and nothing else | added for the SQLite switch | §4 |
 | ARC-040 | `tables` / `entities` / `schemas` naming | added for the SQLite switch | §11 |
+| ARC-041 | Repo-root layout; `infra/` and `observability/` are config only | added for `5-deployment.md` | §2 |
 
 ## Superseded `CQ-` rules
 
