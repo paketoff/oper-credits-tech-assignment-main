@@ -184,6 +184,8 @@ src/app/
         login-page.component.ts
 
   core/
+    theme/
+      oper-preset.ts              # the entire PrimeNG visual language
     api.client.ts                 # base HTTP wrapper
     error.interceptor.ts          # maps backend error codes to messages
     auth.interceptor.ts
@@ -196,7 +198,14 @@ src/app/
 
   app.routes.ts
   app.config.ts
+
+src/styles.css                    # Tailwind v4 @theme; the only @apply site
 ```
+
+**ARC-037.** `core/theme/oper-preset.ts` is the only place PrimeNG component appearance is defined,
+and `src/styles.css` is the only place the design tokens live. Component styles are never overridden
+with a CSS class and no `*.component.css` carries content — if something looks wrong, the token is
+wrong. The design reasoning is `3-ui.md` §6.2; this is the structural half of it.
 
 ## 7. Frontend rules
 
@@ -313,6 +322,7 @@ Source: `04-architecture.md`, superseded by this document.
 | ARC-034 | Angular files are `<name>.<role>.ts` | Naming | §11 |
 | ARC-035 | Test files mirror the module under test | Naming | §11 |
 | ARC-036 | Hexagonal considered and rejected | Why not hexagonal | §12 |
+| ARC-037 | The preset and `styles.css` are the only styling surfaces | added for `3-ui.md` §6.2 | §6 |
 
 ## Superseded `CQ-` rules
 

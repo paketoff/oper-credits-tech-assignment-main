@@ -33,5 +33,7 @@ specs/           Specifications — source of truth
 The domain — scope, entities, lifecycle and the calculation engine — is specified in
 [`specs/0-business-logic.md`](specs/0-business-logic.md); how the code is written is specified in
 [`specs/1-code-quality.md`](specs/1-code-quality.md), and where it lives in
-[`specs/2-architecture.md`](specs/2-architecture.md). The business spec wins over both. Spec conventions and ID namespaces live in [`specs/README.md`](specs/README.md), and
+[`specs/2-architecture.md`](specs/2-architecture.md). The frontend is split between
+[`specs/3-ui.md`](specs/3-ui.md) (what it looks like) and [`specs/4-ux.md`](specs/4-ux.md) (how it
+behaves). The business spec wins over all of them. Spec conventions and ID namespaces live in [`specs/README.md`](specs/README.md), and
 [`CLAUDE.md`](CLAUDE.md) carries the hard rules that agents load every session.

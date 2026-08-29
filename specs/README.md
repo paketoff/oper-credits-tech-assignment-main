@@ -11,9 +11,23 @@ to a spec.
 | `0-business-logic.md` | Scope, domain model and simulation engine — the whole business domain |
 | `1-code-quality.md` | Typing, error handling, style — how code is written |
 | `2-architecture.md` | Folder tree, import boundaries, layering, naming — where code lives |
+| `3-ui.md` | Colour, type, Tailwind, PrimeNG, components — what the frontend looks like |
+| `4-ux.md` | Flows, states, timing, empty and error behaviour — how it behaves |
 
 Specs are numbered in reading order. `0-business-logic.md` is the root spec; later
-specs build on it and do not restate it.
+specs build on it and do not restate it. Numbering is reserved ahead of writing so the
+sequence never has to be renumbered:
+
+```
+0-business-logic.md   written
+1-code-quality.md     written
+2-architecture.md     written
+3-ui.md               written
+4-ux.md               written
+5-deployment.md       reserved
+6-auth.md             reserved
+7-validation.md       reserved — referenced by 4-ux.md §4
+```
 
 **Precedence: where a spec and `0-business-logic.md` disagree, the business spec wins.** Between
 the other two, `2-architecture.md` is canonical for structure and import boundaries;
@@ -46,6 +60,8 @@ the other two, `2-architecture.md` is canonical for structure and import boundar
 | `AC-` | Acceptance criteria — each maps to a test |
 | `CQ-` | Code quality — typing, error handling, style (`1-code-quality.md`) |
 | `ARC-` | Architecture — structure, imports, layering, naming (`2-architecture.md`) |
+| `UI-` | Visual system — tokens, type, styling rules, components (`3-ui.md`) |
+| `UX-` | Behaviour — flows, timing, states (`4-ux.md`) |
 
 IDs attach to verifiable statements only: an invariant, a formula, a constant, a
 transition, an error code. Narrative framing stays unlabelled prose. IDs are stable

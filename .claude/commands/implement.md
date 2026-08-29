@@ -15,6 +15,9 @@ Follow this order. Do not skip step 1 — it is what keeps the specs the source 
   `ARC-` ids that constrain it.
 - Read the sections of [`specs/1-code-quality.md`](../../specs/1-code-quality.md) that govern how you
   write it, and list the `CQ-` ids. At minimum §3 (the controller rule).
+- **Frontend tasks**: read [`specs/3-ui.md`](../../specs/3-ui.md) §5 for the styling rules and the
+  component recipe for what you are building, and [`specs/4-ux.md`](../../specs/4-ux.md) for the
+  behaviour of that screen. List the `UI-` and `UX-` ids.
 - State both lists before writing any code. If the two specs disagree, the business spec wins.
 - If the task is not covered by a spec, say so and ask whether to extend the spec first.
 

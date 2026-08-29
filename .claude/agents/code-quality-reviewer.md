@@ -46,6 +46,15 @@ Concentrate on the `review`-tagged rules — the ones nothing else catches:
    `components/` injecting a domain service. Business logic or a domain import in `shared/`. A
    domain importing another domain's components. An `NgModule`. A renaming layer between the wire
    format and the TypeScript model.
+10. **Frontend styling (UI-026 – UI-034, UI-063 – UI-065).** A non-empty `*.component.css`. `@apply`
+    outside `@layer base`. A hex literal outside `@theme`. An arbitrary colour, spacing or radius
+    value (`bg-[#…]`, `p-[13px]`). `[ngStyle]` or a `style="…"` attribute. A PrimeNG component used
+    where a plain element would do, or its appearance overridden with a class instead of the preset
+    (ARC-037).
+11. **Frontend behaviour (UX-009, UX-013, UX-023, UX-024).** A blank simulator on first paint or a
+    calculate button. A result that disappears while a new one loads. Error text hardcoded in a
+    template instead of derived from a backend error code, or shown as a toast rather than beside
+    its field.
 9. **Persistence (CQ-064 – CQ-068).** A non-atomic write. A repository returning raw dicts. Storage
    format known outside `repository.py`.
 10. **Tests (CQ-070 – CQ-075).** Pure domain logic without tests. A mocked calculator. Naming that
@@ -53,7 +62,8 @@ Concentrate on the `review`-tagged rules — the ones nothing else catches:
 
 The list above is renumbered where items were inserted; the ids are what matter, not the ordinals.
 
-Also check the business spec, `specs/0-business-logic.md` — no other spec overrides it.
+Also check the business spec, `specs/0-business-logic.md` — no other spec overrides it. For
+frontend work, `specs/3-ui.md` owns values and `specs/4-ux.md` owns behaviour.
 
 ## Method
 

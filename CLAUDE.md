@@ -18,6 +18,9 @@ follows.
   written. IDs: `CQ-`.
 - [`specs/2-architecture.md`](specs/2-architecture.md) — where code lives and what may import what:
   the folder tree, import boundaries, layering, naming. IDs: `ARC-`.
+- [`specs/3-ui.md`](specs/3-ui.md) — what the frontend looks like: tokens, type, Tailwind and PrimeNG
+  rules, components. IDs: `UI-`.
+- [`specs/4-ux.md`](specs/4-ux.md) — how it behaves: flows, timing, states. IDs: `UX-`.
 
 **The business spec wins over both.** For structure and imports, `2-architecture.md` is canonical
 and `1-code-quality.md` points at it.
@@ -60,6 +63,24 @@ Violating one of these is a defect, not a style disagreement. Full text and reas
 - A component never calls HTTP — it calls its domain service. Pages hold state; components under
   `components/` take `@Input` and emit `@Output` and inject nothing. `shared/` has no business logic
   and no domain imports. Standalone components, no `NgModule`. (ARC-021 – ARC-025)
+
+**Frontend styling** — these four are what gets violated first:
+- **Every `*.component.css` stays empty.** If one has content, the work is not done. (UI-027)
+- **No `@apply` outside `@layer base` in `src/styles.css`.** If a class list repeats, extract a
+  component, not a CSS class. (UI-028)
+- **No hex anywhere outside `@theme`.** Colours are tokens: `bg-accent`, not `bg-[#0B5D5B]`, not
+  `text-teal-700`. Spacing comes from the scale: `p-4`, never `p-[13px]`. (UI-030, UI-031, UI-064)
+- **No `[ngStyle]`, no `style="..."`.** Dynamic styling is `[class]` with whole utility strings.
+  (UI-029)
+- PrimeNG is used for exactly four components — stepper, fileupload, inputnumber, select. Everything
+  else is a plain element with utilities. Appearance is changed in the preset, never with a CSS
+  override. (UI-036, UI-037, ARC-037)
+
+**Frontend behaviour**
+- The simulator opens with a computed result from a prefilled form — never a blank form or a
+  calculate button — and the previous result stays on screen while a new one loads. (UX-009, UX-013)
+- Error text comes from backend error codes and appears beside its field, never as a toast, never
+  hardcoded in a template. (UX-023, UX-024)
 
 **Functions**
 - ≤30 lines soft, 50 hard, excluding the docstring. ≤4 positional parameters. Nesting ≤3, use early

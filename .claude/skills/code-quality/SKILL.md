@@ -6,9 +6,11 @@ description: Apply this project's code-quality rules (specs/1-code-quality.md, C
 # Code quality — how to apply the rules
 
 The rules live in [`specs/1-code-quality.md`](../../../specs/1-code-quality.md) (how code is
-written, `CQ-`) and [`specs/2-architecture.md`](../../../specs/2-architecture.md) (where it lives and
-what may import what, `ARC-`). This file is the procedure, not a second copy of them — referencing by
-id keeps one source of truth.
+written, `CQ-`), [`specs/2-architecture.md`](../../../specs/2-architecture.md) (where it lives and
+what may import what, `ARC-`), and for frontend work
+[`specs/3-ui.md`](../../../specs/3-ui.md) (`UI-`) and [`specs/4-ux.md`](../../../specs/4-ux.md)
+(`UX-`). This file is the procedure, not a second copy of them — referencing by id keeps one source
+of truth.
 
 ## Before writing code
 
@@ -18,6 +20,8 @@ id keeps one source of truth.
    direction and the two legal cross-domain edges. Those decide *where* code goes and are expensive
    to fix afterwards. Then read the sections of `specs/1-code-quality.md` that govern how you write
    it.
+   **For any frontend work**, also read `specs/3-ui.md` §5 (the nine Tailwind rules) before writing a
+   single template, and the `4-ux.md` section covering the screen you are building.
 3. **Read the business spec** for any rule that overrides: `specs/0-business-logic.md`. It wins on
    every disagreement.
 4. **Name the requirement IDs** you are implementing, business (`SIM-`, `DOM-`, …) and code (`CQ-`).
@@ -104,6 +108,19 @@ will catch them.
 - [ ] Writes are atomic via `os.replace`; repositories return domain models, never dicts
       (CQ-065, CQ-067)
 - [ ] Pure domain logic was written test-first (CQ-070)
+
+Frontend only:
+
+- [ ] Every `*.component.css` is empty; no `@apply` outside `@layer base` (UI-027, UI-028)
+- [ ] No hex outside `@theme`, no arbitrary colour or spacing values, no `[ngStyle]` or `style="..."`
+      (UI-029 – UI-032)
+- [ ] Class order left to `prettier-plugin-tailwindcss`, not hand-ordered (UI-033)
+- [ ] PrimeNG only for the four declared components; appearance changed in the preset, never with a
+      CSS override (UI-036, UI-037, ARC-037)
+- [ ] Focus visible on every control; every input has a `<label for>`; colour never carries meaning
+      alone (UI-057 – UI-059)
+- [ ] The screen behaves as `4-ux.md` says: no blank first paint, no disappearing previous result,
+      errors beside their field (UX-009, UX-013, UX-024)
 
 For a diff you did not write, delegate to the `code-quality-reviewer` agent instead of walking this
 by hand.
