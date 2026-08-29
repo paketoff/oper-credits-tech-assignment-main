@@ -126,8 +126,8 @@ A resource owned by someone else returns **404, not 403** (`AUTH-035`, `ERR-005`
   "quotiteit": "0.9000",
   "above_supervisory_norm": false,
   "monthly_payment": "1414.52",
-  "total_paid": "424355.98",
-  "total_interest": "154355.98",
+  "total_paid": "424356.04",
+  "total_interest": "154356.04",
   "nominal_rate": "0.0400",
   "jkp": "0.0414",
   "upfront": {

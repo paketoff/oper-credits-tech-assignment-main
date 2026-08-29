@@ -239,9 +239,12 @@ so nobody "simplifies" this in six months.
 Owner  A
 Deps   T06
 Files  app/domains/simulation/calculator.py
+       app/domains/simulation/entities.py
        tests/domains/simulation/test_calculator.py
 
-Output annuity(principal, monthly_rate, term_months) -> Decimal
+Output annuity(principal, periodic_rate, term_months) -> Decimal
+       (named periodic_rate, not monthly_rate: the latter is the function
+       above it in the same module, and shadowing it reads as a bug)
        build_amortisation_schedule(principal, annual_rate, term_months) -> AmortisationSchedule
        AmortisationSchedule(monthly_payment, entries, total_interest, total_paid)
 
@@ -323,7 +326,7 @@ Tests  test_simulate_primary_case_full_output
 Done   pytest tests/domains/simulation/ -q → 27 passed
        pytest --cov=app/domains/simulation/calculator.py --cov-fail-under=100
 ```
-Primary case: `1414.52` / `424355.98` / `154355.98` / `43175.00`. Flipping `is_first_home` changes
+Primary case: `1414.52` / `424356.04` / `154356.04` / `43175.00`. Flipping `is_first_home` changes
 cash needed by exactly `30000.00`. → `AC-003`, `AC-005`, `DOM-016`, `VAL-009`.
 
 ### T11 | State machine
