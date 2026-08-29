@@ -1,14 +1,16 @@
 <div class="bg-accent flex h-full flex-col justify-between p-10">
   <div>
     <app-logo-mark tone="inverted" [size]="36" />
-    <p class="text-surface font-display text-h2 mt-8 max-w-[18rem] font-semibold tracking-tighter">
+    <p
+      class="text-surface-fixed font-display text-h2 mt-8 max-w-[18rem] font-semibold tracking-tighter"
+    >
       {{ tagline() }}
     </p>
   </div>
 
   <ul class="flex flex-col gap-4">
     @for (point of trustPoints; track point.text) {
-      <li class="text-surface/90 text-body-sm flex items-start gap-2">
+      <li class="text-surface-fixed/90 text-body-sm flex items-start gap-2">
         <span aria-hidden="true">✓</span>
         <span>{{ point.text }}</span>
       </li>

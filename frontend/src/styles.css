@@ -25,6 +25,17 @@
   --color-success: #1f6b4a;
   --color-success-soft: #e7f2ec;
 
+  /* UI-071: a handful of surfaces are pinned to these exact values in every
+     theme — the header band and its own text/logo, and the text sitting on
+     a signal/soft fill (UI-012) — because their meaning ("the fixed dark
+     surface", "the text that sits on it", "dark text on a pale fill") does
+     not invert the way the rest of the page does. Decoupled from
+     --color-ink/--color-surface specifically so those stay free to invert. */
+  --color-ink-fixed: #101413;
+  --color-surface-fixed: #ffffff;
+  --color-muted-fixed: #6b7472;
+  --color-danger-fixed: #a8331f;
+
   --radius-control: 6px;
   --radius-card: 8px;
   --radius-pill: 999px;
@@ -71,6 +82,42 @@
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+}
+
+/* UI-071: dark mode (UX-064), superseding UX-053/UI-001's "not doing" — the
+   legibility concern UI-001 raised was real, so this redefines only the
+   tokens whose *meaning* actually inverts (surfaces, text, the accent) and
+   leaves the semantic status colors (signal/danger/success and their -soft
+   fills) alone: a pale badge on a dark page is a well-worn, low-risk
+   pattern, and re-deriving every status colour's dark equivalent was not
+   worth the risk of getting one wrong. No new utilities needed — every
+   existing class already reads these as `var(--color-*)`, so redefining the
+   custom property here is enough for the whole app to repaint. Default is
+   light (`UI-001`); `.dark` is only ever applied by `ThemeService` (T48). */
+.dark {
+  --color-ink: #edefee;
+  --color-ink-soft: #c7ccc9;
+  --color-surface: #141817;
+  --color-surface-2: #1b201e;
+  --color-surface-3: #242b28;
+  --color-border: #313a36;
+  --color-border-strong: #414c47;
+  --color-muted: #97a29d;
+  /* A middle brightness, not the brightest legible teal: it has to read as
+     link text on the now-dark page *and* still hold up as a button's fill
+     under white label text — the two pull in opposite directions, and this
+     is the compromise, checked by eye rather than derived on paper. */
+  --color-accent: #3fa79e;
+  --color-accent-hover: #57bab1;
+  --color-accent-soft: #17302d;
+  /* Brightened for legibility as plain text directly on the (now dark) page
+     — form field errors, an upload failure. Where danger instead pairs with
+     its own fixed-pale -soft fill (an error banner), that fill's text uses
+     --color-danger-fixed above, unaffected by this. --color-success has no
+     standalone-on-page usage in this app, only its own -soft pairing, so it
+     is not overridden here at all — the light value already works on the
+     unchanging pale fill. */
+  --color-danger: #e0604a;
 }
 
 /* UI-061: prefers-reduced-motion disables all transitions. */

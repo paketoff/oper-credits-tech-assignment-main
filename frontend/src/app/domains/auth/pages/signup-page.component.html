@@ -10,7 +10,7 @@
 
       <form [formGroup]="form" (ngSubmit)="submit()" class="mt-6 flex flex-col gap-4">
         @if (formError(); as message) {
-          <p class="rounded-control bg-danger-soft text-body-sm text-danger px-3 py-2">
+          <p class="rounded-control bg-danger-soft text-body-sm text-danger-fixed px-3 py-2">
             {{ message }}
           </p>
         }

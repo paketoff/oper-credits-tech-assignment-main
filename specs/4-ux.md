@@ -239,8 +239,17 @@ Cut deliberately, and worth being able to say why:
 | UX-050 | Toasts for every action | Toasts only for actions with no other visible result. Everything else confirms itself by changing on screen. |
 | UX-051 | Confirmation modals | Only for destructive and irreversible actions. Deleting a document is reversible: re-upload it. |
 | UX-052 | Entrance animations, scroll reveals, skeleton shimmer | Motion budget in `3-ui.md` UI-022. In a financial interface these read as lag. |
-| UX-053 | Dark mode toggle | One theme, done well. |
 | UX-054 | Autosave on the simulator | It is anonymous and free to re-run. Persisting it adds state for no gain. |
+
+**UX-053 (superseded, T48).** Was "Not doing: dark mode toggle — one theme, done well." The
+legibility concern behind that decision (`3-ui.md` UI-001: numbers read carefully, on a phone, in
+daylight) was real and does not go away — it is mitigated, not overridden: light stays the default,
+the borrower opts in, and the dark palette (`3-ui.md` UI-071) is a deliberate re-derivation, not the
+light one inverted.
+
+**UX-064.** A toggle in the header (visible on every screen, including the auth top bar — a theme
+preference is not an account control). The choice persists across visits (`localStorage`) and, on a
+first visit with nothing stored yet, follows the OS's own `prefers-color-scheme`.
 
 ## 10. Definition of done
 
@@ -313,7 +322,7 @@ Source: `06-ux.md`, superseded by this document.
 | UX-050 | Not doing: toasts for every action | 8 Not doing | §9 |
 | UX-051 | Not doing: confirmation modals | 8 Not doing | §9 |
 | UX-052 | Not doing: entrance animations, reveals, shimmer | 8 Not doing | §9 |
-| UX-053 | Not doing: dark mode toggle | 8 Not doing | §9 |
+| UX-053 | Superseded (T48): dark mode toggle, not "not doing" | 8 Not doing | §9 |
 | UX-054 | Not doing: autosave on the simulator | 8 Not doing | §9 |
 | UX-055 | Done: computed result on first paint | 9 Definition of done | §10 |
 | UX-056 | Done: input change never blanks the previous result | 9 Definition of done | §10 |
@@ -322,6 +331,7 @@ Source: `06-ux.md`, superseded by this document.
 | UX-059 | Done: a mid-wizard refresh loses nothing after step 1 | 9 Definition of done | §10 |
 | UX-060 | Done: every checklist row uploads and explains itself | 9 Definition of done | §10 |
 | UX-061 | Done: the flow completes at 375px | 9 Definition of done | §10 |
+| UX-064 | Dark mode toggle: persisted, defaults to `prefers-color-scheme` | 8 Not doing | §9 |
 
 # Appendix B — What this spec implements
 

@@ -13,6 +13,19 @@
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Figtree:wght@500;600&family=Fragment+Mono&display=swap"
       rel="stylesheet"
     />
+    <!-- UX-064: applied before Angular loads, so there is no flash of the
+         wrong theme while the bundle boots. ThemeService (core/theme) reads
+         and writes the same key; kept in sync deliberately, not shared code,
+         since this one has to run with zero dependencies. -->
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme-preference');
+        var dark = stored ? stored === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+        if (dark) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
   </head>
   <body>
     <app-root></app-root>

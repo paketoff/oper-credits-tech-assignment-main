@@ -8,6 +8,11 @@ type LogoTone = 'accent' | 'inverted';
  * (UI-007) — `tone` swaps which of the two elements reads light versus dark,
  * because a plain `currentColor` inherit would make the keyhole invisible
  * against the header's dark band (`UI-055`) once the house itself turns white.
+ *
+ * `inverted` uses the theme-invariant `-fixed` tokens (`UI-071`): every place
+ * it's used — the header, the always-accent-coloured auth branding panel —
+ * is a fixed-colour surface that does not invert with the theme, so the mark
+ * on it shouldn't either.
  */
 @Component({
   selector: 'app-logo-mark',
@@ -37,9 +42,9 @@ export class LogoMarkComponent {
   readonly tone = input<LogoTone>('accent');
 
   protected readonly houseClass = computed(() =>
-    this.tone() === 'inverted' ? 'text-surface' : 'text-accent',
+    this.tone() === 'inverted' ? 'text-surface-fixed' : 'text-accent',
   );
   protected readonly keyholeClass = computed(() =>
-    this.tone() === 'inverted' ? 'text-ink' : 'text-surface',
+    this.tone() === 'inverted' ? 'text-ink-fixed' : 'text-surface',
   );
 }

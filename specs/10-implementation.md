@@ -789,7 +789,7 @@ Done   `ng test` passes; contrast re-checked against UI-060 for the dark
 Supersedes `UX-053`'s "not doing" and reasons against `UI-001`'s conclusion without discarding its
 legibility concern — the dark palette is contrast-checked, not a naive invert, and light stays the
 default.
-→ `UX-064`, `UI-071`.
+→ `UX-064`, `UI-071`, `UI-072`.
 
 ### T49 | Quotiteit above the norm — clearer, still not an error
 ```

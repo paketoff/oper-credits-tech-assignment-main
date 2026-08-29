@@ -28,12 +28,13 @@ export const appConfig: ApplicationConfig = {
       return firstValueFrom(authService.resolveSession());
     }),
     // UI-038: layer order matters, or PrimeNG's styles beat Tailwind's
-    // utilities.
+    // utilities. darkModeSelector matches ThemeService's `.dark` class
+    // (UX-064) — PrimeNG's own Aura preset now responds to the same toggle.
     providePrimeNG({
       theme: {
         preset: OperPreset,
         options: {
-          darkModeSelector: false,
+          darkModeSelector: '.dark',
           cssLayer: { name: 'primeng', order: 'theme, base, primeng, components, utilities' },
         },
       },

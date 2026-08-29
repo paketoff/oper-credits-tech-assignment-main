@@ -25,9 +25,12 @@ interface.
 
 We take the system and invert the surface.
 
-**UI-001. Why not the dark theme.** That site is a B2B marketing page. This is a consumer financial
-interface: twelve form fields, a document checklist, and numbers that have to be read carefully, on a
-phone, in daylight. Dark surfaces cost legibility here and buy nothing. Oper's own product is light.
+**UI-001. Why not the dark theme, by default.** That site is a B2B marketing page. This is a
+consumer financial interface: twelve form fields, a document checklist, and numbers that have to be
+read carefully, on a phone, in daylight. Dark surfaces cost legibility here and buy nothing on their
+own — light stays the default a borrower opens to. `UI-071` (T48) adds it as an explicit,
+opt-in toggle rather than dropping this concern: the dark palette is a re-derivation, checked against
+the same contrast floor (`UI-060`), not the light one inverted and hoped for.
 
 **UI-002. The layout decision:** light application surface, one near-black header band. The dark band
 gives the page an anchor and a nod to the reference without adopting its identity.
@@ -82,11 +85,65 @@ gives the page an anchor and a nod to the reference without adopting its identit
 **Contrast rules, non-negotiable:**
 
 - **UI-012** — `--color-signal` is a **fill only**. Never text on white: it measures roughly 2.6:1
-  and fails WCAG AA outright. On a signal fill, text is `--color-ink`. This mirrors how the reference
-  uses its yellow — always a background with dark text, never a text colour.
+  and fails WCAG AA outright. On a signal fill, text is `--color-ink-fixed` (`UI-071`) — fixed, not
+  `--color-ink`, because the fill itself stays pale in every theme (`UI-071`) while plain `ink` is
+  free to invert with it. This mirrors how the reference uses its yellow — always a background with
+  dark text, never a text colour.
 - **UI-013** — `--color-accent` on white is roughly 7:1 and is safe for text.
 - **UI-014** — `--color-muted` on white is roughly 4.9:1 and is safe for body text but not for
   anything below 12px.
+
+### 2.1 Dark mode (T48)
+
+**UI-071.** Supersedes `UX-053`'s "not doing" and reasons alongside `UI-001` rather than against it:
+the legibility concern stands, so the dark palette is a deliberate re-derivation checked against
+`UI-060`'s floor, not the light palette inverted and hoped for. Applied by adding a `.dark` class to
+`<html>` (`ThemeService`) — every existing utility already reads its colour as `var(--color-*)`, so
+redefining the custom property is enough for the whole app to repaint; no `dark:`-prefixed utility
+classes exist anywhere in this codebase.
+
+```
+.dark {
+  --color-ink            #EDEFEE
+  --color-ink-soft       #C7CCC9
+  --color-surface        #141817
+  --color-surface-2      #1B201E
+  --color-surface-3      #242B28
+  --color-border         #313A36
+  --color-border-strong  #414C47
+  --color-muted          #97A29D
+  --color-accent         #3FA79E   a compromise value (§2.2) — deliberately not the boldest legible
+  --color-accent-hover   #57BAB1   teal, since it also has to sit under white button text
+  --color-accent-soft    #17302D
+  --color-danger         #E0604A  brightened for legibility as plain text on the dark page
+}
+```
+
+`--color-signal`, `--color-signal-soft`, `--color-danger-soft`, `--color-success`,
+`--color-success-soft` are **not** overridden — they stay their light-mode values in both themes. A
+pale badge on a dark page is a well-worn, low-risk pattern, and re-deriving every status colour's
+dark equivalent was not worth the risk of getting one wrong for this pass.
+
+### 2.2 The `-fixed` tokens
+
+**UI-072.** Four tokens are pinned to one value in every theme, because what they name does not
+invert the way body text and page surfaces do:
+
+```
+--color-ink-fixed      #101413   text on a signal/soft fill (UI-012); the header's own text
+--color-surface-fixed  #FFFFFF   the header's own text; text on the accent branding panel
+--color-muted-fixed    #6B7472   secondary text on a signal/soft fill
+--color-danger-fixed   #A8331F   text on its own danger-soft fill (an error banner)
+```
+
+The header (`UI-055`) and the auth branding panel (`UI-054`) are themselves fixed-colour surfaces —
+`bg-ink-fixed` and `bg-accent` respectively (accent is deliberately a middling brightness in dark
+mode specifically so white text stays legible on it in both themes, §2.1) — so the mark and text
+sitting on them use the fixed tokens too, not the invertible `ink`/`surface` pair. `--color-accent`
+and `--color-success` did not need a `-fixed` counterpart: nothing in this codebase uses them as
+plain text on the page **and** paired with their own soft fill in a way that pulls in both directions
+at once — accent's button/link split is solved by the compromise value above; success's only use
+(`upload-field.component.html`'s "Uploaded" badge) never leaves its own soft fill.
 
 ## 3. Typography
 
@@ -387,8 +444,10 @@ benefits grid, and a closing CTA banner. No full-bleed breakout: everything sits
 `max-w-[72rem]` cap as every other screen (`UI-056`). The simulator itself is unchanged — still
 public, still computed-and-prefilled on load (`UX-009`) — it simply is not the first screen reached.
 
-**UI-055.** Header: near-black band, `bg-ink`, 56px tall, product name and a `Calculator` nav link on
-the left, account state on the right. It is the only dark surface in the application.
+**UI-055.** Header: near-black band, `bg-ink-fixed`, 56px tall, product name and a `Calculator` nav
+link on the left, the theme toggle and account state on the right. It is the one surface whose colour
+never changes with the theme (`UI-071`) — in light mode it is the only dark surface in the
+application; in dark mode the rest of the page joins it.
 
 **UI-056.** Page width caps at `max-w-[72rem]` with `px-4 md:px-8`.
 
@@ -434,6 +493,8 @@ Source: `05-ui.md`, superseded by this document.
 | UI-012 | `--color-signal` is a fill only, never text | 1 Colour | §2 |
 | UI-013 | `--color-accent` on white is safe for text | 1 Colour | §2 |
 | UI-014 | `--color-muted` is safe for body text, not below 12px | 1 Colour | §2 |
+| UI-071 | Dark mode: re-derived palette, applied via `.dark` | 2 Dark mode | §2.1 |
+| UI-072 | The four theme-invariant `-fixed` tokens | 2 The `-fixed` tokens | §2.2 |
 | UI-015 | Two families: Plus Jakarta Sans and Figtree | 2 Typography | §3 |
 | UI-016 | The type scale | 2 Typography | §3.1 |
 | UI-017 | Tabular figures on every money element | 2 Typography | §3.1 |
