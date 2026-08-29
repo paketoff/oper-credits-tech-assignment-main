@@ -415,7 +415,14 @@ demonstrable in under twenty minutes.
   `X-Request-ID` response header, so a reported problem can be traced to its request.
 - **DEP-031. Redaction is by default, not by exception.** A denylist covers `password`, `token`,
   `secret`, `api_key`, `authorization`, `email`, `full_name`, `filename`, and any key containing
-  `amount`, `income` or `value`. Anything not explicitly allowed is not logged.
+  `amount`, `income` or `value`. A redacted key keeps its name and loses its value, so a log line
+  still shows that a field was present.
+
+  This rule used to end "Anything not explicitly allowed is not logged", which is an **allowlist** —
+  the opposite policy to the sentence before it, and one no part of these specs enumerates. Only the
+  denylist is implementable as written, so the denylist is the rule. The stricter reading is worth
+  revisiting if this ever carries real borrower data; at that point the allowlist has to be written
+  out, not gestured at. Corrected at T15.
 
 ### 7.2 Tracing
 

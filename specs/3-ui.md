@@ -509,4 +509,10 @@ the first three arrive with the frontend toolchain at `10-implementation.md` T26
 | A `make lint` step asserting every `*.component.css` is empty | UI-027, UI-063 |
 | `make lint` greps for a hex outside `src/styles.css` and `core/theme/` | UI-030, UI-064 |
 | `grep` for `@apply` outside `@layer base` | UI-028, UI-065 |
+| **Playwright** (batch 4) | UI-067 focus visible and the flow completes by keyboard; UI-063 and UI-066 asserted in a real browser |
 | **review** | everything else — the tokens, the scale, the component recipes, the accessibility floor |
+
+**UI-068. Playwright is a gate, not a convenience.** The rules above that "review" covers are the
+ones a human checks at a 375px window and stops checking once the window is closed. A handful of
+browser scenarios turn `UI-066`, `UI-067`, `UX-055`, `UX-056` and `UX-061` into something that fails
+a build instead of a memory. Installed and written in T26 – T30; the scenarios are named there.
