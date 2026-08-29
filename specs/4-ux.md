@@ -86,6 +86,14 @@ profile and quotiteit."* Keep it editable.
   nothing moves. Otherwise, dragging a value makes the numbers flash and it reads as a bug.
 - **UX-014** — In-flight requests are cancelled when a newer one starts, so a slow response cannot
   overwrite a newer result.
+- **UX-063** — A single invalid or failed recompute never stops the ones after it. A field cleared
+  mid-edit (a plain number input passes through this on the way to a new value; a spinner's arrows
+  never do, since they only ever step between already-valid values) must not send a request at all —
+  the previous result simply stays on screen (`UX-013`) until a valid value lands. A request that
+  *does* go out and fails for some other reason must not take the whole live-recompute pipeline down
+  with it — the very next valid change tries again. Found as a real bug: an uncaught request failure
+  terminated the underlying stream permanently, freezing the panel for the rest of the page's life,
+  not just for the one bad value.
 
 ### 3.4 Two numbers of equal weight
 
@@ -266,6 +274,7 @@ Source: `06-ux.md`, superseded by this document.
 | UX-012 | No calculate button; recompute debounced at 300ms | 2 Live recalculation | §3.3 |
 | UX-013 | The previous result stays on screen | 2 Live recalculation | §3.3 |
 | UX-014 | In-flight requests are cancelled by newer ones | 2 Live recalculation | §3.3 |
+| UX-063 | An invalid or failed recompute never stops the ones after it | 2 Live recalculation | §3.3 |
 | UX-015 | Two figures of equal weight | 2 Two numbers of equal weight | §3.4 |
 | UX-016 | Secondary figures below, smaller | 2 Two numbers of equal weight | §3.4 |
 | UX-017 | Quotiteit updates visibly; chip above 90% | 2 Quotiteit updates visibly | §3.5 |

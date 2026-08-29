@@ -1,7 +1,17 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
-import { debounceTime, distinctUntilChanged, map, merge, of, switchMap } from 'rxjs';
+import {
+  EMPTY,
+  catchError,
+  debounceTime,
+  distinctUntilChanged,
+  filter,
+  map,
+  merge,
+  of,
+  switchMap,
+} from 'rxjs';
 
 import { Region } from '../../../core/models';
 import {
@@ -99,21 +109,29 @@ export class SimulatorPageComponent {
 
     merge(initial$, changes$)
       .pipe(
+        // UX-063: a transient invalid value (e.g. a field cleared mid-edit)
+        // never reaches the network — the previous valid result just stays
+        // on screen (UX-013) instead of the request going out and failing.
+        filter(() => this.form.valid),
         distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b)),
         switchMap((value) => {
           this.loading.set(true);
-          return this.simulationService.simulate(toRequest(value));
+          return this.simulationService.simulate(toRequest(value)).pipe(
+            // UX-063: caught here, inside the switchMap, not at the outer
+            // subscribe — an uncaught error there would terminate the whole
+            // subscription permanently, silently freezing every future
+            // recompute rather than just failing this one request.
+            catchError(() => {
+              this.loading.set(false);
+              return EMPTY;
+            }),
+          );
         }),
         takeUntilDestroyed(),
       )
-      .subscribe({
-        next: (simulation) => {
-          this.result.set(simulation);
-          this.loading.set(false);
-        },
-        error: () => {
-          this.loading.set(false);
-        },
+      .subscribe((simulation) => {
+        this.result.set(simulation);
+        this.loading.set(false);
       });
   }
 }

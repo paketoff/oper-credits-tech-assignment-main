@@ -725,6 +725,125 @@ Done   `npm test -- --include=**/documents/**` passes; each row has its own uplo
 
 ---
 
+# P3.5 — UI polish (user-directed)
+
+Not part of the original 44-ticket plan. The user ran the deployed batch-4 frontend by hand — the
+first real look this build had gotten in a browser rather than through DOM-text assertions — and
+found a genuine correctness bug plus a list of visual/UX gaps. Same discipline as every other batch:
+one ticket, one commit, spec first.
+
+### T45 | Fix: an invalid intermediate value permanently kills live recompute
+```
+Owner  C
+Deps   T27
+Files  src/app/domains/simulation/pages/simulator-page.component.ts,
+       simulator-page.component.spec.ts, e2e/simulator.spec.ts
+Output filter(form.valid) before switchMap; catchError inside switchMap's
+       inner observable instead of at the outer subscribe
+Tests  test_invalid_intermediate_value_never_reaches_the_network
+       test_a_failed_request_does_not_stop_future_recomputation
+Done   `npm test -- --include=**/simulation/**` passes; e2e: clearing a field
+       mid-edit and retyping does not freeze the panel
+```
+Found by the user by hand, not by any automated check: an uncaught HTTP error propagating through
+`switchMap` terminates an RxJS subscription permanently, not just for the request that failed —
+`takeUntilDestroyed()` only guards against component destruction, not this.
+→ `UX-063`.
+
+### T46 | Home screen and routing split
+```
+Owner  C
+Deps   T26
+Files  src/app/domains/home/*, app.routes.ts, core/shell/app-header.component.ts
+Output Marketing home page at `/`; simulator moves to `/calculator`
+Tests  —
+Done   `make e2e` green with the updated routes; home renders its hero and
+       both CTAs navigate correctly
+```
+→ `UI-069`, corrected `UI-054`.
+
+### T47 | Auth screens — Google-style split layout
+```
+Owner  C
+Deps   T28
+Files  src/app/domains/auth/components/auth-branding-panel.component.*,
+       signup-page.component.html, login-page.component.html
+Output Two-column form + branding layout, single column on mobile
+Tests  —
+Done   `make lint` clean (UI-027/UI-030 shell checks); visual check at
+       `md:` and mobile widths
+```
+→ corrected `UI-054`.
+
+### T48 | Dark mode
+```
+Owner  C
+Deps   T26
+Files  styles.css, app.config.ts, index.html, core/theme/theme.service.ts,
+       core/theme/theme-toggle.component.ts, core/shell/app-header.component.ts
+Output Toggle in the header; persisted preference; PrimeNG darkModeSelector
+Tests  test_theme_toggle_persists_and_flips_the_class
+Done   `ng test` passes; contrast re-checked against UI-060 for the dark
+       palette, not assumed from the light one
+```
+Supersedes `UX-053`'s "not doing" and reasons against `UI-001`'s conclusion without discarding its
+legibility concern — the dark palette is contrast-checked, not a naive invert, and light stays the
+default.
+→ `UX-064`, `UI-071`.
+
+### T49 | Quotiteit above the norm — clearer, still not an error
+```
+Owner  C
+Deps   T27
+Files  simulation-result.component.html, simulation-form.component.html
+Output Chip states the actual quotiteit figure; a live micro-hint under Own
+       contribution echoes the same figure at the input
+Tests  —
+Done   Visual check; still `bg-signal-soft text-ink`, never `danger`
+```
+`DOM-016`/`ERR-006` do not change: above 90% stays informational, never an error. The fix is a
+clearer number, not an alarm.
+→ corrected `UX-017`.
+
+### T50 | PrimeNG Community License
+```
+Owner  C
+Deps   T26
+Files  frontend/.env (gitignored), .env.example, scripts/generate-env.mjs,
+       package.json, app.config.ts, .gitignore
+Output License key read from a gitignored .env via a prestart/prebuild
+       codegen step, never committed
+Tests  —
+Done   Console no longer warns `[PrimeUI] ... unconfigured`; no license
+       banner
+```
+
+### T51 | Test ripple and new coverage
+```
+Owner  C
+Deps   T46, T48
+Files  e2e/*.spec.ts (route fix), e2e/home.spec.ts, e2e/theme.spec.ts,
+       theme.service.spec.ts
+Output Existing specs updated for the `/` → `/calculator` move; new coverage
+       for the home page and the theme toggle
+Tests  test_theme_persists_across_reload
+Done   `make e2e` green
+```
+
+### T52 | Batch verification
+```
+Owner  C
+Deps   T45 – T51
+Files  —
+Output —
+Done   `npm run build`, `ng test`, `make e2e`, `make lint` all green; a real
+       visual pass in a browser at `/`, `/calculator`, `/signup`, `/login`,
+       both themes — not just DOM-text assertions, the gap that let T45's
+       bug and the missing Tailwind compilation through in the first place
+```
+
+---
+
 # P4 — Integration
 
 ### T31 | Deployed end to end

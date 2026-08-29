@@ -45,3 +45,21 @@ test('the above-norm chip appears once quotiteit crosses 90%, and reads as infor
   await expect(chip).toContainText('90%');
   await expect(chip).not.toHaveClass(/danger/);
 });
+
+// UX-063: a real bug, found by the user by hand — typing into a plain
+// number field (not via a spinner's arrows) can pass through an invalid
+// intermediate value (the field briefly empty), which used to send a
+// request the backend rejected and permanently kill all future recompute.
+test('clearing a field mid-edit and retyping does not freeze future recompute', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await expect(page.getByText('1.414,52')).toBeVisible();
+
+  const term = page.locator('#term_months');
+  await term.fill('');
+  await page.waitForTimeout(400);
+  await term.fill('180');
+
+  await expect(page.getByText('1.414,52')).not.toBeVisible({ timeout: 5000 });
+});
