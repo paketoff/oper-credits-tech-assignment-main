@@ -5,9 +5,10 @@ in `schemas.py` (ARC-040).
 """
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
+from uuid import UUID
 
 from app.core.enums import DocumentType, Region
 
@@ -111,3 +112,40 @@ class DocumentRequirement:
     required: bool
     reason: str | None
     satisfied: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class Application:
+    """A borrower's mortgage file.
+
+    `borrowers` is a collection from the start even though the UI fills one.
+    Most Belgian mortgages are joint, and adding the second is then a form
+    problem rather than a migration (DOM-021, SCP-010).
+
+    `status` is a stored column, not a derived value: transitions are written in
+    the same transaction as the change that caused them (CQ-087). It is also not
+    writable over the wire — moving state is an action, never a PATCH on a field
+    (API-011, API-038).
+    """
+
+    id: UUID
+    user_id: UUID
+    simulation_id: UUID | None
+    status: ApplicationStatus
+    borrowers: tuple[Borrower, ...]
+    property_details: PropertyDetails | None
+    submitted_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+    def profile(self) -> ApplicationProfile:
+        """Narrow this to what the checklist is a function of (DOC-005).
+
+        Raises:
+            ValueError: If the property section has not been filled yet. A
+                checklist cannot be derived from an application that does not
+                yet say what is being bought.
+        """
+        if self.property_details is None:
+            raise ValueError("an application without property details has no checklist")
+        return ApplicationProfile(borrowers=self.borrowers, property_details=self.property_details)

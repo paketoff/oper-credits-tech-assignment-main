@@ -21,6 +21,14 @@ from app.core.health import HealthService, LivenessResponse, ReadinessResponse
 from app.core.limits import BodySizeLimitMiddleware
 from app.core.storage import LocalStorage
 
+# Imported for their side effect: a table is only in Base.metadata once its
+# module has been imported, and create_all builds what the metadata knows.
+# main.py is the only file allowed to know every domain (ARC-014).
+from app.domains.applications import tables as _applications_tables  # noqa: F401
+from app.domains.auth import tables as _auth_tables  # noqa: F401
+from app.domains.documents import tables as _documents_tables  # noqa: F401
+from app.domains.simulation import tables as _simulation_tables  # noqa: F401
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
