@@ -18,9 +18,16 @@ RUN npm run build -- --configuration production
 
 # ---------- 2. python dependencies ----------
 FROM python:3.12-slim AS deps
+ENV POETRY_VERSION=2.1.3 \
+    POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_IN_PROJECT=true
 WORKDIR /install
-COPY backend/requirements.txt ./
-RUN pip install --no-cache-dir --prefix=/install/deps -r requirements.txt
+RUN pip install --no-cache-dir "poetry==${POETRY_VERSION}"
+# The lock file, not the constraint list: this is what makes the image
+# reproducible (DEP-052). Copied before the source so a code change does not
+# invalidate the dependency layer.
+COPY backend/pyproject.toml backend/poetry.lock backend/poetry.toml ./
+RUN poetry install --only main --no-root
 
 # ---------- 3. runtime ----------
 FROM python:3.12-slim AS runtime
@@ -37,7 +44,12 @@ RUN apt-get update \
 RUN useradd --create-home --uid 1000 app
 WORKDIR /app
 
-COPY --from=deps /install/deps /usr/local
+# Copied to the path it was built at, deliberately. A venv's console scripts
+# carry an absolute shebang, so relocating it to /opt/venv would leave every
+# entry point pointing at a python that is not there.
+COPY --from=deps /install/.venv /install/.venv
+ENV PATH="/install/.venv/bin:$PATH"
+
 COPY backend/app ./app
 COPY --from=frontend /build/dist/borrower-portal/browser ./static
 

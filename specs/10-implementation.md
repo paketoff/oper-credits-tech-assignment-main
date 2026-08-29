@@ -134,10 +134,10 @@ container build fails, so a P0 ticket would have depended on a P3 one. The proje
 Owner  D
 Deps   T01
 Files  app/main.py, app/core/health.py, app/core/dependencies.py,
-       requirements.txt, requirements-dev.txt, pyproject.toml
+       pyproject.toml, poetry.lock, poetry.toml
 Output GET /health returning {"status":"ok"}, delegating to a HealthService so
        the controller rule holds from the first endpoint (CQ-017, DEP-015);
-       both manifests from 5-deployment.md DEP-052;
+       the poetry manifest and committed lock from 5-deployment.md DEP-052;
        pyproject.toml carrying the CQ-076 ruff rule set and the CQ-077 mypy settings
 Tests  test_health_returns_ok
 Done   `pytest tests/test_health.py -q` → 1 passed
@@ -898,9 +898,27 @@ run agents in parallel" — the boundaries came from the spec (`ARC-028`), not f
   diff you will not read properly. This is also how the review budget in T33 stays realistic.
 - **T-P10. Tests before implementation on every A-owned ticket.** The red test is the agent's done
   condition. Without it, the agent decides for itself when it is finished. → `CQ-070`.
-- **T-P11. Commit per ticket**, message carrying the id:
-  `feat(simulation): actuarial monthly rate [T06]`. The history then tells the story on its own
-  during the walkthrough.
+- **T-P11. Commit per ticket**, and the message is **one line**:
+
+  ```
+  <type>(<domain>): <what was done, one or two sentences> [<ticket>]
+  ```
+
+  `type` is `feat`, `fix`, `docs`, `chore`, `test` or `refactor`. `domain` is the area touched —
+  `simulation`, `applications`, `documents`, `auth`, `core`, `infra`, `specs`. Cite requirement ids
+  when they add information.
+
+  ```
+  feat(simulation): actuarial monthly rate conversion, not I/12 [T06] — SIM-001, AC-002
+  feat(applications): derived document checklist with per-row reasons [T12] — DOC-005..DOC-011
+  ```
+
+  **A body is the exception, not the default.** Add one only for a decision a reader cannot
+  reconstruct from the diff — a spec correction, or a trade-off with a live alternative — and keep
+  it to a few lines. A commit message that runs to twenty lines is a design note filed in the wrong
+  place: it belongs in the spec it corrects or in `docs/sessions/`, where it can be found later.
+  The history is read during the walkthrough by scrolling `git log --oneline`, and that view shows
+  the subject only.
 - **T-P12. Nothing merges with a failing lint or a failing `mypy --strict`.** Done means green, not
   "it runs". → `CQ-079`.
 - **T-P13. If a ticket needs to edit a file it does not own, stop.** That is a boundary error: either

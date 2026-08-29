@@ -166,10 +166,14 @@ backend/data/
 
 ### 3.2 Python dependencies
 
-**DEP-052.** Two manifests. `backend/requirements.txt` is runtime and is the only one the image
-installs; `backend/requirements-dev.txt` carries the toolchain and never ships.
+**DEP-052. Poetry, with the lock file committed.** `backend/pyproject.toml` declares the runtime
+dependencies under PEP 621 `[project]` and the toolchain under
+`[tool.poetry.group.dev.dependencies]`; `backend/poetry.lock` pins the exact resolved versions and
+**is what the image installs**. `backend/poetry.toml` sets `virtualenvs.in-project`, so the
+environment is always `backend/.venv` and the Makefile, the Dockerfile and a fresh checkout agree on
+one path rather than on a developer's local configuration.
 
-| `requirements.txt` | For |
+| Runtime | For |
 |---|---|
 | `fastapi`, `uvicorn[standard]` | the service (DEP-008) |
 | `pydantic`, `pydantic-settings` | boundaries and config (CQ-024) |
@@ -181,13 +185,18 @@ installs; `backend/requirements-dev.txt` carries the toolchain and never ships.
 | `opentelemetry-sdk`, `opentelemetry-instrumentation-fastapi`, `opentelemetry-exporter-otlp` | tracing (DEP-032) |
 | `anthropic`, `pdf2image`, `pillow` | the optional classifier (AI-013, AI-008) |
 
-`requirements-dev.txt`: `pytest`, `pytest-asyncio`, `pytest-cov`, `httpx`, `ruff`, `mypy`.
+Dev group: `pytest`, `pytest-asyncio`, `pytest-cov`, `httpx`, `ruff`, `mypy`. The image installs
+`--only main`, so none of it ships.
 
-Three of these are easy to omit and fail in ways that do not name themselves. **`python-multipart`**
-is not a FastAPI dependency: without it every `multipart/form-data` request is rejected before a
-handler runs, so document upload returns an error that says nothing about a missing package.
-**`greenlet`** is what SQLAlchemy's async layer bridges through; without it the first query raises a
-`MissingGreenlet` far from the cause. **`pdf2image` additionally needs the system package** in
+`package-mode = false`: this is an application, not a library. Poetry manages the environment and
+does not build `app` as a distribution; `pythonpath = ["."]` in the pytest configuration is what
+makes it importable from the tests.
+
+Three dependencies are easy to omit and fail in ways that do not name themselves.
+**`python-multipart`** is not a FastAPI dependency: without it every `multipart/form-data` request is
+rejected before a handler runs, so document upload returns an error that says nothing about a missing
+package. **`greenlet`** is what SQLAlchemy's async layer bridges through; without it the first query
+raises `MissingGreenlet` far from the cause. **`pdf2image` additionally needs the system package** in
 DEP-053.
 
 ## 4. Serving the SPA from FastAPI
@@ -577,7 +586,7 @@ Source: `07-deployment.md`, superseded by this document.
 | DEP-049 | Done: `request_id` everywhere, no payload in logs | 8 Definition of done | §10 |
 | DEP-050 | Done: `/health` and `/ready` both respond | 8 Definition of done | §10 |
 | DEP-051 | `DATABASE_URL` is derived from `DATA_DIR`, never set twice | added in review | §5 |
-| DEP-052 | The two dependency manifests, and the three easy omissions | added — nothing named the packages | §3.2 |
+| DEP-052 | Poetry, the committed lock file, and the three easy omissions | added — nothing named the packages | §3.2 |
 | DEP-053 | `poppler-utils` in the runtime stage for `pdf2image` | added — `pip install pdf2image` is not enough | §3 |
 | DEP-054 | `/health` is `def`, `/ready` is `async`; dependencies use `Annotated` | added at T02 — the block breached CQ-050 | §4 |
 | DEP-055 | The dev service builds `runtime`; `deps` has no uvicorn on PATH | added at T43 — `make dev` would not start | §5 |

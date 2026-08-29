@@ -1,4 +1,4 @@
-# The rule set from 1-code-quality.md CQ-076 and CQ-077.
+# Dependencies (DEP-052) and the rule set from 1-code-quality.md CQ-076, CQ-077.
 #
 # CQ-096: without this file `ruff check` runs its defaults and none of those
 # rules fire — no ANN, no D, no C901, no PLR0913 — so the gate in T34 would
@@ -9,7 +9,48 @@
 name = "borrower-portal"
 version = "0.1.0"
 description = "Borrower portal for a Belgian mortgage lender"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "fastapi (>=0.115)",
+    "uvicorn[standard] (>=0.32)",
+    "pydantic (>=2.9)",
+    "pydantic-settings (>=2.6)",
+    "sqlalchemy[asyncio] (>=2.0.36)",
+    "aiosqlite (>=0.20)",
+    # SQLAlchemy's async layer bridges through greenlet. Without it the first
+    # query raises MissingGreenlet a long way from the cause.
+    "greenlet (>=3.1)",
+    "argon2-cffi (>=23.1)",
+    "pyjwt (>=2.9)",
+    # Not a FastAPI dependency. Without it every multipart/form-data request is
+    # rejected before a handler runs, and upload fails with an error that never
+    # names the missing package.
+    "python-multipart (>=0.0.20)",
+    "structlog (>=24.4)",
+    "opentelemetry-sdk (>=1.28)",
+    "opentelemetry-instrumentation-fastapi (>=0.49b0)",
+    "opentelemetry-exporter-otlp (>=1.28)",
+    # Optional classifier, behind AI_CLASSIFICATION_ENABLED (AI-004). pdf2image
+    # shells out to pdftoppm; the system package comes from the Dockerfile
+    # (DEP-053), not from here.
+    "anthropic (>=0.40)",
+    "pdf2image (>=1.17)",
+    "pillow (>=11.0)",
+]
+
+[tool.poetry]
+# An application, not a library: poetry manages the environment but does not
+# install `app` as a distribution. `pythonpath` below is what makes it
+# importable from the tests.
+package-mode = false
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8.3"
+pytest-asyncio = ">=0.24"
+pytest-cov = ">=6.0"
+httpx = ">=0.28"
+ruff = ">=0.8"
+mypy = ">=1.13"
 
 [tool.ruff]
 line-length = 100          # CQ-076: E501 at 100 characters
@@ -22,7 +63,7 @@ select = [
     "F",       # pyflakes
     "I",       # import order
     "B",       # bugbear; B008 is why dependencies use Annotated, not a default
-    "UP",      # pyupgrade
+    "UP",      # pyupgrade: built-in generics over the deprecated typing aliases
     "ANN",     # CQ-020 annotations, and ANN401 is what enforces CQ-021
     "D",       # CQ-044: docstrings, google convention
     "C901",    # CQ-039: complexity

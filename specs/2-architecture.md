@@ -374,6 +374,22 @@ The route handler stays one line. Every layer below it is testable without HTTP.
   `models` is not used as a filename: it is the word SQLAlchemy uses for its own classes, so it
   cannot distinguish the three.
 
+- **ARC-046** — **`entities.py` holds frozen dataclasses; `schemas.py` holds pydantic models.** The
+  tool is part of the distinction, not an accident of who wrote the file first.
+
+  `1-code-quality.md` CQ-024 puts pydantic **at every boundary** — requests, responses, settings —
+  and an entity is not a boundary: it carries data that has already been validated on the way in.
+  Revalidating it at each internal hop buys nothing.
+
+  The sharper reason is ARC-043. That rule exists so that `calculator.py` takes `SimulationInput` and
+  not `SimulationRequest`. If entities were pydantic too, the two would be structurally identical
+  models over the same fields, and "why are there two types?" would become a fair question with no
+  good answer. Different tools keep the two roles legible: **a schema is untrusted input and
+  validates; an entity is checked data and simply holds it.**
+
+  This was left unstated until T12 and had to be inferred from the code, which is exactly the kind of
+  silence `specs/README` says a spec should not contain.
+
 ## 12. Why not hexagonal / ports and adapters
 
 **ARC-036.** Considered and rejected. With four entities and one database, the full
@@ -438,6 +454,7 @@ Source: `04-architecture.md`, superseded by this document.
 | ARC-043 | Simulation entity types vs wire schema types | added — resolves the `SimulationInput` gap | §11 |
 | ARC-044 | `core/enums.py` holds the two cross-domain value enums | added — `DocumentType` had no single home | §4 |
 | ARC-045 | `core/errors.py` is on the pure-module whitelist | added at T06 — CQ-054 and VAL-004 required what ARC-013 forbade | §4 |
+| ARC-046 | `entities.py` is dataclasses, `schemas.py` is pydantic | added — the spec never said, so it had to be inferred | §11 |
 
 ## Superseded `CQ-` rules
 

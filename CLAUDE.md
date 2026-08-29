@@ -26,7 +26,12 @@ follows.
 and `1-code-quality.md` points at it.
 
 Before implementing: read the sections that govern the task and name the requirement IDs you are
-implementing. Cite them in commit messages (`feat(sim): actuarial monthly rate — SIM-001, AC-002`).
+implementing.
+
+**Commit messages are one line** — `<type>(<domain>): <one or two sentences> [<ticket>] — <IDs>`,
+for example `feat(simulation): actuarial monthly rate conversion, not I/12 [T06] — SIM-001, AC-002`.
+A body is the exception, not the default: add one only for a decision the diff cannot show, and keep
+it short. Long rationale belongs in the spec it corrects or in `docs/sessions/`. (T-P11)
 
 ## Hard rules
 
