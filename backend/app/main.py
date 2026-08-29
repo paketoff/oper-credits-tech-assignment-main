@@ -6,6 +6,8 @@ work, so that the pipeline is proven while it is still cheap to fix
 (5-deployment.md DEP-040).
 """
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import Depends, FastAPI
@@ -13,16 +15,29 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import exception_handlers, telemetry
 from app.core import logging as app_logging
-from app.core.database import get_session
+from app.core.database import create_all, get_session
 from app.core.dependencies import get_health_service, get_storage
 from app.core.health import HealthService, LivenessResponse, ReadinessResponse
 from app.core.limits import BodySizeLimitMiddleware
 from app.core.storage import LocalStorage
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Create the schema on startup. No Alembic (CQ-082).
+
+    Idempotent: `create_all` issues CREATE TABLE IF NOT EXISTS, so a restart
+    against an existing volume leaves the data alone.
+    """
+    await create_all()
+    yield
+
+
 app = FastAPI(
     title="Borrower Portal",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
+    lifespan=lifespan,
 )
 
 # Registered once, here, because this is the only module that knows the whole
