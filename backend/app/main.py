@@ -8,9 +8,12 @@ work, so that the pipeline is proven while it is still cheap to fix
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import exception_handlers, telemetry
@@ -31,6 +34,9 @@ from app.domains.documents import tables as _documents_tables  # noqa: F401
 from app.domains.documents.router import router as documents_router
 from app.domains.simulation import tables as _simulation_tables  # noqa: F401
 from app.domains.simulation.router import router as simulation_router
+
+_STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+_ASSETS_DIR = _STATIC_DIR / "assets"
 
 
 @asynccontextmanager
@@ -82,3 +88,29 @@ async def ready(
 ) -> ReadinessResponse:
     """Readiness probe: database reachable and the blob directory writable."""
     return await probe.readiness(session, storage)
+
+
+# Mounted after every /api router and both probes, so a real match always wins
+# over the catch-all below (DEP-013). "assets" holds Angular's hashed build
+# output; a missing directory would make mounting fail at import time, so the
+# frontend build always creates it (T26) even before this batch's placeholder
+# static/index.html exists.
+if _ASSETS_DIR.is_dir():
+    app.mount("/assets", StaticFiles(directory=_ASSETS_DIR), name="assets")
+
+
+@app.get("/{path:path}")
+def spa(path: str) -> FileResponse:
+    """Serve the Angular shell for any non-API route.
+
+    Angular owns client-side routing, so a direct hit or a refresh on a deep
+    route must return `index.html` rather than a 404 — the exact edge a
+    reviewer tries (DEP-014).
+
+    `/api/*` is excluded explicitly: this handler is registered last and
+    matches literally everything else, so an undefined API route would
+    otherwise be served the SPA shell with a 200 instead of a clean 404.
+    """
+    if path.startswith("api/"):
+        raise HTTPException(status_code=404)
+    return FileResponse(_STATIC_DIR / "index.html")

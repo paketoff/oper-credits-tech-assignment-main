@@ -86,8 +86,11 @@ credentials.json
 # JSON store: the shape is committed, the contents are not (2-architecture.md ARC-002)
 backend/data/*
 !backend/data/.gitkeep
-# built Angular bundle, served by FastAPI
-backend/static/
+# built Angular bundle, served by FastAPI. The Docker build's COPY --from=frontend
+# overwrites index.html with the real one; the committed placeholder is what
+# `make test` and local dev serve before that build ever runs (T24).
+backend/static/*
+!backend/static/index.html
 
 # ---------- Infra (Docker / Terraform) ----------
 docker-compose.override.yml

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<!--
+  Placeholder shell (T24). The real bundle is built by infra/Dockerfile's
+  frontend stage and overwrites this file via COPY --from=frontend at image
+  build time (DEP-008). Committed so that `make test`, the SPA catch-all's
+  tests, and local `uvicorn` runs before T26 all have something to serve.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Borrower Portal</title>
+  </head>
+  <body>
+    <app-root>Loading…</app-root>
+  </body>
+</html>
