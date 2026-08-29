@@ -56,3 +56,19 @@ export interface Application {
   created_at: string;
   updated_at: string;
 }
+
+/** One row of `GET /api/applications` (`API-029`, `API-030`) — a summary, not a full body. */
+export interface ApplicationSummary {
+  id: string;
+  status: ApplicationStatus;
+  property: PropertyDetails | null;
+  documents_required: number;
+  documents_satisfied: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Mirrors `ApplicationListResponse` (`API-030`). */
+export interface ApplicationList {
+  items: ApplicationSummary[];
+}

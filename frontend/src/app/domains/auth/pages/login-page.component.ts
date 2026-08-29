@@ -4,6 +4,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { ApiError } from '../../../core/error-codes';
+import { AuthBrandingPanelComponent } from '../components/auth-branding-panel.component';
 import { AuthService } from '../auth.service';
 
 interface LoginFormControls {
@@ -12,13 +13,15 @@ interface LoginFormControls {
 }
 
 /**
- * Single centred card (`UI-054`). Redirects to whatever URL the guard
- * preserved, defaulting to the root (`AUTH-048`).
+ * Two-column split layout, same shape as signup (`UI-054`). Redirects to
+ * whatever URL the guard preserved (`AUTH-048`); with no preserved URL —
+ * arriving here without being redirected — a returning borrower lands on
+ * their own applications, not the marketing home page.
  */
 @Component({
   selector: 'app-login-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, AuthBrandingPanelComponent],
   templateUrl: './login-page.component.html',
 })
 export class LoginPageComponent {
@@ -43,7 +46,7 @@ export class LoginPageComponent {
 
     this.authService.login(this.form.getRawValue()).subscribe({
       next: () => {
-        const redirect = this.route.snapshot.queryParamMap.get('redirect') ?? '/';
+        const redirect = this.route.snapshot.queryParamMap.get('redirect') ?? '/applications';
         void this.router.navigateByUrl(redirect);
       },
       error: (error: unknown) => {

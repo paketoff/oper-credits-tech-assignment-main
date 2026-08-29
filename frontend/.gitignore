@@ -42,3 +42,9 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# T50: a per-developer PrimeUI Community License key. Never committed —
+# scripts/generate-env.mjs reads .env and (re)writes env.generated.ts,
+# which stays gitignored too.
+.env
+/src/app/core/env.generated.ts

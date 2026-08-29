@@ -106,4 +106,71 @@ describe('SimulatorPageComponent', () => {
     expect(chip?.className).not.toContain('danger');
     httpMock.verify();
   });
+
+  it('an invalid intermediate value never reaches the network, and recompute resumes after (UX-063)', () => {
+    vi.useFakeTimers();
+    try {
+      const fixture = TestBed.createComponent(SimulatorPageComponent);
+      fixture.detectChanges();
+      httpMock.expectOne('/api/simulations').flush(primarySimulation());
+      fixture.detectChanges();
+
+      // Mirrors what the browser's own number input reports when the field
+      // is cleared mid-edit — not NaN, `null` (Angular's NumberValueAccessor).
+      fixture.componentInstance.form.controls.term_months.setValue(null as unknown as number);
+      vi.advanceTimersByTime(300);
+      fixture.detectChanges();
+      httpMock.expectNone('/api/simulations');
+
+      // A further, genuinely different edit — this used to stay frozen
+      // forever because the earlier, uncaught request failure had already
+      // killed the subscription (the real bug the user reported).
+      fixture.componentInstance.form.controls.term_months.setValue(240);
+      vi.advanceTimersByTime(300);
+      fixture.detectChanges();
+      httpMock
+        .expectOne('/api/simulations')
+        .flush(primarySimulation({ monthly_payment: '999.99' }));
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('999,99');
+      httpMock.verify();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a failed request does not stop future recomputation (UX-063)', () => {
+    vi.useFakeTimers();
+    try {
+      const fixture = TestBed.createComponent(SimulatorPageComponent);
+      fixture.detectChanges();
+      httpMock.expectOne('/api/simulations').flush(primarySimulation());
+      fixture.detectChanges();
+
+      fixture.componentInstance.form.controls.own_contribution.setValue(50_000);
+      vi.advanceTimersByTime(300);
+      fixture.detectChanges();
+      httpMock
+        .expectOne('/api/simulations')
+        .flush(
+          { code: 'VALIDATION_ERROR', message: 'Check the highlighted fields.', field: null },
+          { status: 422, statusText: 'Unprocessable Entity' },
+        );
+      fixture.detectChanges();
+
+      fixture.componentInstance.form.controls.own_contribution.setValue(60_000);
+      vi.advanceTimersByTime(300);
+      fixture.detectChanges();
+      httpMock
+        .expectOne('/api/simulations')
+        .flush(primarySimulation({ monthly_payment: '888.88' }));
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('888,88');
+      httpMock.verify();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

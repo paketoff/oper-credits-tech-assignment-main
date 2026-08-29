@@ -11,18 +11,19 @@
     </div>
 
     <div class="rounded-card border-signal bg-signal-soft border-l-4 p-4">
-      <span class="text-body-sm text-muted">Total cash needed on the day</span>
-      <div class="tabular font-display text-display tracking-tightest text-ink font-bold">
+      <span class="text-body-sm text-muted-fixed">Total cash needed on the day</span>
+      <div class="tabular font-display text-display tracking-tightest text-ink-fixed font-bold">
         {{ sim.upfront.total_cash_needed | money }}
       </div>
     </div>
 
     @if (aboveNorm()) {
       <span
-        class="rounded-pill bg-signal-soft text-ink w-fit px-2 py-0.5 text-xs font-semibold"
+        class="rounded-pill bg-signal-soft text-ink-fixed w-fit px-2 py-0.5 text-xs font-semibold"
         role="status"
       >
-        {{ aboveNormMessage }}
+        {{ sim.quotiteit | percent }} quotiteit — above the 90% supervisory norm. Usually available,
+        at a higher rate.
       </span>
     }
 
@@ -43,7 +44,7 @@
       <button
         type="button"
         (click)="toggleBreakdown()"
-        class="text-body-sm text-accent hover:text-accent-hover font-semibold"
+        class="text-body-sm text-accent hover:text-accent-hover cursor-pointer font-semibold"
       >
         {{ breakdownOpen() ? 'Hide' : 'Show' }} cost breakdown
       </button>

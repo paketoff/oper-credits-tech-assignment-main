@@ -1,0 +1,75 @@
+<section
+  class="rounded-card border-border relative mt-8 overflow-hidden border bg-[radial-gradient(circle_at_top_right,var(--color-accent-soft),transparent_60%)] p-8 md:p-12"
+>
+  <app-logo-mark [size]="48" />
+  <h1 class="font-display text-display tracking-tightest mt-6 max-w-[36rem] font-bold">
+    See your real monthly payment before you talk to anyone.
+  </h1>
+  <p class="text-body text-muted mt-4 max-w-[32rem]">
+    A Belgian mortgage simulator that shows the cash you need on the day, not just the monthly
+    figure — then carries straight into your application.
+  </p>
+  <div class="mt-8 flex flex-wrap gap-3">
+    <a
+      routerLink="/calculator"
+      class="rounded-control bg-accent hover:bg-accent-hover flex h-10 items-center px-5 text-sm font-semibold text-white transition-colors"
+    >
+      Calculate your mortgage
+    </a>
+    <a
+      routerLink="/signup"
+      class="rounded-control border-border hover:bg-surface-3 flex h-10 items-center border px-5 text-sm font-semibold transition-colors"
+    >
+      Get started
+    </a>
+  </div>
+</section>
+
+<section class="mt-16">
+  <h2 class="text-h2 font-display font-semibold tracking-tighter">How it works</h2>
+  <div class="mt-6 grid grid-cols-1 gap-6 md:grid-cols-3">
+    @for (item of steps; track item.step) {
+      <div class="flex flex-col gap-2">
+        <span
+          class="bg-accent-soft text-accent rounded-pill flex size-8 items-center justify-center text-sm font-semibold"
+        >
+          {{ item.step }}
+        </span>
+        <h3 class="text-h3 font-display font-semibold">{{ item.title }}</h3>
+        <p class="text-body-sm text-muted">{{ item.body }}</p>
+      </div>
+    }
+  </div>
+</section>
+
+<section class="mt-16">
+  <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+    @for (item of benefits; track item.title; let i = $index) {
+      <div
+        class="rounded-card border-border overflow-hidden border p-5"
+        [class]="
+          i === 0
+            ? 'bg-[radial-gradient(circle_at_bottom_left,var(--color-accent-soft),transparent_70%)]'
+            : i === 2
+              ? 'bg-[radial-gradient(circle_at_top_right,var(--color-surface-3),transparent_70%)]'
+              : 'bg-surface'
+        "
+      >
+        <h3 class="text-h3 font-display font-semibold">{{ item.title }}</h3>
+        <p class="text-body-sm text-muted mt-1">{{ item.body }}</p>
+      </div>
+    }
+  </div>
+</section>
+
+<section class="rounded-card bg-accent my-16 flex flex-col items-start gap-4 p-8 md:p-12">
+  <h2 class="text-h2 font-display text-surface-fixed font-semibold tracking-tighter">
+    Ready to see your number?
+  </h2>
+  <a
+    routerLink="/signup"
+    class="rounded-control bg-surface-fixed text-ink-fixed flex h-10 items-center px-5 text-sm font-semibold transition-colors hover:opacity-90"
+  >
+    Get started
+  </a>
+</section>

@@ -7,10 +7,12 @@ function uniqueEmail(): string {
 test('signup carries the simulator session forward into a prefilled application', async ({
   page,
 }) => {
-  // Confirms the root route works before ever touching auth, but navigates
-  // to /signup directly afterwards rather than through the header's links —
-  // that link is a trivial routerLink and is not what this test is about.
-  await page.goto('/');
+  // Visits the simulator first so SimulationService.lastId() is actually set
+  // before signup — root is the marketing home page (T46) and makes no
+  // simulate() call of its own. Navigates to /signup directly afterwards
+  // rather than through the header's links — that link is a trivial
+  // routerLink and is not what this test is about.
+  await page.goto('/calculator');
   await expect(page.getByText('1.414,52')).toBeVisible();
 
   await page.goto('/signup');

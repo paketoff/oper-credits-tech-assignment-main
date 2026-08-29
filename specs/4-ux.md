@@ -86,6 +86,14 @@ profile and quotiteit."* Keep it editable.
   nothing moves. Otherwise, dragging a value makes the numbers flash and it reads as a bug.
 - **UX-014** — In-flight requests are cancelled when a newer one starts, so a slow response cannot
   overwrite a newer result.
+- **UX-063** — A single invalid or failed recompute never stops the ones after it. A field cleared
+  mid-edit (a plain number input passes through this on the way to a new value; a spinner's arrows
+  never do, since they only ever step between already-valid values) must not send a request at all —
+  the previous result simply stays on screen (`UX-013`) until a valid value lands. A request that
+  *does* go out and fails for some other reason must not take the whole live-recompute pipeline down
+  with it — the very next valid change tries again. Found as a real bug: an uncaught request failure
+  terminated the underlying stream permanently, freezing the panel for the rest of the page's life,
+  not just for the one bad value.
 
 ### 3.4 Two numbers of equal weight
 
@@ -103,8 +111,15 @@ rate, quotiteit.
 ### 3.5 Quotiteit updates visibly
 
 **UX-017.** As the borrower moves their own contribution, quotiteit recalculates in front of them and
-crosses the 90% mark. When it goes above, a chip appears: *"Above the 90% supervisory norm —
-possible, but usually at a higher rate."*
+crosses the 90% mark. When it goes above, a chip states the actual figure: *"94% quotiteit — above
+the 90% supervisory norm. Usually available, at a higher rate."* — naming the number the borrower
+just caused makes the cause and effect obvious, corrected at T49 from a fixed sentence that never
+said what the borrower's own quotiteit actually was.
+
+The own-contribution field itself echoes the same relationship live, before the chip even has a
+result to react to: *"10% of the property price → 94% quotiteit"*, computed client-side with
+`DOM-012`'s own formula (`loan_amount = property_value - own_contribution`) so it never disagrees
+with what the result panel is about to show.
 
 Informational, never an error — `0-business-logic.md` DOM-016, ERR-006; styling `3-ui.md` UI-050.
 This turns the calculator into an explanation of how the lending decision actually works, which is
@@ -231,8 +246,17 @@ Cut deliberately, and worth being able to say why:
 | UX-050 | Toasts for every action | Toasts only for actions with no other visible result. Everything else confirms itself by changing on screen. |
 | UX-051 | Confirmation modals | Only for destructive and irreversible actions. Deleting a document is reversible: re-upload it. |
 | UX-052 | Entrance animations, scroll reveals, skeleton shimmer | Motion budget in `3-ui.md` UI-022. In a financial interface these read as lag. |
-| UX-053 | Dark mode toggle | One theme, done well. |
 | UX-054 | Autosave on the simulator | It is anonymous and free to re-run. Persisting it adds state for no gain. |
+
+**UX-053 (superseded, T48).** Was "Not doing: dark mode toggle — one theme, done well." The
+legibility concern behind that decision (`3-ui.md` UI-001: numbers read carefully, on a phone, in
+daylight) was real and does not go away — it is mitigated, not overridden: light stays the default,
+the borrower opts in, and the dark palette (`3-ui.md` UI-071) is a deliberate re-derivation, not the
+light one inverted.
+
+**UX-064.** A toggle in the header (visible on every screen, including the auth top bar — a theme
+preference is not an account control). The choice persists across visits (`localStorage`) and, on a
+first visit with nothing stored yet, follows the OS's own `prefers-color-scheme`.
 
 ## 10. Definition of done
 
@@ -266,6 +290,7 @@ Source: `06-ux.md`, superseded by this document.
 | UX-012 | No calculate button; recompute debounced at 300ms | 2 Live recalculation | §3.3 |
 | UX-013 | The previous result stays on screen | 2 Live recalculation | §3.3 |
 | UX-014 | In-flight requests are cancelled by newer ones | 2 Live recalculation | §3.3 |
+| UX-063 | An invalid or failed recompute never stops the ones after it | 2 Live recalculation | §3.3 |
 | UX-015 | Two figures of equal weight | 2 Two numbers of equal weight | §3.4 |
 | UX-016 | Secondary figures below, smaller | 2 Two numbers of equal weight | §3.4 |
 | UX-017 | Quotiteit updates visibly; chip above 90% | 2 Quotiteit updates visibly | §3.5 |
@@ -304,7 +329,7 @@ Source: `06-ux.md`, superseded by this document.
 | UX-050 | Not doing: toasts for every action | 8 Not doing | §9 |
 | UX-051 | Not doing: confirmation modals | 8 Not doing | §9 |
 | UX-052 | Not doing: entrance animations, reveals, shimmer | 8 Not doing | §9 |
-| UX-053 | Not doing: dark mode toggle | 8 Not doing | §9 |
+| UX-053 | Superseded (T48): dark mode toggle, not "not doing" | 8 Not doing | §9 |
 | UX-054 | Not doing: autosave on the simulator | 8 Not doing | §9 |
 | UX-055 | Done: computed result on first paint | 9 Definition of done | §10 |
 | UX-056 | Done: input change never blanks the previous result | 9 Definition of done | §10 |
@@ -313,6 +338,7 @@ Source: `06-ux.md`, superseded by this document.
 | UX-059 | Done: a mid-wizard refresh loses nothing after step 1 | 9 Definition of done | §10 |
 | UX-060 | Done: every checklist row uploads and explains itself | 9 Definition of done | §10 |
 | UX-061 | Done: the flow completes at 375px | 9 Definition of done | §10 |
+| UX-064 | Dark mode toggle: persisted, defaults to `prefers-color-scheme` | 8 Not doing | §9 |
 
 # Appendix B — What this spec implements
 
