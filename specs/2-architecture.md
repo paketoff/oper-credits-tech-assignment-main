@@ -174,9 +174,17 @@ and are **never** stored in the database. A `Document` row carries an opaque `st
 - **ARC-012** — `core` never imports from `domains`.
 - **ARC-013** — Pure modules (`calculator`, `state_machine`, `checklist`, `file_type`,
   `classification/evaluator`) import only the standard library, `decimal`, their own domain's
-  `entities.py`, and `core/enums.py` (ARC-044). `evaluate` in particular imports no API client and no
-  session — that is what makes the classifier's decision table testable without a network
-  (`9-ai-classification.md` AI-014). They never import SQLAlchemy, a session, or `tables.py`.
+  `entities.py`, and the two `core` leaves — `core/enums.py` (ARC-044) and `core/errors.py`
+  (ARC-045). `evaluate` in particular imports no API client and no session — that is what makes the
+  classifier's decision table testable without a network (`9-ai-classification.md` AI-014). They
+  never import SQLAlchemy, a session, or `tables.py`.
+- **ARC-045** — `core/errors.py` is on that whitelist because the pure modules are where several
+  registry codes are raised: `7-validation.md` VAL-004 names the calculator as the source of
+  `JKP_COMPUTATION_FAILED` and the state machine as the source of `INVALID_STATE_TRANSITION`, and
+  `1-code-quality.md` CQ-054 shows `compute_jkp` raising `SimulationError` directly. Without this the
+  spec asks for something it also forbids. Like `enums.py`, the module is a leaf: exception classes
+  and their codes, importing nothing but the standard library. **Purity here means no IO, no
+  framework and no session — not the absence of a shared vocabulary.**
 - **ARC-014** — `main.py` is the only file that knows about all domains.
 - **ARC-042** — `domains/auth/dependencies.py` is the auth domain's second public surface, and the
   only such exception in the codebase. It exists because `current_user` is needed by every domain's
@@ -429,6 +437,7 @@ Source: `04-architecture.md`, superseded by this document.
 | ARC-042 | `domains/auth/dependencies.py` is a second public surface | added for `6-auth.md` | §4 |
 | ARC-043 | Simulation entity types vs wire schema types | added — resolves the `SimulationInput` gap | §11 |
 | ARC-044 | `core/enums.py` holds the two cross-domain value enums | added — `DocumentType` had no single home | §4 |
+| ARC-045 | `core/errors.py` is on the pure-module whitelist | added at T06 — CQ-054 and VAL-004 required what ARC-013 forbade | §4 |
 
 ## Superseded `CQ-` rules
 

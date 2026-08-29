@@ -212,11 +212,13 @@ A and D run in parallel. No shared files. C can also start T26 now.
 Owner  A
 Deps   T01
 Files  app/domains/simulation/calculator.py
-       app/core/enums.py
+       app/core/enums.py, app/core/errors.py
        tests/domains/simulation/test_calculator.py
 
 Output monthly_rate(annual_rate: Decimal) -> Decimal
        Region and DocumentType, written once here (ARC-044)
+       the DomainError hierarchy and the VAL-004 codes (ARC-045): the pure
+       modules raise them, so they cannot wait for T14
 
 Tests  test_monthly_rate_uses_actuarial_conversion
        test_monthly_rate_roundtrips_to_annual
@@ -388,10 +390,11 @@ Done   pytest tests/core/test_database.py -q → 3 passed; app.db appears under 
 ```
 Owner  D
 Deps   T02
-Files  app/core/errors.py, app/core/exception_handlers.py,
+Files  app/core/exception_handlers.py,
        app/core/rate_limit.py, app/core/limits.py
-Output DomainError hierarchy; every code from the registry, 7-validation.md §2 (VAL-004);
-       handlers rendering {"code","message","field"};
+Output handlers rendering {"code","message","field"} for every code in the
+       registry, 7-validation.md §2 (VAL-004) — the hierarchy itself lands in
+       T06, which is the first code that raises one;
        the two request-level guards that raise registry codes —
        TOO_MANY_ATTEMPTS (AUTH-040) and DOCUMENT_TOO_LARGE (VAL-024)
 Tests  test_domain_error_renders_expected_shape
