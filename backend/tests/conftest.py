@@ -58,6 +58,21 @@ async def session(engine) -> AsyncIterator[AsyncSession]:
         await active.rollback()
 
 
+@pytest.fixture(autouse=True)
+async def _isolate(engine):
+    """Empty every table after each test.
+
+    The API tests commit — they go through the real service, which owns the
+    transaction boundary (CQ-091) — so a rollback-per-test would not undo them.
+    Without this, one test's user is another test's duplicate email, and the
+    suite passes or fails depending on the order pytest happens to collect in.
+    """
+    yield
+    async with engine.begin() as connection:
+        for table in reversed(Base.metadata.sorted_tables):
+            await connection.execute(table.delete())
+
+
 @pytest.fixture
 async def clean_database(engine):
     """Drop and recreate every table, for a test that needs an empty database."""

@@ -10,7 +10,6 @@ import pytest
 
 from app.core.config import get_settings
 from app.domains.auth.dependencies import SESSION_COOKIE, _auth_limiter
-from app.domains.auth.security import encode_token
 
 _CREDENTIALS = {"email": "jan@example.com", "password": "hunter2hunter2"}
 
@@ -43,7 +42,9 @@ async def test_the_token_never_appears_in_the_body(client, engine):
 async def test_signup_duplicate_email_returns_409(client, engine):
     await client.post("/api/auth/signup", json=_CREDENTIALS | {"email": "dup@example.com"})
 
-    response = await client.post("/api/auth/signup", json=_CREDENTIALS | {"email": "dup@example.com"})
+    response = await client.post(
+        "/api/auth/signup", json=_CREDENTIALS | {"email": "dup@example.com"}
+    )
 
     assert response.status_code == 409
     assert response.json()["code"] == "EMAIL_ALREADY_REGISTERED"
@@ -125,7 +126,11 @@ async def test_tampered_token_returns_401(client, engine):
 async def test_a_token_signed_with_another_key_is_rejected(client, engine, monkeypatch):
     import jwt
 
-    forged = jwt.encode({"sub": "x", "iss": "borrower-portal"}, "a-different-secret-that-is-long-enough-32", algorithm="HS256")
+    forged = jwt.encode(
+        {"sub": "x", "iss": "borrower-portal"},
+        "a-different-secret-that-is-long-enough-32",
+        algorithm="HS256",
+    )
     client.cookies.set(SESSION_COOKIE, forged)
 
     assert (await client.get("/api/auth/me")).status_code == 401
