@@ -8,7 +8,19 @@
   "projects": {
     "borrower-portal": {
       "projectType": "application",
-      "schematics": {},
+      "schematics": {
+        "@schematics/angular:component": {
+          "type": "component",
+          "style": "css",
+          "standalone": true
+        },
+        "@schematics/angular:service": {
+          "type": "service"
+        },
+        "@schematics/angular:guard": {
+          "type": "guard"
+        }
+      },
       "root": "",
       "sourceRoot": "src",
       "prefix": "app",

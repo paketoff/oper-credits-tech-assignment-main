@@ -239,7 +239,7 @@ services:
     build:
       context: ..
       dockerfile: infra/Dockerfile
-      target: deps
+      target: runtime
     working_dir: /app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
@@ -263,6 +263,12 @@ services:
     depends_on:
       - api
 ```
+
+**DEP-055. The dev service builds the `runtime` stage, not `deps`.** The `deps` stage installs with
+`--prefix=/install/deps`, which is what makes the multi-stage copy work — and it means `uvicorn` is
+not on `PATH` in that stage and nothing sets `PYTHONPATH`. Targeting it, as this block did until T43,
+produces `uvicorn: not found` on the first `make dev`. The `runtime` stage already has the packages
+on the path; the bind mount over `/app` supplies the source and `--reload` does the rest.
 
 **DEP-051.** `DATABASE_URL` is **not** an environment variable. `core/config.py` derives it from
 `DATA_DIR` as `sqlite+aiosqlite:///${DATA_DIR}/app.db` (`1-code-quality.md` CQ-081). Setting both
@@ -446,7 +452,7 @@ test:
 lint:
 	cd backend && ruff check . && mypy --strict app
 	cd frontend && npm run lint
-	@! find frontend/src -name "*.component.css" -size +0c | grep -q . \
+	@! find frontend/src -name "*.css" ! -name "styles.css" -size +0c | grep -q . \
 	  || { echo "UI-027: a component stylesheet is not empty"; exit 1; }
 	@! grep -rEl "#[0-9a-fA-F]{3,8}\b" frontend/src \
 	     --include='*.ts' --include='*.html' \
@@ -561,6 +567,7 @@ Source: `07-deployment.md`, superseded by this document.
 | DEP-052 | The two dependency manifests, and the three easy omissions | added — nothing named the packages | §3.2 |
 | DEP-053 | `poppler-utils` in the runtime stage for `pdf2image` | added — `pip install pdf2image` is not enough | §3 |
 | DEP-054 | `/health` is `def`, `/ready` is `async`; dependencies use `Annotated` | added at T02 — the block breached CQ-050 | §4 |
+| DEP-055 | The dev service builds `runtime`; `deps` has no uvicorn on PATH | added at T43 — `make dev` would not start | §5 |
 
 # Appendix B — Corrections against the source
 

@@ -201,9 +201,16 @@ codebase.
 ### 5.2 Hard rules for anyone, human or agent, writing frontend code
 
 - **UI-026** — **All styling is Tailwind utility classes in the template.** No exceptions below.
-- **UI-027** — **Every `*.component.css` file stays empty.** If one has content, the work is not
-  done. This is checkable: `make lint` fails if any component stylesheet is non-empty. (The source
-  said "a CI step"; CI is a deliberate non-goal — `1-code-quality.md` §13.)
+- **UI-027** — **Every component stylesheet stays empty** — that is, every `.css` file under `src/`
+  except `src/styles.css`. If one has content, the work is not done. `make lint` fails on it
+  (`5-deployment.md` DEP-038). (The source said "a CI step"; CI is a deliberate non-goal —
+  `1-code-quality.md` §13.)
+
+  Stated as "every `.css` except `styles.css`" rather than "every `*.component.css`", which is how it
+  read until T43. Angular 22 generates `app.css` for the root component, so the narrower glob matched
+  nothing: the check ran, found no files, and passed while a stylesheet had content. `angular.json`
+  additionally configures the schematics to emit `<name>.component.ts` for generated components, so
+  new files follow ARC-034 — but the lint rule no longer depends on that holding.
 - **UI-028** — **No `@apply` outside the base layer.** `@apply` moves utilities into a stylesheet and
   re-creates the problem Tailwind exists to solve. If a class list repeats, extract an Angular
   component, not a CSS class.
