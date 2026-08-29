@@ -139,6 +139,11 @@ issuing a binding offer accompanied by a standardised ESIS information sheet. �
 Each of these is a real part of the domain. Each is cut for the two-hour cap, not overlooked. The
 cut list is part of the deliverable.
 
+**On the cap:** these cuts are scoped against the brief's two-hour limit. The actual work budget is
+[`10-implementation.md`](10-implementation.md) §Time budget — roughly five hours across specs and
+implementation. That is a stated choice rather than an overrun, and the README carries the real
+number; the cuts below stand on their own reasoning regardless.
+
 | ID | Cut | Why, and what it would take |
 |---|---|---|
 | SCP-006 | Variable rates (1/1/1, 3/3/3, 5/5/5, 10/5/5) | Needs a reset schedule plus two interacting caps: the statutory rule that the rate may at most double relative to its starting value and must be symmetric downward, and the contractual cap, taking whichever favours the borrower. Real work, no extra signal on the core flow. |

@@ -40,5 +40,9 @@ wins over all of them. [`specs/6-auth.md`](specs/6-auth.md) covers passwords, se
 authorisation, and [`specs/7-validation.md`](specs/7-validation.md) holds the validation rules, the
 error registry and the pre-submission test plan. The wire contract — every endpoint, body and status
 code — is [`specs/8-api.md`](specs/8-api.md). [`specs/9-ai-classification.md`](specs/9-ai-classification.md)
-covers the one optional feature: advisory document classification behind a flag. Spec conventions and ID namespaces live in [`specs/README.md`](specs/README.md), and
+covers the one optional feature: advisory document classification behind a flag, and
+[`specs/10-implementation.md`](specs/10-implementation.md) is the order of work: 42 tickets, each with
+an owner, a file boundary and a done condition you can run.
+
+The specifications are complete. The next action is ticket `T01`. Spec conventions and ID namespaces live in [`specs/README.md`](specs/README.md), and
 [`CLAUDE.md`](CLAUDE.md) carries the hard rules that agents load every session.

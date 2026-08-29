@@ -35,6 +35,7 @@ frontend/         Angular SPA
 infra/            Dockerfile, compose, fly.toml, .dockerignore
 observability/    collector and Grafana configuration
 specs/            the specifications
+docs/sessions/    agent session logs, by phase (10-implementation T05, T41)
 .claude/          agent configuration
 Makefile          make dev is the single command
 .env.example      every required variable, no values
@@ -79,7 +80,7 @@ app/
       file_type.py         # magic-byte detection; pure
       classification/      # optional feature, 9-ai-classification.md
         prompts.py         # the system prompt, a module-level constant
-        evaluate.py        # the decision table; pure
+        evaluator.py        # the decision table; pure
         client.py          # the API call
       repository.py
     auth/
@@ -135,7 +136,7 @@ static/                    # built Angular bundle, served by FastAPI
 | ARC-006 | `schemas.py` | The wire contract in and out | Persistence models, business rules |
 | ARC-007 | `entities.py` | Internal domain representation | Serialisation or persistence concerns |
 | ARC-038 | `tables.py` | SQLAlchemy table definitions, columns, keys, indexes | Business rules, wire concerns, queries |
-| ARC-008 | `calculator.py` `state_machine.py` `checklist.py` `file_type.py` `classification/evaluate.py` | Pure domain logic | Imports of FastAPI, repository, config |
+| ARC-008 | `calculator.py` `state_machine.py` `checklist.py` `file_type.py` `classification/evaluator.py` | Pure domain logic | Imports of FastAPI, repository, config |
 | ARC-009 | `repository.py` | Queries against its own tables; the only place `select`/`insert`/`update`/`delete` appear | Business rules, transaction control |
 
 `router.py` holding exactly one statement per handler is the controller rule, `1-code-quality.md`
@@ -168,7 +169,7 @@ and are **never** stored in the database. A `Document` row carries an opaque `st
   `dependencies.py` (ARC-042). Injected as a dependency.
 - **ARC-012** — `core` never imports from `domains`.
 - **ARC-013** — Pure modules (`calculator`, `state_machine`, `checklist`, `file_type`,
-  `classification/evaluate`) import only the standard library, `decimal`, and their own domain's
+  `classification/evaluator`) import only the standard library, `decimal`, and their own domain's
   `entities.py`. `evaluate` in particular imports no API client and no session — that is what makes
   the classifier's decision table testable without a network (`9-ai-classification.md` AI-014). They never import SQLAlchemy, a session,
   or `tables.py`.
