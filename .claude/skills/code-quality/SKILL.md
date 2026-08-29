@@ -31,12 +31,14 @@ of truth.
 ```
 router.py      routes only — one statement per handler (CQ-017, ARC-004)
 service.py     the flow: validate, call pure functions, persist, assemble (ARC-005)
+               owns the transaction boundary (CQ-091)
 schemas.py     the wire contract in and out (ARC-006)
-models.py      internal domain representation (ARC-007)
+entities.py    internal domain representation (ARC-007)
+tables.py      SQLAlchemy table definitions (ARC-038)
 calculator.py  pure maths, no IO, synchronous (ARC-013, CQ-048)
 state_machine.py  pure — owns the allowed transitions (APP-009)
 checklist.py   pure — derives the required document set (DOC-005)
-repository.py  the only code that touches storage (ARC-009)
+repository.py  the queries, and the ORM boundary (ARC-009, CQ-088)
 ```
 
 Exactly two cross-domain calls are legal (ARC-016 – ARC-019):
@@ -91,7 +93,7 @@ will catch them.
       `repository.py` touches storage; only `main.py` knows all domains (ARC-011 – ARC-014)
 - [ ] No cross-domain call beyond the two declared edges (ARC-016)
 - [ ] `calculator.py` / `state_machine.py` / `checklist.py` import only stdlib, `decimal` and their
-      own `models.py`, and are synchronous (ARC-013, CQ-048)
+      own `entities.py`, never SQLAlchemy or a session, and are synchronous (ARC-013, CQ-048)
 - [ ] Frontend: components take `@Input`/`@Output` and inject nothing; only `pages/` hold state;
       `shared/` has no domain imports (ARC-022, ARC-023)
 - [ ] Every `try` block earns its place; every `except` re-raises with `from exc` (CQ-052, CQ-057 – CQ-060)
@@ -105,8 +107,10 @@ will catch them.
       round-tripped through `number` (CQ-014, CQ-027, ARC-026)
 - [ ] No `async def` without an `await`; no `time.sleep` or synchronous HTTP client in async code
       (CQ-050)
-- [ ] Writes are atomic via `os.replace`; repositories return domain models, never dicts
-      (CQ-065, CQ-067)
+- [ ] No SQLAlchemy row escapes a repository; no lazy loading outside it (CQ-088, CQ-089)
+- [ ] The service commits, not the repository; the session is injected, never created (CQ-090, CQ-091)
+- [ ] `select`/`insert`/`update`/`delete` only in `repository.py` (CQ-093)
+- [ ] Money columns are `Numeric(12, 2)` and read as `Decimal` (CQ-086)
 - [ ] Pure domain logic was written test-first (CQ-070)
 
 Frontend only:

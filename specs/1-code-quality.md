@@ -48,7 +48,8 @@ stated here in one line each so a reference from code or a commit still resolves
   the other domain's `service.py`, injected as a dependency. → ARC-011
 - **CQ-006** — `core` never imports from `domains`. The dependency points one way. → ARC-012
 - **CQ-007** — Pure modules (`calculator.py`, `state_machine.py`, `checklist.py`) import only the
-  standard library, `decimal`, and their own domain's `models.py`. → ARC-013
+  standard library, `decimal`, and their own domain's `entities.py`. They never import SQLAlchemy or
+  a session. → ARC-013
 - **CQ-008** — `repository.py` is the only place that touches storage. → ARC-009
 - **CQ-009** — If a change requires editing two domains, the boundary is drawn wrong. Say so rather
   than working around it. → ARC-015
@@ -125,7 +126,8 @@ is the first thing to check in review.
 
 ### 4.2 Pydantic
 
-**CQ-024.** Pydantic v2 at every boundary: requests, responses, settings, and JSON loaded from disk.
+**CQ-024.** Pydantic v2 at every boundary: requests, responses and settings. Persisted data crosses
+its boundary as a domain entity built by the repository, not as a validated dict (CQ-088).
 
 ```python
 class SimulationRequest(BaseModel):
@@ -334,22 +336,24 @@ def compute_jkp(
 **CQ-055. The boundary with the outside world:**
 
 ```python
-def load_documents(path: Path) -> list[Document]:
-    """Load persisted documents, tolerating a missing store."""
+async def list_documents(session: AsyncSession, application_id: UUID) -> list[Document]:
+    """Load an application's documents, translating storage failures."""
     try:
-        raw = path.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        return []                                   # meaningful fallback: nothing stored yet
-    except OSError as exc:
+        rows = await session.scalars(
+            select(DocumentRow).where(DocumentRow.application_id == application_id)
+        )
+    except OperationalError as exc:
         raise StorageError(code="STORAGE_UNAVAILABLE") from exc
 
     try:
-        return [Document.model_validate(item) for item in json.loads(raw)]
-    except (json.JSONDecodeError, ValidationError) as exc:
-        raise StorageError(code="STORAGE_CORRUPT", detail=str(path)) from exc
+        return [to_entity(row) for row in rows]
+    except (ValidationError, InvalidOperation) as exc:
+        raise StorageError(code="STORAGE_CORRUPT", detail=str(application_id)) from exc
 ```
 
-Two separate blocks because the two failures mean different things and deserve different handling.
+Two separate blocks because the two failures mean different things and deserve different handling: an
+unreachable database is not the same as a row that cannot be turned into a domain entity. Note the
+mapping to a domain entity happens here, inside the repository — CQ-088.
 
 **CQ-056. File upload, where the client controls the input:**
 
@@ -412,30 +416,108 @@ except Exception:
 Five of these are also fixed by the business spec (`0-business-logic.md` ERR-002); the remaining six
 are introduced here and are infrastructure concerns.
 
+`STORAGE_UNAVAILABLE` and `STORAGE_CORRUPT` cover **database** failures — an unreachable or locked
+database, a row that cannot be mapped to a domain entity. They kept their names through the move off
+JSON files because the meaning is the same: the store failed, and the API consumer cannot act on the
+detail. `EMAIL_ALREADY_REGISTERED` is what an `IntegrityError` on the unique email constraint maps to
+(CQ-092).
+
 ## 11. Persistence
 
-**CQ-064.** No database. JSON files under `data/`, behind a repository protocol.
+**CQ-064.** SQLite, behind a repository protocol. The protocol is unchanged from the JSON era, and
+that is the point — see CQ-095.
 
 ```python
 class SimulationRepository(Protocol):
     """Persistence for simulations."""
 
-    async def save(self, simulation: Simulation) -> Simulation: ...
-    async def get(self, simulation_id: UUID) -> Simulation | None: ...
+    async def save(self, session: AsyncSession, simulation: Simulation) -> Simulation: ...
+    async def get(self, session: AsyncSession, simulation_id: UUID) -> Simulation | None: ...
 ```
 
-Rules:
+`Simulation` here is the domain entity from `entities.py`, never a SQLAlchemy row (CQ-088).
 
-- **CQ-065** — Writes are atomic: write to a temporary file in the same directory, then `os.replace`.
-  A partial write must never leave a corrupt store.
-- **CQ-066** — A single asyncio lock guards writes. Concurrency here is trivial and losing data on
-  the demo is not.
-- **CQ-067** — Repositories return domain models, never raw dicts.
-- **CQ-068** — Only `repository.py` knows the storage format. Swapping JSON for SQLite is one class.
+### 11.1 Engine and session
 
-**CQ-069. Known limitation, to be stated in the README:** the container filesystem is ephemeral, so
-data does not survive a restart. That is acceptable for a demo with fake test data, and the
-repository protocol is exactly what makes the swap cheap.
+- **CQ-080** — SQLAlchemy 2.0 with async support, `aiosqlite` driver.
+- **CQ-081** — Database URL `sqlite+aiosqlite:///${DATA_DIR}/app.db`. `DATA_DIR` defaults to `/data`.
+- **CQ-082** — The schema is created at startup with `create_all()`. **No Alembic.** Migrations are
+  a deliberate cut for this build, not an oversight: one environment, one schema, no data to
+  preserve. Adding them later is additive.
+- **CQ-083** — Async sessions are handed out by a FastAPI dependency, one session per request.
+- **CQ-084** — Pragmas applied on connect: `foreign_keys=ON` and `journal_mode=WAL`.
+
+Connection ownership lives in `core/database.py` and nowhere else — `2-architecture.md` ARC-039.
+
+### 11.2 Tables
+
+**CQ-085.** Five tables, mirroring the entities in `0-business-logic.md` §9:
+
+| Table | Keys and indexes |
+|---|---|
+| `users` | unique index on `email` (case-insensitive, DOM-019) |
+| `simulations` | nullable `user_id` FK, index on `user_id` |
+| `applications` | `user_id` FK, nullable `simulation_id` FK |
+| `borrowers` | `application_id` FK |
+| `documents` | `application_id` FK, index on `application_id` and `doc_type` |
+
+`borrowers` is **a real table, not a JSON column.** Most Belgian mortgages are joint (DOM-021), and a
+one-to-many from application to borrower is exactly the relation a relational model exists for.
+
+Definitions live in each domain's `tables.py` — `2-architecture.md` ARC-038, ARC-040.
+
+- **CQ-086** — Money columns are `Numeric(12, 2)`, read as `Decimal`, **never** `float`. Not
+  negotiable; it is CQ-003 enforced at the storage layer.
+- **CQ-087** — `Application.status` remains a stored column. There is no computed-status workaround
+  to keep: status transitions are written inside the same transaction as the change that caused them.
+
+### 11.3 The ORM boundary
+
+- **CQ-088** — **The ORM boundary is the repository.** A domain entity or primitives go in; a domain
+  entity comes out. A SQLAlchemy instance never crosses it — never into a service, a response schema
+  or a template.
+- **CQ-089** — **No lazy loading outside the repository.** The session may already be closed, and
+  that is a classic source of mysterious errors. The repository loads what it needs explicitly with
+  `selectinload` and returns a fully populated object.
+- **CQ-090** — The session is injected into the service as a dependency and passed down to the
+  repository. A repository never creates a session.
+- **CQ-091** — **The service owns the transaction boundary, not the repository.** A service may call
+  several repositories inside one transaction — which is exactly what document upload needs, where a
+  `Document` is created and the `Application` changes status atomically (ARC-018, APP-003, APP-004).
+  A repository that committed would make that transaction impossible.
+- **CQ-092** — Uniqueness is enforced by a database constraint, not only by a check in code. The
+  check produces a readable message; the constraint produces correctness. `IntegrityError` is caught
+  and mapped to a domain error (`EMAIL_ALREADY_REGISTERED`).
+- **CQ-093** — **No raw SQL in services.** `select()`, `insert()`, `update()` and `delete()` appear
+  only in `repository.py`.
+- **CQ-067** — Repositories return domain entities, never rows and never raw dicts.
+- **CQ-068** — Only `repository.py` knows the storage format.
+- **CQ-094** — Cross-domain access still goes through the other domain's `service.py`, never its
+  repository. The rule from `2-architecture.md` ARC-011 survives the switch to SQLite unchanged.
+
+### 11.4 Why the swap was cheap
+
+**CQ-095.** Services depend on repository protocols, never on SQLAlchemy (CQ-034). That decision was
+made before the storage backend was chosen, and it is the reason moving from JSON files to SQLite
+touched the repositories and nothing above them. Keep it: the next backend change should be equally
+cheap.
+
+### 11.5 Withdrawn
+
+Ids are stable — a withdrawn rule keeps its number and its reason so an older commit message still
+resolves.
+
+- **CQ-065 — withdrawn.** *Writes are atomic: temporary file in the same directory, then
+  `os.replace`.* Superseded by SQLite transactions (CQ-091).
+- **CQ-066 — withdrawn.** *A single asyncio lock guards writes.* Superseded by WAL and SQLite's own
+  locking (CQ-084).
+
+### 11.6 Known limitation
+
+**CQ-069. To be stated in the README:** the container filesystem is ephemeral, so unless `DATA_DIR`
+is a mounted volume neither `app.db` nor the uploaded blobs survive a restart. That is acceptable for
+a demo with fake test data. The caveat outlived the JSON store because both artefacts still live on
+the filesystem — only its subject changed.
 
 ## 12. Tests
 
@@ -532,12 +614,12 @@ Source: `03-code-quality.md`, superseded by this document.
 | CQ-061 | Never log and swallow | 10 Hard rules | §10.3 |
 | CQ-062 | No stack traces or internal paths in responses | 10 Hard rules | §10.3 |
 | CQ-063 | Eleven stable error codes in one place | 10 Error codes | §10.4 |
-| CQ-064 | No database; JSON behind a protocol | 11 Persistence | §11 |
-| CQ-065 | Atomic writes via `os.replace` | 11 Persistence | §11 |
-| CQ-066 | A single asyncio lock guards writes | 11 Persistence | §11 |
-| CQ-067 | Repositories return domain models | 11 Persistence | §11 |
-| CQ-068 | Only `repository.py` knows the storage format | 11 Persistence | §11 |
-| CQ-069 | Ephemeral filesystem stated in the README | 11 Persistence | §11 |
+| CQ-064 | SQLite behind a repository protocol | 11 Persistence | §11 |
+| CQ-065 | ~~Atomic writes via `os.replace`~~ — **withdrawn**, superseded by CQ-091 | 11 Persistence | §11.5 |
+| CQ-066 | ~~A single asyncio lock guards writes~~ — **withdrawn**, superseded by CQ-084 | 11 Persistence | §11.5 |
+| CQ-067 | Repositories return domain entities, never rows | 11 Persistence | §11.3 |
+| CQ-068 | Only `repository.py` knows the storage format | 11 Persistence | §11.3 |
+| CQ-069 | Ephemeral filesystem stated in the README | 11 Persistence | §11.6 |
 | CQ-070 | Test-first on pure domain logic | 12 Tests | §12 |
 | CQ-071 | A few integration tests, after the fact | 12 Tests | §12 |
 | CQ-072 | `test_<subject>_<condition>_<expectation>` | 12 Tests | §12 |
@@ -548,6 +630,22 @@ Source: `03-code-quality.md`, superseded by this document.
 | CQ-077 | `mypy --strict`, `disallow_any_explicit` | 13 Tooling | §13 |
 | CQ-078 | ESLint rules plus Prettier | 13 Tooling | §13 |
 | CQ-079 | Definition of done: green, clean, passing | 13 Tooling | §13 |
+| CQ-080 | SQLAlchemy 2.0 async with `aiosqlite` | SQLite switch | §11.1 |
+| CQ-081 | `sqlite+aiosqlite:///${DATA_DIR}/app.db`, `DATA_DIR` = `/data` | SQLite switch | §11.1 |
+| CQ-082 | `create_all()` at startup; no Alembic, migrations cut | SQLite switch | §11.1 |
+| CQ-083 | One async session per request, from a dependency | SQLite switch | §11.1 |
+| CQ-084 | Pragmas `foreign_keys=ON`, `journal_mode=WAL` | SQLite switch | §11.1 |
+| CQ-085 | The five tables, their keys and indexes | SQLite switch | §11.2 |
+| CQ-086 | Money columns are `Numeric(12, 2)`, read as `Decimal` | SQLite switch | §11.2 |
+| CQ-087 | `Application.status` remains a stored column | SQLite switch | §11.2 |
+| CQ-088 | The ORM boundary is the repository | SQLite switch | §11.3 |
+| CQ-089 | No lazy loading outside the repository; use `selectinload` | SQLite switch | §11.3 |
+| CQ-090 | The session is injected, never created by a repository | SQLite switch | §11.3 |
+| CQ-091 | The service owns the transaction boundary | SQLite switch | §11.3 |
+| CQ-092 | Uniqueness by database constraint; `IntegrityError` mapped | SQLite switch | §11.3 |
+| CQ-093 | No raw SQL in services | SQLite switch | §11.3 |
+| CQ-094 | Cross-domain access still goes through `service.py` | SQLite switch | §11.3 |
+| CQ-095 | Protocols are why the swap was cheap | SQLite switch | §11.4 |
 
 # Appendix B — Enforcement map
 

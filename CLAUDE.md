@@ -37,14 +37,14 @@ Violating one of these is a defect, not a style disagreement. Full text and reas
 - A route handler contains **exactly one statement**: a single call to a service. No `if`, `for`,
   `while`, `try`; no repository or calculator call; no arithmetic or data shaping; no building a
   response field by field; no second service call. (CQ-017, CQ-018)
-- Layers: router → service → (calculator | state machine | checklist) → repository → `core.storage`.
-  Arrows point one way only. (ARC-010)
+- Layers: router → service → (calculator | state machine | checklist) → repository →
+  `core.database` for rows, `core.storage` for uploaded blobs. Arrows point one way only. (ARC-010)
 - A domain never imports another domain's internals — go through its `service.py`, injected as a
   dependency. `core` never imports from `domains`. Only `repository.py` touches storage. `main.py` is
   the only file that knows all domains. (ARC-011 – ARC-014)
 - `calculator.py`, `state_machine.py`, `checklist.py` are **pure**: they import only the standard
-  library, `decimal`, and their own domain's `models.py` — and are entirely synchronous.
-  (ARC-013, CQ-048)
+  library, `decimal`, and their own domain's `entities.py` — never SQLAlchemy or a session — and are
+  entirely synchronous. (ARC-013, CQ-048)
 - **Exactly two cross-domain calls are legal**, both one-directional service calls:
   `auth.service → simulation.service.claim_for_user()` and
   `documents.service → applications.service.recompute_status()`. Do not invent a third — if a feature
@@ -52,7 +52,20 @@ Violating one of these is a defect, not a style disagreement. Full text and reas
 - Organise by domain, never by technical layer. Files go where `2-architecture.md` §2 puts them.
   (ARC-001, ARC-002)
 
-**Typing**
+**Persistence** — SQLite via SQLAlchemy 2.0 async (`aiosqlite`)
+- **The ORM boundary is the repository.** A SQLAlchemy row never reaches a service, a response schema
+  or a template; the repository maps it to an entity. No lazy loading outside the repository — load
+  with `selectinload`. (CQ-088, CQ-089)
+- **The service owns the transaction, not the repository.** A repository never commits and never
+  creates a session; the session is injected and passed down. This is what lets one upload create a
+  `Document` and move the `Application` status atomically. (CQ-090, CQ-091)
+- `select`/`insert`/`update`/`delete` appear only in `repository.py`. No raw SQL in a service.
+  (CQ-093)
+- Money columns are `Numeric(12, 2)`, read as `Decimal`, never `float`. (CQ-086)
+- Three model files per domain, three distinct words: `tables.py` (SQLAlchemy), `entities.py`
+  (domain), `schemas.py` (pydantic). (ARC-040)
+
+**Typing
 - Every parameter and return annotated, including `-> None`. (CQ-020)
 - **`Any` is forbidden in `app/`.** Allowed in `tests/`. (CQ-021, CQ-074)
 - Pydantic v2 at every boundary, with `frozen=True, extra="forbid"`. (CQ-024 – CQ-026)

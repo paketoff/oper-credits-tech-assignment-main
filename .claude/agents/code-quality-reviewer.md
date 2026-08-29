@@ -21,8 +21,9 @@ Concentrate on the `review`-tagged rules — the ones nothing else catches:
    built field by field, repository or calculator call, or second service call.
 2. **Import boundaries (ARC-011 – ARC-015).** A domain importing another domain's internals. `core`
    importing from `domains`. `calculator.py` / `state_machine.py` / `checklist.py` importing anything
-   beyond the standard library, `decimal` and their own `models.py`. Storage touched outside
-   `repository.py`. A file other than `main.py` importing every domain.
+   beyond the standard library, `decimal` and their own `entities.py` — SQLAlchemy or a session in a
+   pure module is the same violation. Storage touched outside `repository.py`. A file other than
+   `main.py` importing every domain. `core/database.py` importing a domain.
 3. **Undeclared cross-domain edges (ARC-016 – ARC-019).** Exactly two are legal:
    `auth.service → simulation.service.claim_for_user()` and
    `documents.service → applications.service.recompute_status()`. Any third cross-domain call is a
@@ -61,6 +62,14 @@ Concentrate on the `review`-tagged rules — the ones nothing else catches:
     does not follow `test_<subject>_<condition>_<expectation>`.
 
 The list above is renumbered where items were inserted; the ids are what matter, not the ordinals.
+
+12. **Persistence and the ORM boundary (CQ-086 – CQ-095).** A SQLAlchemy row returned from a
+    repository, or reaching a service, a response schema or a template. Lazy loading outside the
+    repository instead of `selectinload`. A repository that calls `commit()` or creates its own
+    session. `select`/`insert`/`update`/`delete` or raw SQL in a service. A money column that is not
+    `Numeric(12, 2)`, or a `float` anywhere near money. A uniqueness check in code with no database
+    constraint behind it. A cross-domain call reaching another domain's repository rather than its
+    service.
 
 Also check the business spec, `specs/0-business-logic.md` — no other spec overrides it. For
 frontend work, `specs/3-ui.md` owns values and `specs/4-ux.md` owns behaviour.

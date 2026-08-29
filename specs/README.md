@@ -67,6 +67,15 @@ IDs attach to verifiable statements only: an invariant, a formula, a constant, a
 transition, an error code. Narrative framing stays unlabelled prose. IDs are stable
 once published — supersede, never renumber.
 
+Two consequences of that rule:
+
+- **New ids are allocated next-free, not by position.** Once a spec is published, a rule
+  added to an early section takes the next unused number rather than pushing everything
+  down. Ids identify, they do not order.
+- **A rule that stops being true is withdrawn, not deleted.** It keeps its id, its original
+  wording, and a line saying what superseded it, so a reference from an older commit still
+  resolves. See `1-code-quality.md` §11.5.
+
 ## Enforcement
 
 A spec no agent reads is decoration. The rules reach the code through four layers:

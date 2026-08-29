@@ -38,13 +38,15 @@ app/
       service.py           # orchestration, domain flow
       schemas.py           # pydantic request/response models
       calculator.py        # pure maths; no IO, no framework
-      repository.py        # JSON persistence behind a protocol
-      models.py            # internal domain model
+      repository.py        # queries against this domain's tables
+      tables.py            # SQLAlchemy table definitions
+      entities.py          # internal domain model
     applications/
       router.py
       service.py
       schemas.py
-      models.py
+      tables.py
+      entities.py
       state_machine.py     # allowed transitions; pure
       checklist.py         # required_documents(application); pure
       repository.py
@@ -52,22 +54,25 @@ app/
       router.py
       service.py
       schemas.py
-      models.py
+      tables.py
+      entities.py
       repository.py
     auth/
       router.py
       service.py
       schemas.py
-      models.py
+      tables.py
+      entities.py
       repository.py
 
   core/
     config.py              # pydantic-settings
+    database.py            # engine, session factory, get_session, pragmas
     errors.py              # domain exception base + stable codes
     exception_handlers.py  # domain error -> HTTP, registered once
     logging.py             # structured logging
     telemetry.py           # OpenTelemetry hooks
-    storage.py             # StorageBackend protocol + LocalStorage
+    storage.py             # StorageBackend protocol + LocalStorage (blobs only)
     dependencies.py        # shared DI providers
 
   main.py                  # app factory, router registration, handler registration
@@ -86,7 +91,7 @@ tests/
       test_api.py
   conftest.py
 
-data/                      # JSON store, gitignored except .gitkeep
+data/                      # DATA_DIR: app.db + blobs/, gitignored except .gitkeep
 static/                    # built Angular bundle, served by FastAPI
 ```
 
@@ -99,9 +104,10 @@ static/                    # built Angular bundle, served by FastAPI
 | ARC-004 | `router.py` | Route declarations, status codes, dependency wiring | Logic, branching, repository calls |
 | ARC-005 | `service.py` | The flow: validate, call pure functions, persist, assemble | Maths, storage details, HTTP concepts |
 | ARC-006 | `schemas.py` | The wire contract in and out | Persistence models, business rules |
-| ARC-007 | `models.py` | Internal domain representation | Serialisation concerns |
+| ARC-007 | `entities.py` | Internal domain representation | Serialisation or persistence concerns |
+| ARC-038 | `tables.py` | SQLAlchemy table definitions, columns, keys, indexes | Business rules, wire concerns, queries |
 | ARC-008 | `calculator.py` `state_machine.py` `checklist.py` | Pure domain logic | Imports of FastAPI, repository, config |
-| ARC-009 | `repository.py` | Reading and writing the JSON store | Business rules |
+| ARC-009 | `repository.py` | Queries against its own tables; the only place `select`/`insert`/`update`/`delete` appear | Business rules, transaction control |
 
 `router.py` holding exactly one statement per handler is the controller rule, `1-code-quality.md`
 CQ-017.
@@ -112,12 +118,19 @@ CQ-017.
 
 ```
 router  →  service  →  { calculator | state_machine | checklist }
-                    →  repository  →  core.storage
+                    →  repository  →  core.database   (rows)
+                    →  repository  →  core.storage    (uploaded blobs)
                     ↘
                      core.errors
 ```
 
 Arrows point one way only.
+
+**`core.database` and `core.storage` are different things and must not be conflated.**
+`core.database` owns the SQLite connection and the request session; `core.storage` owns the
+`StorageBackend` protocol for uploaded file blobs, which live on the filesystem at `DATA_DIR/blobs`
+and are **never** stored in the database. A `Document` row carries an opaque `storage_key`
+(`0-business-logic.md` DOC-003); the bytes it points at are the blob.
 
 **Rules:**
 
@@ -125,8 +138,13 @@ Arrows point one way only.
   the other domain's `service.py`, injected as a dependency.
 - **ARC-012** — `core` never imports from `domains`.
 - **ARC-013** — Pure modules (`calculator`, `state_machine`, `checklist`) import only the standard
-  library, `decimal`, and their own domain's `models.py`.
+  library, `decimal`, and their own domain's `entities.py`. They never import SQLAlchemy, a session,
+  or `tables.py`.
 - **ARC-014** — `main.py` is the only file that knows about all domains.
+- **ARC-039** — `core/database.py` owns the connection and nothing else: the engine, the
+  `async_sessionmaker`, the declarative base, the `get_session` dependency, and pragma setup on
+  connect. It knows no table and imports no domain — ARC-012 applies to it like any other `core`
+  module.
 
 **ARC-015.** Violating rule ARC-011 or ARC-012 is a design error, not a shortcut. If a feature seems
 to require it, the boundary is drawn wrong.
@@ -234,13 +252,14 @@ drift.
 
 | Unit | Owns | Depends on |
 |---|---|---|
-| A — domain core | `domains/simulation/{calculator,models}.py`, `domains/applications/{state_machine,checklist,models}.py`, their tests | nothing |
-| B — API surface | all `router.py`, `service.py`, `schemas.py`, `repository.py` | A's models and function signatures |
+| A — domain core | `domains/simulation/{calculator,entities}.py`, `domains/applications/{state_machine,checklist,entities}.py`, their tests | nothing |
+| B — API surface | all `router.py`, `service.py`, `schemas.py`, `tables.py`, `repository.py` | A's entities and function signatures, D's `core/database.py` |
 | C — frontend | everything under `src/app/` | B's wire contract |
-| D — platform | `core/*`, `main.py`, `Dockerfile`, `fly.toml`, CI | nothing |
+| D — platform | `core/*` — **including `core/database.py` and `core/storage.py`** — `main.py`, `Dockerfile`, `fly.toml`, CI | nothing |
 
-**ARC-029.** A and D can start immediately and in parallel. B starts once A's signatures exist. C
-starts once B's schemas exist — the contract, not the implementation, is the unblocker.
+**ARC-029.** A and D can start immediately and in parallel. B starts once A's signatures exist and
+D's `get_session` dependency exists. C starts once B's schemas exist — the contract, not the
+implementation, is the unblocker.
 
 **ARC-030.** Nobody edits `main.py` except D. Nobody edits a pure module except A.
 
@@ -253,7 +272,8 @@ starts once B's schemas exist — the contract, not the implementation, is the u
 2. `simulation/service.py` — calls `calculator.simulate()`, builds a `Simulation` model, persists it
    via `repository.save()`, returns a `SimulationResponse`.
 3. `simulation/calculator.py` — pure: monthly rate, annuity, schedule, upfront costs, JKP.
-4. `simulation/repository.py` — atomic JSON write via `core.storage`.
+4. `simulation/repository.py` — inserts one row using the request session from `core.database`.
+   The service, not the repository, commits the transaction (`1-code-quality.md` CQ-091).
 5. On a domain error anywhere: raised as a `DomainError` subclass, caught once in
    `core/exception_handlers.py`, rendered as `{"code": ..., "message": ...}` with the right status.
 
@@ -268,12 +288,25 @@ The route handler stays one line. Every layer below it is testable without HTTP.
 - **ARC-034** — Angular files: `<name>.<role>.ts` — `simulation.service.ts`,
   `checklist.component.ts`.
 - **ARC-035** — Test files mirror the module under test: `calculator.py` → `test_calculator.py`.
+- **ARC-040** — Three files in a domain hold "models"; each gets a distinct word, and the words are
+  used consistently everywhere:
+
+  | File | Holds | Crosses which boundary |
+  |---|---|---|
+  | `tables.py` | SQLAlchemy table definitions | never leaves the repository |
+  | `entities.py` | the domain model services and pure functions work with | repository ↔ service ↔ pure modules |
+  | `schemas.py` | pydantic request and response models | service ↔ router ↔ the wire |
+
+  `models` is not used as a filename: it is the word SQLAlchemy uses for its own classes, so it
+  cannot distinguish the three.
 
 ## 12. Why not hexagonal / ports and adapters
 
-**ARC-036.** Considered and rejected. With four entities and one storage backend, the full
-ports-and-adapters layout adds three indirection layers that carry no information. The one place the
-pattern earns its keep is storage, and that is already handled by the `StorageBackend` protocol.
+**ARC-036.** Considered and rejected. With four entities and one database, the full
+ports-and-adapters layout adds three indirection layers that carry no information. The two places the
+pattern earns its keep are already covered by protocols: the repository protocols for data
+(`1-code-quality.md` CQ-064, CQ-095) and `StorageBackend` for blobs. Swapping JSON files for SQLite
+touched the repositories and nothing above them, which is the whole argument.
 
 The `1-code-quality.md` rule applies (CQ-001): introduce an abstraction when it has a second
 consumer. This one does not yet.
@@ -292,13 +325,13 @@ Source: `04-architecture.md`, superseded by this document.
 | ARC-004 | `router.py` owns routes, never logic | What each file owns | §3 |
 | ARC-005 | `service.py` owns the flow, never maths or HTTP concepts | What each file owns | §3 |
 | ARC-006 | `schemas.py` owns the wire contract | What each file owns | §3 |
-| ARC-007 | `models.py` owns the internal domain representation | What each file owns | §3 |
+| ARC-007 | `entities.py` owns the internal domain representation | What each file owns | §3 |
 | ARC-008 | Pure modules own domain logic, import no framework | What each file owns | §3 |
-| ARC-009 | `repository.py` owns the JSON store, never business rules | What each file owns | §3 |
+| ARC-009 | `repository.py` owns the queries, never business rules | What each file owns | §3 |
 | ARC-010 | Dependency direction; arrows point one way only | Dependency direction | §4 |
 | ARC-011 | No cross-domain internals; go through `service.py` | Dependency direction, rule 1 | §4 |
 | ARC-012 | `core` never imports from `domains` | Dependency direction, rule 2 | §4 |
-| ARC-013 | Pure modules import stdlib, `decimal`, own `models.py` only | Dependency direction, rule 3 | §4 |
+| ARC-013 | Pure modules import stdlib, `decimal`, own `entities.py` only | Dependency direction, rule 3 | §4 |
 | ARC-014 | `main.py` is the only file that knows all domains | Dependency direction, rule 4 | §4 |
 | ARC-015 | Violating ARC-011 or ARC-012 is a design error | Dependency direction | §4 |
 | ARC-016 | Exactly two cross-domain edges exist | Known cross-domain edges | §5 |
@@ -323,6 +356,9 @@ Source: `04-architecture.md`, superseded by this document.
 | ARC-035 | Test files mirror the module under test | Naming | §11 |
 | ARC-036 | Hexagonal considered and rejected | Why not hexagonal | §12 |
 | ARC-037 | The preset and `styles.css` are the only styling surfaces | added for `3-ui.md` §6.2 | §6 |
+| ARC-038 | `tables.py` owns the SQLAlchemy table definitions | added for the SQLite switch | §3 |
+| ARC-039 | `core/database.py` owns the connection and nothing else | added for the SQLite switch | §4 |
+| ARC-040 | `tables` / `entities` / `schemas` naming | added for the SQLite switch | §11 |
 
 ## Superseded `CQ-` rules
 
@@ -331,10 +367,10 @@ pointing at their `ARC-` replacement — ids are superseded, never renumbered.
 
 | Was | Now | Note |
 |---|---|---|
-| CQ-004 | ARC-001, ARC-002, ARC-003 | The tree here is canonical; it adds `models.py`, `core/dependencies.py`, `static/` and test filenames |
+| CQ-004 | ARC-001, ARC-002, ARC-003 | The tree here is canonical; it adds `entities.py`, `tables.py`, `core/dependencies.py`, `core/database.py`, `static/` and test filenames |
 | CQ-005 | ARC-011 | ARC adds "injected as a dependency" |
 | CQ-006 | ARC-012 | |
-| CQ-007 | ARC-013 | **Corrected**: a whitelist (stdlib, `decimal`, own `models.py`) replaces the old blacklist wording |
+| CQ-007 | ARC-013 | **Corrected**: a whitelist (stdlib, `decimal`, own `entities.py`) replaces the old blacklist wording |
 | CQ-008 | ARC-009 | Stated as file ownership rather than a standalone rule |
 | CQ-009 | ARC-015 | |
 | CQ-010 | ARC-020 | |
