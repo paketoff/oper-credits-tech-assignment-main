@@ -176,7 +176,7 @@ one path rather than on a developer's local configuration.
 | Runtime | For |
 |---|---|
 | `fastapi`, `uvicorn[standard]` | the service (DEP-008) |
-| `pydantic`, `pydantic-settings` | boundaries and config (CQ-024) |
+| `pydantic[email]`, `pydantic-settings` | boundaries and config (CQ-024); the `email` extra is `EmailStr`, which is the "basic RFC-shape check" VAL-010 asks for and the regex trap VAL-026 warns against |
 | `sqlalchemy[asyncio]`, `aiosqlite`, `greenlet` | persistence (CQ-080) |
 | `argon2-cffi` | passwords (AUTH-006) |
 | `pyjwt` | the session token (AUTH-013) |
