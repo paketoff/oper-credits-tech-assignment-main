@@ -1,0 +1,36 @@
+# Local only. Production exports to the console and Fly collects stdout, so
+# nothing here runs on the deployed machine (DEP-033).
+
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  batch:
+    timeout: 5s
+  # DEP-035 belongs in the application, not here: an attribute that reaches the
+  # collector has already left the process. This is a second line of defence,
+  # not the first one.
+  attributes/scrub:
+    actions:
+      - key: http.request.header.authorization
+        action: delete
+      - key: http.request.header.cookie
+        action: delete
+
+exporters:
+  otlphttp/tempo:
+    endpoint: http://tempo:4318
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [attributes/scrub, batch]
+      exporters: [otlphttp/tempo, debug]

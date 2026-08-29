@@ -39,3 +39,7 @@ was rewritten. Those moments are the argument that the process is real. So far:
 | p1 | `T-P5`'s Tier 1 coverage command used file paths. Coverage collected nothing and reported 0% — a gate that cannot pass, whose obvious "fix" is to lower the threshold (T10). |
 | p1 | `ARC-013` forbade pure modules from importing `core/errors.py`, while `CQ-054` and `VAL-004` required them to raise domain errors. The spec asked for something it also banned (T06). |
 | p1 | `ruff` B015 caught a test asserting nothing: `assert_transition(...) is None` with no `assert`. The linter found a real defect, not a style issue (T11). |
+| p1 | `/ready` was required by three rules and owned by no ticket. It had fallen between `DEP-037` and the plan entirely (T16). |
+| p1 | `CQ-034`'s `save(key, ...)` let the caller choose the key, which `VAL-023` and `DOC-003` both forbid — a caller that picks the key picks a path (T16). |
+| p1 | `DEP-031` specified a denylist and an allowlist in three lines. Only one was enumerated, so only one was implementable (T15). |
+| p1 | Cutting an oversized request stream makes the handler raise `ClientDisconnect`, which reaches the client as 500. The middleware has to own the send channel too, or a 413 is not a 413 (T14). |

@@ -1,0 +1,30 @@
+# An override, not part of `make dev` (DEP-033). The LGTM stack costs about a
+# gigabyte of memory, and it should not be running every time someone wants to
+# change a form field. Brought up with `make obs`.
+
+services:
+  api:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ../observability/otel-collector.yaml:/etc/otel/config.yaml:ro
+    ports:
+      - "4318:4318"
+    depends_on:
+      - lgtm
+
+  # Loki, Grafana, Tempo and Mimir in one image. Four containers would be the
+  # production shape; one is the right shape for a laptop.
+  lgtm:
+    image: grafana/otel-lgtm:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+    volumes:
+      - ../observability/grafana/datasources.yml:/otel-lgtm/grafana/conf/provisioning/datasources/custom.yaml:ro

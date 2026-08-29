@@ -415,7 +415,14 @@ demonstrable in under twenty minutes.
   `X-Request-ID` response header, so a reported problem can be traced to its request.
 - **DEP-031. Redaction is by default, not by exception.** A denylist covers `password`, `token`,
   `secret`, `api_key`, `authorization`, `email`, `full_name`, `filename`, and any key containing
-  `amount`, `income` or `value`. Anything not explicitly allowed is not logged.
+  `amount`, `income` or `value`. A redacted key keeps its name and loses its value, so a log line
+  still shows that a field was present.
+
+  This rule used to end "Anything not explicitly allowed is not logged", which is an **allowlist** —
+  the opposite policy to the sentence before it, and one no part of these specs enumerates. Only the
+  denylist is implementable as written, so the denylist is the rule. The stricter reading is worth
+  revisiting if this ever carries real borrower data; at that point the allowlist has to be written
+  out, not gestured at. Corrected at T15.
 
 ### 7.2 Tracing
 
@@ -428,9 +435,12 @@ that matter — two here, and a third, `document.classify`, when the optional cl
 - `document.upload` — attributes: `doc_type`, `content_type`, `size_bucket` (a bucket, not the exact
   size). Never the filename.
 
-**DEP-033.** Production exports to console; the collector endpoint is read from
-`OTEL_EXPORTER_OTLP_ENDPOINT` and stays unset there. Locally, the LGTM stack is available through an
-optional compose override so it does not consume memory on every start.
+**DEP-033.** Three cases, not two. An endpoint in `OTEL_EXPORTER_OTLP_ENDPOINT` — locally, that
+means `make obs` — exports there. Production with no endpoint exports to the console, because Fly
+collects stdout. **Development with no endpoint exports nowhere:** spans are still created and the
+instrumentation is still exercised, but a console exporter would print a JSON span per request into
+the terminal the developer is reading, and at the end of a test run it writes to a stdout pytest has
+already closed. The third case was implicit until T15 and produced exactly that noise.
 
 ### 7.3 Metrics
 

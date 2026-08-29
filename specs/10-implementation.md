@@ -408,7 +408,7 @@ Done   pytest tests/core/test_database.py -q → 3 passed; app.db appears under 
 ```
 Owner  D
 Deps   T02
-Files  app/core/exception_handlers.py,
+Files  app/core/exception_handlers.py, app/main.py,
        app/core/rate_limit.py, app/core/limits.py
 Output handlers rendering {"code","message","field"} for every code in the
        registry, 7-validation.md §2 (VAL-004) — the hierarchy itself lands in
@@ -419,7 +419,10 @@ Tests  test_domain_error_renders_expected_shape
        test_pydantic_error_normalised_to_same_shape
        test_every_declared_code_maps_to_a_status
        test_error_response_contains_no_stack_trace
-Done   pytest tests/core/test_errors.py -q → 4 passed
+Done   pytest tests/core/test_errors.py tests/core/test_limits.py
+       tests/core/test_rate_limit.py -q → all passed
+       (main.py is in the file list because a handler that is never registered
+       maps nothing; ARC-014 makes this the only module that may do it)
 ```
 → `VAL-004` – `VAL-007`, `API-013` – `API-015`, `CQ-053`.
 
@@ -442,19 +445,28 @@ Done   pytest tests/core/test_logging.py -q → 4 passed
 ```
 → `DEP-029` – `DEP-032`, `DEP-035`.
 
-### T16 | Blob storage
+### T16 | Blob storage, and readiness
 ```
 Owner  D
-Deps   T02
-Files  app/core/storage.py
-Output StorageBackend protocol; LocalStorage implementation
+Deps   T02, T13
+Files  app/core/storage.py, app/core/health.py, app/main.py
+Output StorageBackend protocol; LocalStorage implementation;
+       HealthService.readiness() and the GET /ready route
 Tests  test_save_returns_generated_key
        test_load_roundtrips_content
        test_path_traversal_filename_cannot_escape_blob_root
        test_missing_key_raises_domain_error
-Done   pytest tests/core/test_storage.py -q → 4 passed
+       test_ready_returns_ready_when_both_stores_are_usable
+       test_ready_returns_503_when_the_blob_directory_is_unwritable
+Done   pytest tests/core/test_storage.py tests/core/test_ready.py -q → 6 passed
 ```
-→ `CQ-033`, `CQ-034`, `DOC-003`, `VAL-023`.
+→ `CQ-033`, `CQ-034`, `DOC-003`, `VAL-023`, `DEP-037`, `DEP-050`.
+
+**`/ready` is added here because it had no owning ticket at all.** `DEP-037` and `DEP-050` require
+it and `DEP-040` step 5 asks for it as soon as `core/database.py` exists, but no ticket named it.
+T16 is the earliest point where it can be *complete*: `ARC-010` keeps `core.database` and
+`core.storage` deliberately separate, and `DEP-037` probes one of each. It is `async def`, unlike
+`/health`, because this one genuinely awaits (`DEP-054`).
 
 ### T44 | Test fixtures
 ```
@@ -632,10 +644,12 @@ This is Tier 2 in full (T-P6). Six tests over the paths a user actually takes, n
 ```
 Owner  C
 Deps   T01
-Files  src/styles.css, src/app/core/*, app.config.ts, app.routes.ts, eslint.config.js
+Files  src/styles.css, src/app/core/*, app.config.ts, app.routes.ts,
+       eslint.config.js, playwright.config.ts, e2e/
 Output Tailwind v4 @theme matching 3-ui.md; PrimeNG preset with cssLayer order;
        api client, error interceptor, auth interceptor;
-       eslint.config.js carrying the CQ-078 rule set (CQ-096)
+       eslint.config.js carrying the CQ-078 rule set (CQ-096);
+       Playwright installed and wired into `make test` (UI-068, UX-062)
 Tests  —
 Done   `npm run build` succeeds; `make lint` passes, which is where the UI-027
        and UI-030/UI-064 shell checks now live (5-deployment.md DEP-038)
@@ -657,8 +671,9 @@ Output Simulator page, form, result panel, cost breakdown
 Tests  test_simulator_renders_result_on_first_paint
        test_previous_result_stays_visible_during_recalculation
        test_above_norm_chip_appears_over_ninety_percent
-Done   `npm test -- --include=**/simulation/**` passes; a result is visible on load
-       with no interaction
+Done   `npm test -- --include=**/simulation/**` passes;
+       e2e: result on first paint (UX-055), previous result survives a change
+       (UX-056), chip appears above 90% and is not an error (UX-057)
 ```
 → `UX-009` – `UX-017`, `UI-047` – `UI-051`.
 
@@ -683,8 +698,8 @@ Files  src/app/domains/application/*
 Output Four-step stepper with server-side draft saving
 Tests  test_only_current_step_validates
        test_back_preserves_entered_data
-Done   `npm test -- --include=**/application/**` passes; refreshing after step 1
-       loses nothing
+Done   `npm test -- --include=**/application/**` passes;
+       e2e: a mid-wizard reload keeps step 1 (UX-059)
 ```
 → `UX-029` – `UX-035`, `UI-054`.
 
@@ -697,7 +712,7 @@ Output Checklist with per-requirement upload
 Tests  test_reason_is_displayed_for_conditional_items
        test_failed_upload_reverts_the_row
 Done   `npm test -- --include=**/documents/**` passes; each row has its own upload
-       control
+       control; e2e: the whole flow completes at 375px (UX-061, UI-067)
 ```
 → `UX-036` – `UX-043`, `UI-052`.
 
@@ -975,3 +990,12 @@ or checks that a spec required and no ticket produced.
 `ARC-028` gave unit D all of `core/*`, but four tickets between them named only six of the thirteen
 modules. Ownership at the unit level is not ownership at the file level, and `T-P2` needs the
 second.
+
+Four more found at the start of batch 2:
+
+| Gap | Resolution |
+|---|---|
+| `/ready` had no owning ticket, though `DEP-037`, `DEP-040` and `DEP-050` all require it | **T16**, the earliest point where both stores it probes exist |
+| `CQ-034`'s `save(key, ...)` contradicted `VAL-023` and this plan's own `test_save_returns_generated_key` | the backend generates the key; a caller that picks the key picks a path |
+| `DEP-031` stated a denylist and an allowlist in three lines | the denylist is the rule — it is the only one enumerated anywhere |
+| `UX-055` – `UX-061` and `UI-067` were enforced by a human at a 375px window | **Playwright as a gate** (UI-068, UX-062), installed in T26, scenarios named in T27 – T30 |

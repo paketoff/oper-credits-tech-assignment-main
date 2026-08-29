@@ -326,3 +326,19 @@ a UX change can never quietly contradict the domain.
 | UX-042 accepted types and size | DOC-001, DOC-002 |
 | UX-043 removal returns to pending | APP-004, ARC-018 |
 | UX-013, UX-045 no component calls HTTP itself | ARC-021, ARC-022 |
+
+# Appendix C — Enforcement
+
+Most of this document was enforced by review alone, which for behaviour means "someone clicked
+through it once". **UX-062. These five are machine-checked by Playwright** from batch 4
+(`3-ui.md` UI-068), because each is an observable fact about a running page rather than a judgement:
+
+| Rule | Scenario |
+|---|---|
+| UX-055 | the result panel holds figures on first paint, with no interaction |
+| UX-056 | changing an input never empties the previous result |
+| UX-057 | crossing 90% shows a chip, and it is not styled as an error |
+| UX-059 | a mid-wizard reload keeps everything entered after step 1 |
+| UX-061 | the whole flow completes in a 375px viewport |
+
+The rest stay review: timing, tone, whether an empty state says the right thing.

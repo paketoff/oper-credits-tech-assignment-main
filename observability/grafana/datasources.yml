@@ -1,0 +1,25 @@
+# Provisioned so the stack is useful the moment it starts. A Grafana that comes
+# up with no data sources means clicking through setup before seeing a trace,
+# which is how an observability demo runs out of time.
+
+apiVersion: 1
+
+datasources:
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    access: proxy
+    url: http://localhost:3200
+    isDefault: true
+
+  - name: Loki
+    type: loki
+    uid: loki
+    access: proxy
+    url: http://localhost:3100
+
+  - name: Mimir
+    type: prometheus
+    uid: mimir
+    access: proxy
+    url: http://localhost:9090
