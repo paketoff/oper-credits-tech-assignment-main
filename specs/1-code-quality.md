@@ -120,6 +120,14 @@ is the first thing to check in review.
 ### 4.1 Python
 
 - **CQ-020** — Every parameter and every return value is annotated, including `-> None`.
+
+  **Built-in generics, not the `typing` aliases.** `dict[str, int]`, `list[Foo]`, `str | None` —
+  never `typing.Dict`, `typing.List`, `typing.Optional`. Those aliases are deprecated (PEP 585, PEP
+  604) and ruff's `UP006`, `UP035` and `UP045` report them, so the old style fails our own gate.
+
+  `typing` is still imported where it carries something the built-ins do not: `Annotated` for FastAPI
+  dependencies (DEP-054), `Protocol` for the repository and storage interfaces (CQ-034), `TypeVar`
+  where a generic is genuinely needed.
 - **CQ-021** — **`Any` is forbidden in `app/`.** It is allowed in `tests/` (CQ-074). Use `object`, a
   `TypeVar`, a `Protocol`, or an explicit union instead. Enforced by **ruff `ANN401`**, which reports
   `Any` in a parameter or a return annotation we wrote.
