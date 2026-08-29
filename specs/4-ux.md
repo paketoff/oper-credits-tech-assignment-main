@@ -151,10 +151,15 @@ way to lose them, and it wastes the anonymous-simulation model we deliberately b
 `2-architecture.md` ARC-017:
 
 1. Simulator holds the anonymous simulation id client-side.
-2. Sign-up sends it along with the credentials.
-3. The backend attaches the simulation to the new user, then creates a draft application seeded from
-   it.
+2. Sign-up sends it along with the credentials, and the backend attaches the simulation to the new
+   user.
+3. The frontend calls `POST /api/applications` with that id, which creates the draft seeded from it.
 4. The borrower lands on step 1 of the wizard with the property section already filled.
+
+Step 3 was part of step 2 until T17 — signup created the application itself. It moved because that
+made `auth.service` reach into a second foreign domain, and `2-architecture.md` §5.1 says why the
+boundary moved instead of the edge count. **Nothing changes for the borrower:** they still land on a
+prefilled application, one HTTP call later.
 
 **UX-028.** If the id is missing or already claimed, sign-up still succeeds and the wizard opens
 empty. Losing a simulation must never block registration.

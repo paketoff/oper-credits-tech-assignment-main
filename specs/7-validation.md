@@ -137,7 +137,7 @@ never an error. Belgium has no statutory LTV cap; rejecting it would be a domain
 | Maximum size | 10 MB |
 | Minimum size | 1 byte |
 | `doc_type` | Must appear in the application's computed checklist |
-| Application state | Must not be `SUBMITTED` before documents open, nor `WITHDRAWN` |
+| Application state | Must be `DOCUMENTS_PENDING` or `DOCUMENTS_COMPLETE` — not `DRAFT`, not `WITHDRAWN` (rejected as `INVALID_STATE_TRANSITION`, 409, reusing the state-machine's own code rather than adding one; added at T23) |
 
 → `DOC-001`, `DOC-002`, `DOC-005`.
 

@@ -11,7 +11,9 @@ no validation or serialisation, and CQ-024 asks for pydantic at the *boundary*.
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
+from uuid import UUID
 
 from app.core.enums import Region
 
@@ -103,3 +105,21 @@ class SimulationResult:
     jkp: Decimal
     upfront: UpfrontCosts
     schedule: AmortisationSchedule
+
+
+@dataclass(frozen=True, slots=True)
+class Simulation:
+    """A stored simulation: the inputs, the result, and who owns it.
+
+    `user_id` is null until the borrower signs up (DOM-008). Attaching happens
+    once and never reassigns, which is what `claim_for_user` enforces (DOM-027).
+
+    The derived figures are recomputed on read rather than stored, per DOM-001 —
+    what is persisted here is the input plus an identity, so that an anonymous
+    calculation can be claimed later.
+    """
+
+    id: UUID
+    user_id: UUID | None
+    request: SimulationInput
+    created_at: datetime

@@ -8,9 +8,12 @@ work, so that the pipeline is proven while it is still cheap to fix
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import exception_handlers, telemetry
@@ -20,6 +23,20 @@ from app.core.dependencies import get_health_service, get_storage
 from app.core.health import HealthService, LivenessResponse, ReadinessResponse
 from app.core.limits import BodySizeLimitMiddleware
 from app.core.storage import LocalStorage
+
+# Imported for their side effect: a table is only in Base.metadata once its
+# module has been imported, and create_all builds what the metadata knows.
+# main.py is the only file allowed to know every domain (ARC-014).
+from app.domains.applications.router import router as applications_router
+from app.domains.auth import tables as _auth_tables  # noqa: F401
+from app.domains.auth.router import router as auth_router
+from app.domains.documents import tables as _documents_tables  # noqa: F401
+from app.domains.documents.router import router as documents_router
+from app.domains.simulation import tables as _simulation_tables  # noqa: F401
+from app.domains.simulation.router import router as simulation_router
+
+_STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+_ASSETS_DIR = _STATIC_DIR / "assets"
 
 
 @asynccontextmanager
@@ -45,6 +62,13 @@ app = FastAPI(
 # maps an error because there is exactly one place that can.
 app_logging.configure()
 exception_handlers.register(app)
+
+# API-001: everything the frontend talks to is under /api. /health and /ready
+# are not, and that is the whole of API-069's carve-out.
+app.include_router(simulation_router, prefix="/api")
+app.include_router(auth_router, prefix="/api")
+app.include_router(applications_router, prefix="/api")
+app.include_router(documents_router, prefix="/api")
 app.add_middleware(BodySizeLimitMiddleware)
 app.middleware("http")(app_logging.request_id_middleware)
 telemetry.configure(app)
@@ -64,3 +88,29 @@ async def ready(
 ) -> ReadinessResponse:
     """Readiness probe: database reachable and the blob directory writable."""
     return await probe.readiness(session, storage)
+
+
+# Mounted after every /api router and both probes, so a real match always wins
+# over the catch-all below (DEP-013). "assets" holds Angular's hashed build
+# output; a missing directory would make mounting fail at import time, so the
+# frontend build always creates it (T26) even before this batch's placeholder
+# static/index.html exists.
+if _ASSETS_DIR.is_dir():
+    app.mount("/assets", StaticFiles(directory=_ASSETS_DIR), name="assets")
+
+
+@app.get("/{path:path}")
+def spa(path: str) -> FileResponse:
+    """Serve the Angular shell for any non-API route.
+
+    Angular owns client-side routing, so a direct hit or a refresh on a deep
+    route must return `index.html` rather than a 404 — the exact edge a
+    reviewer tries (DEP-014).
+
+    `/api/*` is excluded explicitly: this handler is registered last and
+    matches literally everything else, so an undefined API route would
+    otherwise be served the SPA shell with a 200 instead of a clean 404.
+    """
+    if path.startswith("api/"):
+        raise HTTPException(status_code=404)
+    return FileResponse(_STATIC_DIR / "index.html")

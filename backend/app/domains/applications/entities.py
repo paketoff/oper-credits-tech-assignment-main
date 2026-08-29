@@ -4,10 +4,11 @@ Frozen dataclasses and enums. Not the wire schemas, which are pydantic and live
 in `schemas.py` (ARC-040).
 """
 
-from dataclasses import dataclass
-from datetime import date
+from dataclasses import dataclass, field
+from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
+from uuid import UUID, uuid4
 
 from app.core.enums import DocumentType, Region
 
@@ -56,6 +57,11 @@ class PropertyType(StrEnum):
 class Borrower:
     """One person on the application.
 
+    `borrowers` is a table of its own (DOM-022), so each row carries an id;
+    `8-api.md` §6 returns it. A default factory means a test can build one
+    without naming it, the way T12's checklist tests already did before this
+    field existed.
+
     Income is captured but not used for a decision: affordability is a
     deliberate cut (DOM-023, SCP-011).
     """
@@ -65,6 +71,7 @@ class Borrower:
     employment_type: EmploymentType
     monthly_net_income: Decimal | None
     has_existing_credit: bool
+    id: UUID = field(default_factory=uuid4)
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +87,23 @@ class PropertyDetails:
     region: Region
     is_first_home: bool
     property_type: PropertyType
+    purchase_price: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class PropertySeed:
+    """What a simulation can prefill about the property, before it is complete.
+
+    A simulation never asks existing-vs-new-build, so `property_type` is not
+    here. Kept as a distinct type from `PropertyDetails` rather than making
+    that dataclass's field optional: `PropertyDetails.property_type` stays
+    required, which is what lets `ApplicationProfile` — and therefore the
+    checklist — depend on it being there without a None-check at every use
+    (API-032, ARC-047, UX-027).
+    """
+
+    region: Region
+    is_first_home: bool
     purchase_price: Decimal
 
 
@@ -111,3 +135,41 @@ class DocumentRequirement:
     required: bool
     reason: str | None
     satisfied: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class Application:
+    """A borrower's mortgage file.
+
+    `borrowers` is a collection from the start even though the UI fills one.
+    Most Belgian mortgages are joint, and adding the second is then a form
+    problem rather than a migration (DOM-021, SCP-010).
+
+    `status` is a stored column, not a derived value: transitions are written in
+    the same transaction as the change that caused them (CQ-087). It is also not
+    writable over the wire — moving state is an action, never a PATCH on a field
+    (API-011, API-038).
+    """
+
+    id: UUID
+    user_id: UUID
+    simulation_id: UUID | None
+    status: ApplicationStatus
+    borrowers: tuple[Borrower, ...]
+    property_details: PropertyDetails | None
+    property_seed: PropertySeed | None
+    submitted_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+    def profile(self) -> ApplicationProfile:
+        """Narrow this to what the checklist is a function of (DOC-005).
+
+        Raises:
+            ValueError: If the property section has not been filled yet. A
+                checklist cannot be derived from an application that does not
+                yet say what is being bought.
+        """
+        if self.property_details is None:
+            raise ValueError("an application without property details has no checklist")
+        return ApplicationProfile(borrowers=self.borrowers, property_details=self.property_details)

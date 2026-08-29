@@ -31,6 +31,22 @@ from app.core.database import Base, _engine, _session_factory, create_all  # noq
 from app.main import app as fastapi_app  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Clear the per-IP auth limiter between tests.
+
+    It is process-wide and in-memory by design (AUTH-041), which means it also
+    persists across tests in the same file unless something clears it: several
+    tests signing up from the same client would otherwise share one budget of
+    ten attempts and start failing with 429 partway through the suite.
+    """
+    from app.domains.auth.dependencies import _auth_limiter
+
+    _auth_limiter._attempts.clear()
+    yield
+    _auth_limiter._attempts.clear()
+
+
 @pytest.fixture(scope="session")
 def settings():
     """The settings the whole test session runs against."""
@@ -56,6 +72,21 @@ async def session(engine) -> AsyncIterator[AsyncSession]:
     async with _session_factory() as active:
         yield active
         await active.rollback()
+
+
+@pytest.fixture(autouse=True)
+async def _isolate(engine):
+    """Empty every table after each test.
+
+    The API tests commit — they go through the real service, which owns the
+    transaction boundary (CQ-091) — so a rollback-per-test would not undo them.
+    Without this, one test's user is another test's duplicate email, and the
+    suite passes or fails depending on the order pytest happens to collect in.
+    """
+    yield
+    async with engine.begin() as connection:
+        for table in reversed(Base.metadata.sorted_tables):
+            await connection.execute(table.delete())
 
 
 @pytest.fixture
