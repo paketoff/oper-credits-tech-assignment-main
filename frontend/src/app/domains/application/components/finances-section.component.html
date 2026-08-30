@@ -72,15 +72,25 @@
       <h3 class="text-h3 font-display font-semibold">Affordability</h3>
       <p class="text-body-sm text-muted mt-2">
         We check these figures against your monthly payment, and this application has no simulation
-        attached to it. A simulation is attached when an application is started from the calculator;
-        it cannot be added to this one afterwards.
+        attached to it yet.
       </p>
-      <a
-        routerLink="/calculator"
-        class="text-body-sm text-accent hover:text-accent-hover mt-3 inline-block font-semibold"
-      >
-        Start one from the calculator
-      </a>
+      @if (attachableSimulationId(); as simulationId) {
+        <button
+          type="button"
+          [disabled]="attaching()"
+          (click)="attachSimulation.emit(simulationId)"
+          class="rounded-control border-border text-ink hover:bg-surface-3 mt-3 h-9 border px-3 text-sm font-semibold transition-colors disabled:opacity-60"
+        >
+          {{ attaching() ? 'Attaching…' : 'Use the simulation you just ran' }}
+        </button>
+      } @else {
+        <a
+          routerLink="/calculator"
+          class="text-body-sm text-accent hover:text-accent-hover mt-3 inline-block font-semibold"
+        >
+          Run one in the calculator
+        </a>
+      }
     </div>
   } @else if (financials()?.assessment; as assessment) {
     <div class="border-border mt-6 border-t pt-5">
