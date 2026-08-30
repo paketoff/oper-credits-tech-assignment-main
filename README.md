@@ -34,8 +34,15 @@ Three things beyond that scope earned their place:
   be left each month, against the norms Belgian lenders commonly apply. It is a reading, never an
   approval or a refusal.
 
-Optional, behind a flag: **AI document classification**. Switched off, the borrower types their
-figures in and everything works. That is the normal case, not a fallback.
+Optional, behind a flag: **AI document classification**. Upload a payslip and the model reads it,
+says whether it matches the row you put it in, and offers the figure it found for the finances form
+— which you then confirm, or ignore.
+
+**It is switched on in the deployed app**, running on my own Anthropic key rather than the one you
+provided, which was spent. There is roughly **$3 of credit left on it**, so it may stop answering
+at some point; if it does, uploads still succeed, the checklist still closes, and nothing else
+changes. Switched off entirely, the borrower types their figures in and everything works. That is
+the normal case, not a fallback — the feature was built to be removable.
 
 ### What is deliberately not here
 
