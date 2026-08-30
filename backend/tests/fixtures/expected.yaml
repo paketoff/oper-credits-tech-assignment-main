@@ -1,0 +1,101 @@
+# What each synthetic document should produce (T60).
+#
+# Data, not schema — which is the one place YAML genuinely belongs here. The
+# schemas themselves are pydantic (T56), so the prompt and the type cannot
+# drift; this file is the human-readable, hand-correctable answer key.
+#
+# `fields` holds only what a correct read returns. A field absent here is one
+# the document does not state, not one we tolerate being wrong.
+#
+# Every value is invented. See README.md.
+
+documents:
+  - id: payslip-01
+    doc_type: PAYSLIPS
+    fields: { net_monthly_pay: "3200.00", period: "2026-03" }
+    proposes: { net_monthly_income: "3200.00" }
+  - id: payslip-02
+    doc_type: PAYSLIPS
+    fields: { net_monthly_pay: "2450.00", period: "2026-02" }
+    proposes: { net_monthly_income: "2450.00" }
+  - id: payslip-03
+    doc_type: PAYSLIPS
+    fields: { net_monthly_pay: "3900.00", period: "2026-01" }
+    proposes: { net_monthly_income: "3900.00" }
+  - id: payslip-04
+    doc_type: PAYSLIPS
+    fields: { net_monthly_pay: "2175.00", period: "2026-03" }
+    proposes: { net_monthly_income: "2175.00" }
+
+  - id: tax-01
+    doc_type: TAX_ASSESSMENT
+    fields: { assessment_year: 2025, net_taxable_income: "48000.00" }
+    proposes: { net_monthly_income: "4000.00" }
+  - id: tax-02
+    doc_type: TAX_ASSESSMENT
+    fields: { assessment_year: 2025, net_taxable_income: "35400.00" }
+    proposes: { net_monthly_income: "2950.00" }
+  - id: tax-03
+    doc_type: TAX_ASSESSMENT
+    fields: { assessment_year: 2024, net_taxable_income: "61200.00" }
+    proposes: { net_monthly_income: "5100.00" }
+
+  - id: accountant-01
+    doc_type: ACCOUNTANT_STATEMENT
+    fields: { year: 2025, net_annual_income: "50000.00" }
+    proposes: { net_monthly_income: "4166.67" }
+  - id: accountant-02
+    doc_type: ACCOUNTANT_STATEMENT
+    fields: { year: 2024, net_annual_income: "38400.00" }
+    proposes: { net_monthly_income: "3200.00" }
+  - id: accountant-03
+    doc_type: ACCOUNTANT_STATEMENT
+    fields: { year: 2025, net_annual_income: "66000.00" }
+    proposes: { net_monthly_income: "5500.00" }
+
+  # An employer statement states a *gross* salary, so it proposes nothing:
+  # converting gross to net would be inventing a tax model (SCP-011's cut).
+  - id: employer-01
+    doc_type: EMPLOYER_STATEMENT
+    fields: { contract_type: "Onbepaalde duur", gross_annual_salary: "57600.00" }
+    proposes: {}
+  - id: employer-02
+    doc_type: EMPLOYER_STATEMENT
+    fields: { contract_type: "Bepaalde duur", gross_annual_salary: "43200.00" }
+    proposes: {}
+  - id: employer-03
+    doc_type: EMPLOYER_STATEMENT
+    fields: { contract_type: "Onbepaalde duur", gross_annual_salary: "74400.00" }
+    proposes: {}
+
+  - id: loan-01
+    doc_type: EXISTING_LOAN_STATEMENTS
+    fields: { outstanding_balance: "12000.00", monthly_instalment: "250.00" }
+    proposes: { existing_credit_monthly: "250.00" }
+  - id: loan-02
+    doc_type: EXISTING_LOAN_STATEMENTS
+    fields: { outstanding_balance: "4800.00", monthly_instalment: "145.00" }
+    proposes: { existing_credit_monthly: "145.00" }
+  - id: loan-03
+    doc_type: EXISTING_LOAN_STATEMENTS
+    fields: { outstanding_balance: "26500.00", monthly_instalment: "410.00" }
+    proposes: { existing_credit_monthly: "410.00" }
+
+  # A price is not a monthly figure, so this proposes nothing either — it is
+  # extracted for a future cross-check against the property section.
+  - id: compromis-01
+    doc_type: PURCHASE_AGREEMENT
+    fields: { purchase_price: "300000.00" }
+    proposes: {}
+  - id: compromis-02
+    doc_type: PURCHASE_AGREEMENT
+    fields: { purchase_price: "245000.00" }
+    proposes: {}
+  - id: compromis-03
+    doc_type: PURCHASE_AGREEMENT
+    fields: { purchase_price: "412500.00" }
+    proposes: {}
+  - id: compromis-04
+    doc_type: PURCHASE_AGREEMENT
+    fields: { purchase_price: "189000.00" }
+    proposes: {}

@@ -85,7 +85,12 @@ app/
         entities.py        # ClassifiedType, verdict, outcome; domain types (T35)
         prompts.py         # the system prompt, a module-level constant
         evaluator.py       # the decision table; pure
+        messages.py        # the borrower-facing sentence; pure (T38)
+        pipeline.py        # the background task, after the commit (T37)
         client.py          # the API call
+      extraction/          # field extraction, T56 - T59
+        schemas.py         # one pydantic model per extractable type
+        proposal.py        # extracted fields -> two figures; pure
       repository.py
     auth/
       router.py

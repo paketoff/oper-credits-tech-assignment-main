@@ -983,6 +983,83 @@ grew: no seeded simulation means no instalment, and `API-075` then returns a nul
 The regression test was confirmed to have teeth by reverting the fix and watching it fail.
 → `DOM-026` (corrected), `DOM-027`.
 
+### T56 – T59 | Field extraction, proposed for confirmation
+```
+Owner  A + B + C
+Deps   T37
+Files  app/domains/documents/extraction/{schemas,proposal}.py
+       app/domains/documents/classification/{client,prompts,pipeline}.py
+       app/domains/documents/{schemas,service,repository,tables}.py
+       src/app/domains/application/components/proposal-prompt.component.*
+       tests/domains/documents/test_extraction.py
+
+Output Six pydantic schemas; one call that classifies and extracts; the
+       proposal on the checklist; the reconciliation prompt in the UI
+Tests  test_identity_and_bank_statements_are_deliberately_not_extracted
+       test_every_schema_generates_a_json_schema_for_the_prompt
+       test_an_annual_figure_is_proposed_as_a_monthly_one
+       test_types_that_say_nothing_the_assessment_reads_propose_nothing
+       test_a_confirmed_payslip_proposes_its_net_pay
+       test_fields_are_discarded_when_classification_disagrees
+       (frontend) shows both figures when a document disagrees
+       (frontend) emits the accepted row rather than applying it itself
+Done   pytest -q → 392 passed; ng test → 32 passed
+```
+**One call, not two.** The claimed type is known at upload, so the request asks what the document is
+*and* — if it is that type — what it says. No discriminated union, no second round trip. The single
+rule that makes sharing a call safe: **fields are discarded unless `evaluate()` returned
+`CONFIRMED`**, because figures read off a document that turned out to be something else describe the
+wrong document.
+
+**Supersedes `AI-013`'s model choice.** Sonnet at 300 tokens was reasoned for a four-field
+classification. The hard part is now *"is that 3.200 or 3.020"*, latency is free in a background task,
+and the volume is a handful per application — so `claude-opus-5` at 1500, as one-line constants that
+T61's Tier 2 can send back to Sonnet if the difference is not real.
+
+**`IDENTITY` and `BANK_STATEMENTS` are deliberately not extracted.** A national register number and
+an account number are a materially different GDPR commitment; declining is a decision, not a gap.
+→ `DOM-030`, `SCP-015` (narrowed again — cross-document checking stays cut).
+
+### T60 – T61 | The synthetic corpus and its two tiers
+```
+Owner  D
+Deps   T57
+Files  backend/tests/fixtures/{README.md,expected.yaml}
+       backend/tests/fixtures/{templates,scripts,documents}/
+       backend/tests/domains/documents/test_corpus.py
+       backend/pyproject.toml            (the `live` marker)
+
+Output 20 synthetic Belgian documents across the six extractable types, in
+       PDF and PNG, with an answer key
+Tests  test_the_corpus_covers_every_extractable_type
+       test_every_case_has_both_rendered_formats
+       test_expected_fields_validate_against_their_schema
+       test_expected_fields_map_to_the_expected_proposal
+       test_the_model_identifies_the_type_and_lands_the_numbers  (Tier 2)
+Done   pytest -q → 392 passed, 20 skipped
+```
+Rendered from HTML templates by Playwright, which is already a dev dependency — no new tooling. Both
+formats: PDF is what a borrower uploads, PNG additionally lets the fixtures be inspected without
+poppler, which is a container dependency rather than a developer one. Output is committed, so a test
+run never needs a browser.
+
+**Every figure, name and number is invented**, with national register numbers in an obviously-fake
+`00.00.00-000.00` shape. The corpus exists precisely so extraction can be tested without anyone's
+real payslip.
+
+**Two tiers, mirroring `T-P5`/`T-P6`.** Tier 1 always runs and never touches the network: the answer
+key drives our deterministic half — schema validation and the mapping onto a proposal. Tier 2 is
+`RUN_LIVE_CLASSIFIER=1 pytest -m live`, sends the documents to the real model, and is **never a
+gate**: making it one would buy flakiness and a bill at once. It is also how the Opus-over-Sonnet
+choice gets measured rather than argued.
+
+`expected.yaml` is the one place YAML genuinely belongs here — it is data a human reads and
+hand-corrects, not schema. The schemas are pydantic (T56) precisely so they cannot drift from the
+prompt.
+
+**A known limit, stated rather than implied away:** a synthetic `loonfiche` is cleaner than a
+photographed one, so Tier 2 passing does not prove the model handles a crumpled phone photo.
+
 ---
 
 # P4 — Integration
