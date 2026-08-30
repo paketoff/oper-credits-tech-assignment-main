@@ -1044,24 +1044,37 @@ Only past the gate. Spec in [`9-ai-classification.md`](9-ai-classification.md).
 ```
 Owner  A
 Deps   gate
-Files  app/domains/documents/classification/evaluator.py
+Files  app/domains/documents/classification/{entities,evaluator}.py
        tests/domains/documents/test_evaluator.py
 
 Output evaluate(verdict, claimed) -> ClassificationOutcome
        CONFIDENCE_FLOOR and HIGH_CONFIDENCE as named constants
+       ClassifiedType / ClassificationVerdict / ClassificationOutcome as domain
+       types, so evaluator.py imports no framework and stays pure (ARC-013)
 
 Tests  test_below_confidence_floor_returns_inconclusive_despite_sharp_mismatch
        test_matching_type_above_floor_returns_confirmed
        test_unknown_above_floor_returns_unrecognised
        test_mismatch_medium_confidence_returns_possible_mismatch
        test_mismatch_high_confidence_returns_likely_mismatch
+       test_decision_table_is_covered_end_to_end        (parameterised, AI-034)
        test_thresholds_are_module_constants_not_literals
+       test_every_document_type_has_a_classified_counterpart
+       test_unknown_is_not_a_document_type
 
-Done   pytest tests/domains/documents/test_evaluator.py -q → 6 passed
-       coverage on evaluator.py is 100%
+Done   pytest tests/domains/documents/test_evaluator.py -q → 16 passed
+       coverage on evaluator.py and entities.py is 100%
 ```
 Pure function, no network, written first. The first test is the one that proves code owns the
-outcome, not the model. → `AI-014` – `AI-017`, `AI-033` – `AI-034`.
+outcome, not the model: the model is maximally wrong — a passport called a construction quote — and
+the answer is still silence, because the confidence was below the floor.
+
+`ClassificationVerdict` is a frozen dataclass here rather than the pydantic model `AI-011` sketches.
+The pydantic model parses the API response and belongs to `client.py` (T36); splitting them is what
+keeps `evaluator.py` importable without a framework, the same discipline `ARC-013` already applies to
+`calculator.py` and `checklist.py`. `entities.py` is a new file in the classification package,
+recorded in `ARC-002`.
+→ `AI-011` – `AI-017`, `AI-033` – `AI-034`.
 
 ### T36 | Model client
 ```
