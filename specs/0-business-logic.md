@@ -151,7 +151,7 @@ number; the cuts below stand on their own reasoning regardless.
 | SCP-008 | New-build VAT (21%, or 6% for qualifying demolition-and-rebuild) | A second tax regime that also splits the land share from the construction share. Doubles the tax model for a case the demo does not exercise. |
 | SCP-009 | Flemish reductions: 1% for deep energy renovation, €1,867 rebate for modest housing | Conditional rules layered on the base rate, with price thresholds that differ inside and outside the larger cities. Additive later; they do not change the shape of the calculation. |
 | SCP-010 | Co-borrowers in the UI | Most Belgian mortgages are joint. The schema keeps `borrowers` as a collection from the start, so this is a form and aggregation problem, not a data-model change. → §9.4 |
-| SCP-011 | Affordability assessment (DSTI, `restleefgeld`) | Belongs to the application, not the public simulator: needs income, existing credit obligations, the informal ~33%-of-net-income ceiling and a residual-income floor. Income is captured; the decision is not computed. First thing to add. |
+| SCP-011 | ~~Affordability assessment (DSTI, `restleefgeld`)~~ — **superseded at T53, now built.** | Was: *"belongs to the application, not the public simulator ... Income is captured; the decision is not computed. First thing to add."* It was the first thing added. Both reasons the cut gave for its shape are kept rather than discarded: it is application-scoped, not part of the public simulator, and it produces an advisory band, never a decision. → §21 |
 | SCP-012 | CKP consultation, ESIS issuance, reflection period | Legally mandatory gates. CKP in particular has a 45-day validity window, so it can expire and push a file backwards. Present in the state machine as states; not implemented as integrations. → §12 |
 | SCP-013 | Amortisation schedule in the UI | Computed and tested in the backend. Rendering 300 rows costs time and earns nothing. → §16 |
 | SCP-014 | Independent property valuation | Appraised value is assumed equal to purchase price. Real lenders use a statistical model and take the lower of the two, which matters because quotiteit is computed against value, not price. → SCP-017 |
@@ -275,7 +275,11 @@ form and aggregation problem, not a data-model change.
 a table of its own (`1-code-quality.md` CQ-085), so each row carries an id; `8-api.md` §6 returns
 it.
 
-**DOM-023.** Income is captured but not yet used for a decision. See the affordability cut, SCP-011.
+**DOM-023 (superseded at T53).** Read: *"Income is captured but not yet used for a decision."* It is
+now used, but **not from this field** — `borrower.monthly_net_income` is replaced wholesale on every
+PATCH (`8-api.md` API-037) and carries no provenance, so it stays what it always was: what the
+borrower typed into the wizard. The figure the affordability assessment actually reads lives on the
+confirmed financial profile, DOM-029. → §21
 
 **DOM-028.** A borrower is between 18 and 75 years old at submission, computed from
 `date_of_birth`. Outside that range the application cannot be submitted — `7-validation.md` VAL-011.
@@ -686,6 +690,136 @@ quotiteit 0.95   -> valid, above_supervisory_norm == true
 
 For the primary case, `jkp > nominal_rate` strictly, and `jkp ≈ 0.0414`.
 
+### AC-009 — Affordability bands
+
+Household of one adult, no dependants, `net_monthly_income = 3200.00`, no existing credit, against
+the primary case's monthly payment of `1414.52`:
+
+```
+monthly_obligations == 1414.52
+dsti                == 0.4420        -> above DSTI_TIGHT_MAX (0.40)
+residual_income     == 1785.48
+residual_floor      == 1200.00       -> comfortable on residual
+band                == OUTSIDE_TYPICAL_NORMS   # the worse of the two, SIM-026
+```
+
+The same household on `net_monthly_income = 4800.00`:
+
+```
+dsti                == 0.2947        -> comfortable
+residual_income     == 3385.48
+band                == COMFORTABLE
+```
+
+`net_monthly_income = None` returns `INSUFFICIENT_DATA` with `dsti` and `residual_income` both null,
+and never raises. → SIM-027
+
+## 21. Affordability
+
+Numbered last, though it belongs beside the application sections (§9.4, §11, §12). Inserting it there
+would renumber every section after it, and the `§` column of Appendix A is published — *supersede,
+never renumber* (`specs/README.md`). Added at T53.
+
+**This section supersedes SCP-011.** Both properties that made the cut defensible are kept: the
+assessment is application-scoped rather than part of the public simulator, and it produces an
+advisory band, never a decision.
+
+### 21.1 The data it reads
+
+**DOM-029. The confirmed financial profile.** One row per application, separate from `borrowers`.
+
+| Field | Type | Note |
+|---|---|---|
+| `net_monthly_income` | Decimal, nullable | Household net monthly income |
+| `existing_credit_monthly` | Decimal, nullable | Total monthly instalments on existing credit |
+| `dependants` | int | People dependent on the household, beyond the borrowers themselves |
+
+Every value carries **provenance**: `MANUAL` when the borrower typed it, `DOCUMENT` when it was read
+off a document *and the borrower confirmed it*, with the source `document_id` and `confirmed_at`.
+An underwriter needs to know which of the two a number is, and it is the audit trail
+`9-ai-classification.md` AI-003 already argues for.
+
+**It is a separate table, not columns on `borrowers`, for a concrete reason:** `8-api.md` API-037
+replaces the borrower collection wholesale on every PATCH, so anything stored there is destroyed the
+next time the borrower edits the wizard.
+
+**DOM-030. Only confirmed data is ever assessed.** A value read from a document is a *proposal* until
+the borrower confirms it, and a proposal is never an input here. This is AI-003 — "the model advises,
+deterministic code owns the outcome" — applied to a document's *values* rather than to its *type*,
+and it is what keeps the assessment defensible when the classifier is wrong. With no documents
+uploaded at all, every value is `MANUAL` and the assessment works exactly the same.
+
+### 21.2 The two measures
+
+**SIM-022. Monthly obligations** are the mortgage payment plus every other monthly credit
+instalment:
+
+```
+monthly_obligations = mortgage_monthly_payment + existing_credit_monthly
+```
+
+The mortgage payment is passed in as a `Decimal` (§15), not recomputed here: the affordability module
+does not import the simulation domain.
+
+**SIM-023. DSTI** — debt service to income — is the share of net income committed to credit:
+
+```
+dsti = monthly_obligations / net_monthly_income        # 4 dp, ROUND_HALF_UP, like quotiteit
+```
+
+| DSTI | Band |
+|---|---|
+| `<= 0.33` | `COMFORTABLE` |
+| `<= 0.40` | `TIGHT` |
+| `> 0.40` | `OUTSIDE_TYPICAL_NORMS` |
+
+**SIM-024. `Restleefgeld`** — residual living income — is what remains after every credit obligation,
+against a floor that grows with the household:
+
+```
+residual_income = net_monthly_income - monthly_obligations
+residual_floor  = 1200 + 400 * (adults - 1) + 300 * dependants
+```
+
+`adults` is the number of borrowers on the application (DOM-021), so a joint application raises the
+floor without a second field to fill in.
+
+| Residual | Band |
+|---|---|
+| `>= floor * 1.10` | `COMFORTABLE` |
+| `>= floor` | `TIGHT` |
+| `< floor` | `OUTSIDE_TYPICAL_NORMS` |
+
+**SIM-025. Every threshold and floor constant above is a named module constant, never a literal.**
+They are the entire tuning surface of this feature and the first thing a reviewer will ask about —
+the same discipline `9-ai-classification.md` AI-016 imposes on the confidence thresholds.
+
+**SIM-026. The reported band is the worse of the two.** Passing on income share while failing on
+residual income is not a pass. Ordering: `COMFORTABLE < TIGHT < OUTSIDE_TYPICAL_NORMS`.
+
+**SIM-027. Missing income yields `INSUFFICIENT_DATA`, never an exception and never a zero.**
+`net_monthly_income` is nullable, and dividing by it unguarded is the obvious bug here. `dsti` and
+`residual_income` are null in that band. A missing `existing_credit_monthly` is different — it is
+treated as zero, because "no existing credit" is the common case and the borrower says so with the
+`has_existing_credit` flag they already answered (DOM-022).
+
+### 21.3 It is a band, never a decision
+
+**SIM-028.** The output is `COMFORTABLE` / `TIGHT` / `OUTSIDE_TYPICAL_NORMS` / `INSUFFICIENT_DATA`.
+It is never "approved" or "rejected", and nothing in the application state machine (§12) reads it.
+
+This is the same treatment an above-norm quotiteit already gets (DOM-016: flagged, explained, never
+rejected), and for the same reason. Oper is explicit that their own credit analyst applies a written
+policy and is *not credit scoring*, with a human in the loop — an assessment that returned a verdict
+would be the thing this whole design is arguing against.
+
+**SIM-029. The constants are representative lender norms, not law.** The ~33% income share is an
+informal underwriting convention, not a statutory cap, and residual-income floors are bank-internal
+and vary between lenders. They are flagged here exactly as SIM-014 flags the standing-in notary fee
+(SCP-016), so that the simplification is visible rather than hidden behind a plausible-looking number.
+The NBB's published expectations govern **quotiteit** (§9.2), which is why that one is normative here
+and these are not.
+
 ---
 
 # Appendix A — Traceability
@@ -707,7 +841,7 @@ Where two sources are listed, this document carries the union of both — see Ap
 | SCP-008 | Cut: new-build VAT | 00 · Deliberately not built | §5 |
 | SCP-009 | Cut: Flemish reductions | 00 · Deliberately not built | §5 |
 | SCP-010 | Cut: co-borrowers in the UI | 00 · Deliberately not built | §5 |
-| SCP-011 | Cut: affordability (DSTI, `restleefgeld`) | 00 · Deliberately not built | §5 |
+| SCP-011 | Superseded at T53: affordability is built, advisory only | 00 · Deliberately not built | §5, §21 |
 | SCP-012 | Cut: CKP, ESIS, reflection period | 00 · Deliberately not built | §5 |
 | SCP-013 | Cut: amortisation schedule in the UI | 00 · Deliberately not built | §5 |
 | SCP-014 | Cut: independent property valuation | 00 · Deliberately not built | §5 |
@@ -754,6 +888,8 @@ Where two sources are listed, this document carries the union of both — see Ap
 | DOM-026 | Anonymous `id` held client-side | 01 · Claiming a simulation | §10 |
 | DOM-027 | Attach iff `user_id` is null; never reassign | 01 · Claiming a simulation | §10 |
 | DOM-028 | Borrower aged 18 – 75 at submission | added for `7-validation.md` | §9.4 |
+| DOM-029 | The confirmed financial profile, with provenance | added at T53 | §21.1 |
+| DOM-030 | Only confirmed data is assessed; a proposal is not an input | added at T53 | §21.1 |
 
 ## Documents (`DOC-`)
 
@@ -822,6 +958,14 @@ Where two sources are listed, this document carries the union of both — see Ap
 | SIM-019 | JKP `>=` nominal; equality means the fees were not applied | 00 · JKP/TAEG + 02 §5 | §18 | AC-008 |
 | SIM-020 | The wire contract — canonical in `8-api.md` §4 | 02 §6 | §19 | AC-003 |
 | SIM-021 | Money serialised as JSON strings | 02 §6 | §19 | — |
+| SIM-022 | Monthly obligations = mortgage payment + other credit | added at T53 | §21.2 | — |
+| SIM-023 | DSTI formula and its three bands | added at T53 | §21.2 | AC-009 |
+| SIM-024 | `Restleefgeld` floor and its three bands | added at T53 | §21.2 | AC-009 |
+| SIM-025 | Every threshold is a named constant | added at T53 | §21.2 | — |
+| SIM-026 | The reported band is the worse of the two | added at T53 | §21.2 | AC-009 |
+| SIM-027 | Missing income is `INSUFFICIENT_DATA`, never an exception | added at T53 | §21.2 | AC-009 |
+| SIM-028 | A band, never a decision; the state machine never reads it | added at T53 | §21.3 | — |
+| SIM-029 | The constants are representative lender norms, not law | added at T53 | §21.3 | — |
 
 ## Acceptance criteria (`AC-`)
 
@@ -835,6 +979,7 @@ Where two sources are listed, this document carries the union of both — see Ap
 | AC-006 | Schedule closes at exactly `0.00` | 02 §7.6 | §20 |
 | AC-007 | Edge cases: zero rate, term bounds, LTV 0.95 | 02 §7.7 | §20 |
 | AC-008 | `jkp > nominal_rate` strictly; `≈ 0.0414` | 02 §7.8 | §20 |
+| AC-009 | Affordability bands, both directions and the null case | added at T53 | §20 |
 
 # Appendix B — Source coverage
 

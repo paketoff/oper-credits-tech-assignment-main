@@ -55,8 +55,8 @@ Two tiers instead:
 
 **T-P5. Tier 1 — pure domain logic: 100%, enforced.**
 `domains/simulation/calculator.py`, `domains/applications/state_machine.py`,
-`domains/applications/checklist.py`, `domains/documents/file_type.py`,
-`domains/documents/classification/evaluator.py`.
+`domains/applications/checklist.py`, `domains/applications/affordability.py`,
+`domains/documents/file_type.py`, `domains/documents/classification/evaluator.py`.
 
 These are pure functions with a finite number of branches. Full coverage is achievable, meaningful,
 and it is where being wrong is unrecoverable.
@@ -65,6 +65,7 @@ and it is where being wrong is unrecoverable.
 pytest --cov=app.domains.simulation.calculator \
        --cov=app.domains.applications.state_machine \
        --cov=app.domains.applications.checklist \
+       --cov=app.domains.applications.affordability \
        --cov=app.domains.documents.file_type \
        --cov=app.domains.documents.classification.evaluator \
        --cov-fail-under=100
@@ -841,6 +842,60 @@ Done   `npm run build`, `ng test`, `make e2e`, `make lint` all green; a real
        both themes — not just DOM-text assertions, the gap that let T45's
        bug and the missing Tailwind compilation through in the first place
 ```
+
+---
+
+# P7 — Documents produce data
+
+Added after batch 4.5, when the question "what does this project actually *do* with an uploaded
+document?" turned out to have the honest answer: nothing. A document satisfies a checklist row by the
+type the borrower declared and is never opened again.
+
+**The rule that makes this one feature rather than three: a document produces a *proposal*, the
+borrower confirms it, and only confirmed data is ever calculated on.** That extends `AI-003` ("the
+model advises, deterministic code owns the outcome") from a document's *type* to its *values* instead
+of contradicting it, and it makes manual entry the base case rather than a bolt-on — the same form,
+with nothing pre-filled. With `AI_CLASSIFICATION_ENABLED=false` the borrower types everything and the
+product still works end to end, so `AI-039` holds by construction.
+
+**Ordering note.** `AI-001` puts classification last, after every flow works on the deployed URL. T31
+is run first to satisfy exactly that; the rest of P4 (T32 – T34) is deliberately deferred. That is a
+conscious reordering, recorded here rather than left to be noticed.
+
+### T53 | Affordability calculator
+```
+Owner  A
+Deps   —
+Files  app/domains/applications/affordability.py
+       app/domains/applications/entities.py
+       tests/domains/applications/test_affordability.py
+
+Output assess(profile, monthly_payment) -> AffordabilityAssessment
+       DSTI and restleefgeld bands; every threshold a named constant
+
+Tests  test_residual_floor_single_adult_no_dependants_is_the_base
+       test_residual_floor_second_adult_raises_it
+       test_residual_floor_each_dependant_raises_it
+       test_residual_floor_clamps_nonsensical_household_sizes
+       test_assess_bands_the_income_share
+       test_assess_residual_exactly_on_the_floor_is_tight_not_outside
+       test_assess_residual_below_the_floor_is_outside_typical_norms
+       test_assess_takes_the_worse_of_the_two_measures
+       test_assess_missing_income_returns_insufficient_data
+       test_assess_non_positive_income_returns_insufficient_data
+       test_assess_existing_credit_counts_towards_the_obligations
+       test_assess_absent_existing_credit_is_treated_as_zero
+       test_assess_never_reports_a_decision
+       test_ac009_primary_case_on_a_modest_income_is_outside_norms
+       test_ac009_the_same_household_on_a_higher_income_is_comfortable
+
+Done   pytest tests/domains/applications/test_affordability.py -q → 17 passed
+       coverage on affordability.py is 100%
+```
+Supersedes the `SCP-011` cut. Pure, fourth module beside `checklist.py` and `state_machine.py`; takes
+the monthly payment as a `Decimal` argument so it never imports the simulation domain. The output is
+a **band, never a decision** — nothing in the state machine reads it.
+→ `SIM-022` – `SIM-029`, `DOM-029`, `DOM-030`, `AC-009`.
 
 ---
 

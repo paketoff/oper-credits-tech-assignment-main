@@ -120,6 +120,61 @@ class ApplicationProfile:
     property_details: PropertyDetails
 
 
+class AffordabilityBand(StrEnum):
+    """How comfortably the household carries this loan (SIM-028).
+
+    A band, never a decision. Nothing in the state machine reads it and it can
+    never move an application: a verdict would be credit scoring, which is the
+    thing `9-ai-classification.md` AI-003 argues the whole design against.
+
+    `INSUFFICIENT_DATA` is a first-class member rather than a `None` return, so
+    every caller renders one of four states instead of branching on optionality
+    (SIM-027).
+    """
+
+    COMFORTABLE = "COMFORTABLE"
+    TIGHT = "TIGHT"
+    OUTSIDE_TYPICAL_NORMS = "OUTSIDE_TYPICAL_NORMS"
+    INSUFFICIENT_DATA = "INSUFFICIENT_DATA"
+
+
+@dataclass(frozen=True, slots=True)
+class AffordabilityInput:
+    """The part of an application the affordability assessment is a function of.
+
+    Deliberately narrower than the stored financial profile, for the same reason
+    `ApplicationProfile` is narrower than `Application`: passing the whole row
+    would let an unrelated field quietly become an input. Provenance in
+    particular is absent on purpose — where a number came from is a storage and
+    audit concern (DOM-029), never an input to the arithmetic.
+
+    `adults` is the number of borrowers on the application (DOM-021), so a joint
+    application raises the residual floor without a second field to fill in.
+    """
+
+    net_monthly_income: Decimal | None
+    existing_credit_monthly: Decimal | None
+    dependants: int
+    adults: int
+
+
+@dataclass(frozen=True, slots=True)
+class AffordabilityAssessment:
+    """The result of §21.2, carrying its own workings.
+
+    `dsti` and `residual_income` are null exactly when the band is
+    `INSUFFICIENT_DATA` (SIM-027). `residual_floor` is always present: it is a
+    function of household composition alone, so it is knowable even when income
+    is not, and the borrower can be told what they would need to clear.
+    """
+
+    band: AffordabilityBand
+    dsti: Decimal | None
+    monthly_obligations: Decimal
+    residual_income: Decimal | None
+    residual_floor: Decimal
+
+
 @dataclass(frozen=True, slots=True)
 class DocumentRequirement:
     """One row of the derived checklist.
