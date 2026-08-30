@@ -20,6 +20,7 @@ from app.domains.applications.entities import (
     FinancialProfile,
     PropertyDetails,
     PropertySeed,
+    PropertyType,
     Provenance,
 )
 from app.domains.applications.repository import ApplicationRepository
@@ -38,6 +39,7 @@ from app.domains.applications.schemas import (
     PropertyRequest,
     PropertyResponse,
 )
+from app.domains.simulation.entities import Simulation
 from app.domains.simulation.service import SimulationService
 
 # APP-010, SCP-018. UNDER_REVIEW and beyond is where a person, not the
@@ -130,9 +132,19 @@ class ApplicationService:
         if payload.borrowers is not None:
             borrowers = tuple(self._to_borrower(b) for b in payload.borrowers)
             await self._repository.replace_borrowers(session, application_id, borrowers)
-        if payload.simulation_id is not None:
+        attached = (
             await self._attach_simulation(session, application_id, user_id, payload.simulation_id)
+            if payload.simulation_id is not None
+            else None
+        )
         property_details = self._to_property(payload.property) if payload.property else None
+        # Attaching a simulation carries its figures onto the application.
+        # Without this the link changed but the price did not: a borrower who
+        # recalculated at 200 000 still saw the 300 000 their draft was seeded
+        # with, and the affordability check measured the new instalment against
+        # the old property.
+        if attached is not None and property_details is None:
+            property_details = self._property_from(attached, application)
         updated = await self._repository.update(session, application_id, property_details, None)
         if updated is None:
             raise NotFoundError(code="APPLICATION_NOT_FOUND")
@@ -326,7 +338,7 @@ class ApplicationService:
 
     async def _attach_simulation(
         self, session: AsyncSession, application_id: UUID, user_id: UUID, simulation_id: UUID
-    ) -> None:
+    ) -> Simulation:
         """Point the application at a simulation this borrower may have.
 
         Three cases, and the middle one is the ordinary path: `POST
@@ -348,6 +360,7 @@ class ApplicationService:
         simulation = await self._simulations.get_stored(session, simulation_id)
         if simulation is None:
             raise NotFoundError(code="SIMULATION_NOT_FOUND")
+
         if simulation.user_id is None:
             # The claim carries the `user_id IS NULL` condition in its own
             # WHERE, so two borrowers racing for the same id cannot both win.
@@ -356,6 +369,22 @@ class ApplicationService:
         elif simulation.user_id != user_id:
             raise NotFoundError(code="SIMULATION_NOT_FOUND")
         await self._repository.attach_simulation(session, application_id, simulation_id)
+        return simulation
+
+    def _property_from(self, simulation: Simulation, application: Application) -> PropertyDetails:
+        """The property section as the newly attached simulation states it.
+
+        `property_type` is not something a simulation asks, so whatever the
+        borrower already answered is kept (`EXISTING` for a draft that never
+        reached that step).
+        """
+        existing = application.property_details
+        return PropertyDetails(
+            region=simulation.request.region,
+            is_first_home=simulation.request.is_first_home,
+            property_type=existing.property_type if existing else PropertyType.EXISTING,
+            purchase_price=simulation.request.property_value,
+        )
 
     async def _seed_from_simulation(
         self, session: AsyncSession, user_id: UUID, simulation_id: UUID | None

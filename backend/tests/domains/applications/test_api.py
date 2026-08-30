@@ -297,3 +297,37 @@ async def test_someone_elses_simulation_cannot_be_attached(client, engine):
 
     assert response.status_code == 404
     assert response.json()["code"] == "SIMULATION_NOT_FOUND"
+
+
+async def test_attaching_a_simulation_carries_its_figures_onto_the_application(client, engine):
+    # Attaching changed the link but not the numbers: a borrower who
+    # recalculated at 200 000 still saw the 300 000 their draft was seeded
+    # with, and the affordability check measured the new instalment against the
+    # old property.
+    await client.post(
+        "/api/auth/signup",
+        json={"email": "carry@example.com", "password": "hunter2hunter2"},
+    )
+    application_id = (await client.post("/api/applications", json={})).json()["id"]
+    simulation_id = (
+        await client.post(
+            "/api/simulations",
+            json={
+                "property_value": "200000.00",
+                "own_contribution": "20000.00",
+                "term_months": 300,
+                "annual_nominal_rate": "0.0400",
+                "region": "BRUSSELS",
+                "is_first_home": False,
+            },
+        )
+    ).json()["id"]
+
+    body = (
+        await client.patch(
+            f"/api/applications/{application_id}", json={"simulation_id": simulation_id}
+        )
+    ).json()
+
+    assert body["property"]["purchase_price"] == "200000.00"
+    assert body["property"]["region"] == "BRUSSELS"
