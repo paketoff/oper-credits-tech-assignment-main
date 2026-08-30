@@ -105,3 +105,19 @@ async def test_checklist_of_other_users_application_returns_404(client, engine):
 
     assert response.status_code == 404
     assert response.json()["code"] == "APPLICATION_NOT_FOUND"
+
+
+async def test_checklist_is_empty_rather_than_500_without_a_property_section(client, engine):
+    # `profile()` raises ValueError when the property section is missing, and
+    # that is not a DomainError — so the route answered 500 and the whole
+    # documents column vanished from the page while everything else rendered.
+    await client.post(
+        "/api/auth/signup",
+        json={"email": "noproperty@example.com", "password": "hunter2hunter2"},
+    )
+    application_id = (await client.post("/api/applications", json={})).json()["id"]
+
+    response = await client.get(f"/api/applications/{application_id}/checklist")
+
+    assert response.status_code == 200
+    assert response.json() == {"required_count": 0, "satisfied_count": 0, "items": []}

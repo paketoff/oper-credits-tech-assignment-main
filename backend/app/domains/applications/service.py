@@ -332,7 +332,16 @@ class ApplicationService:
         Takes `uploaded` as an argument rather than querying for it, for the
         same reason `recompute_status` does: `applications` may not touch the
         documents table.
+
+        Returns an empty list when the property section is incomplete. There is
+        nothing to derive from — the checklist is a function of who is borrowing
+        and what they are buying (DOC-005) — and `profile()` raises `ValueError`
+        for that case, which is not a `DomainError` and so left the route
+        answering 500. `_checklist_counts` already guarded it; this did not, so
+        the summary list stayed fine while the page itself broke.
         """
+        if application.property_details is None:
+            return []
         requirements = required_documents(application.profile())
         return mark_satisfied(requirements, uploaded)
 
