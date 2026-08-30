@@ -1,24 +1,30 @@
 """Application flow: draft, patch, submit, recompute status."""
 
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.enums import DocumentType
 from app.core.errors import ApplicationError, NotFoundError
-from app.domains.applications import state_machine
+from app.domains.applications import affordability, state_machine
 from app.domains.applications.checklist import mark_satisfied, required_documents
 from app.domains.applications.entities import (
+    AffordabilityInput,
     Application,
     ApplicationStatus,
     Borrower,
+    ConfirmedAmount,
     DocumentRequirement,
+    FinancialProfile,
     PropertyDetails,
     PropertySeed,
+    Provenance,
 )
 from app.domains.applications.repository import ApplicationRepository
 from app.domains.applications.schemas import (
+    AffordabilityResponse,
     ApplicationCreateRequest,
     ApplicationListResponse,
     ApplicationPatchRequest,
@@ -26,6 +32,9 @@ from app.domains.applications.schemas import (
     ApplicationSummary,
     BorrowerRequest,
     BorrowerResponse,
+    ConfirmedAmountResponse,
+    FinancialsRequest,
+    FinancialsResponse,
     PropertyRequest,
     PropertyResponse,
 )
@@ -183,6 +192,110 @@ class ApplicationService:
         if updated is None:
             raise NotFoundError(code="APPLICATION_NOT_FOUND")
         return updated.status
+
+    async def get_financials(
+        self, session: AsyncSession, application_id: UUID, user_id: UUID
+    ) -> FinancialsResponse:
+        """The confirmed profile and the assessment derived from it (API-074)."""
+        application = await self.get_owned(session, application_id, user_id)
+        profile = await self._repository.get_financials(session, application_id)
+        return await self._to_financials_response(session, application, profile)
+
+    async def put_financials(
+        self,
+        session: AsyncSession,
+        application_id: UUID,
+        user_id: UUID,
+        payload: FinancialsRequest,
+    ) -> FinancialsResponse:
+        """Replace the confirmed profile wholesale (API-073).
+
+        Every figure written here is `MANUAL`: it was typed. The `DOCUMENT`
+        provenance is only ever set by confirming a proposal, which needs the
+        extraction feature that does not exist yet — recording "typed" for a
+        typed number is the honest thing to store in the meantime (DOM-029).
+        """
+        application = await self.get_owned(session, application_id, user_id)
+        confirmed_at = datetime.now(UTC)
+        profile = FinancialProfile(
+            application_id=application_id,
+            net_monthly_income=self._manual(payload.net_monthly_income, confirmed_at),
+            existing_credit_monthly=self._manual(payload.existing_credit_monthly, confirmed_at),
+            dependants=payload.dependants,
+            updated_at=confirmed_at,
+        )
+        saved = await self._repository.upsert_financials(session, profile)
+        await session.commit()
+        return await self._to_financials_response(session, application, saved)
+
+    def _manual(self, amount: Decimal | None, confirmed_at: datetime) -> ConfirmedAmount | None:
+        """Wrap a typed figure with its provenance, or keep it absent."""
+        if amount is None:
+            return None
+        return ConfirmedAmount(
+            amount=amount,
+            provenance=Provenance.MANUAL,
+            source_document_id=None,
+            confirmed_at=confirmed_at,
+        )
+
+    async def _to_financials_response(
+        self,
+        session: AsyncSession,
+        application: Application,
+        profile: FinancialProfile | None,
+    ) -> FinancialsResponse:
+        """Assemble the body, running the assessment when there is a loan to measure."""
+        assessment = await self._assess(session, application, profile)
+        return FinancialsResponse(
+            net_monthly_income=_to_amount_response(
+                profile.net_monthly_income if profile else None
+            ),
+            existing_credit_monthly=_to_amount_response(
+                profile.existing_credit_monthly if profile else None
+            ),
+            dependants=profile.dependants if profile else 0,
+            assessment=assessment,
+            updated_at=profile.updated_at if profile else None,
+        )
+
+    async def _assess(
+        self,
+        session: AsyncSession,
+        application: Application,
+        profile: FinancialProfile | None,
+    ) -> AffordabilityResponse | None:
+        """Run the affordability assessment, or None when there is nothing to measure.
+
+        The monthly payment comes from the linked simulation through the ARC-047
+        edge. Without one there is no instalment, and an assessment against an
+        invented figure would be worse than none at all.
+        """
+        if application.simulation_id is None:
+            return None
+        payment = await self._simulations.monthly_payment_for(session, application.simulation_id)
+        if payment is None:
+            return None
+        result = affordability.assess(
+            AffordabilityInput(
+                net_monthly_income=profile.net_monthly_income.amount
+                if profile and profile.net_monthly_income
+                else None,
+                existing_credit_monthly=profile.existing_credit_monthly.amount
+                if profile and profile.existing_credit_monthly
+                else None,
+                dependants=profile.dependants if profile else 0,
+                adults=max(1, len(application.borrowers)),
+            ),
+            payment,
+        )
+        return AffordabilityResponse(
+            band=result.band,
+            dsti=result.dsti,
+            monthly_obligations=result.monthly_obligations,
+            residual_income=result.residual_income,
+            residual_floor=result.residual_floor,
+        )
 
     def checklist(
         self, application: Application, uploaded: frozenset[DocumentType]
@@ -376,6 +489,18 @@ class ApplicationService:
             created_at=application.created_at,
             updated_at=application.updated_at,
         )
+
+
+def _to_amount_response(amount: ConfirmedAmount | None) -> ConfirmedAmountResponse | None:
+    """Map a confirmed figure onto the wire, provenance included (DOM-029)."""
+    if amount is None:
+        return None
+    return ConfirmedAmountResponse(
+        amount=amount.amount,
+        provenance=amount.provenance,
+        source_document_id=amount.source_document_id,
+        confirmed_at=amount.confirmed_at,
+    )
 
 
 def _age_at(birth: date, on: datetime | None = None) -> int:

@@ -7,8 +7,14 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.enums import Region
-from app.domains.applications.entities import ApplicationStatus, EmploymentType, PropertyType
-from app.domains.simulation.schemas import Money
+from app.domains.applications.entities import (
+    AffordabilityBand,
+    ApplicationStatus,
+    EmploymentType,
+    PropertyType,
+    Provenance,
+)
+from app.domains.simulation.schemas import Money, Rate
 
 
 class BorrowerRequest(BaseModel):
@@ -128,3 +134,69 @@ class ApplicationListResponse(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     items: list[ApplicationSummary]
+
+
+class FinancialsRequest(BaseModel):
+    """The body of `PUT /api/applications/{id}/financials` (API-073).
+
+    Values only. **Provenance is not accepted from the client** — the service
+    records how each figure arrived, and in this ticket every figure arrives by
+    being typed (DOM-029). Letting the caller assert `DOCUMENT` would make the
+    audit trail self-reported, which is the one thing an audit trail must not
+    be.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    net_monthly_income: Decimal | None = Field(
+        default=None, ge=0, max_digits=12, decimal_places=2
+    )
+    existing_credit_monthly: Decimal | None = Field(
+        default=None, ge=0, max_digits=12, decimal_places=2
+    )
+    dependants: int = Field(default=0, ge=0, le=20)
+
+
+class ConfirmedAmountResponse(BaseModel):
+    """One confirmed figure and where it came from (DOM-029)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    amount: Money
+    provenance: Provenance
+    source_document_id: UUID | None
+    confirmed_at: datetime
+
+
+class AffordabilityResponse(BaseModel):
+    """The assessment, with its workings (SIM-022 - SIM-028).
+
+    `dsti` is a fraction with four decimals, serialised as a string exactly like
+    `quotiteit` — the borrower sees the two beside each other, so they are
+    formatted the same way (API-005).
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    band: AffordabilityBand
+    dsti: Rate | None
+    monthly_obligations: Money
+    residual_income: Money | None
+    residual_floor: Money
+
+
+class FinancialsResponse(BaseModel):
+    """The confirmed profile plus the assessment derived from it (API-074).
+
+    `assessment` is null when there is no linked simulation to measure against:
+    the mortgage instalment is an input to the assessment (SIM-022), and
+    inventing one would be worse than saying there is nothing to compare yet.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    net_monthly_income: ConfirmedAmountResponse | None
+    existing_credit_monthly: ConfirmedAmountResponse | None
+    dependants: int
+    assessment: AffordabilityResponse | None
+    updated_at: datetime | None

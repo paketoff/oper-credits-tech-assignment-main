@@ -120,6 +120,53 @@ class ApplicationProfile:
     property_details: PropertyDetails
 
 
+class Provenance(StrEnum):
+    """Where a confirmed financial figure came from (DOM-029).
+
+    An underwriter needs to know whether a number was typed by the borrower or
+    read off a document, and it is the audit trail `9-ai-classification.md`
+    AI-003 argues for. `DOCUMENT` never means "the model said so" — it means the
+    borrower was shown what the model read and confirmed it (DOM-030).
+    """
+
+    MANUAL = "MANUAL"
+    DOCUMENT = "DOCUMENT"
+
+
+@dataclass(frozen=True, slots=True)
+class ConfirmedAmount:
+    """A money figure together with where it came from.
+
+    Provenance travels with the value rather than sitting beside it, so a
+    caller cannot read the number and forget to ask how it got there.
+    """
+
+    amount: Decimal
+    provenance: Provenance
+    source_document_id: UUID | None
+    confirmed_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class FinancialProfile:
+    """The confirmed figures an affordability assessment reads (DOM-029).
+
+    One row per application, deliberately **not** columns on `Borrower`:
+    `8-api.md` API-037 replaces the borrower collection wholesale on every
+    PATCH, so anything stored there is destroyed the next time the borrower
+    edits the wizard.
+
+    `dependants` carries no provenance because no document states it — it is
+    always something the borrower tells us.
+    """
+
+    application_id: UUID
+    net_monthly_income: ConfirmedAmount | None
+    existing_credit_monthly: ConfirmedAmount | None
+    dependants: int
+    updated_at: datetime
+
+
 class AffordabilityBand(StrEnum):
     """How comfortably the household carries this loan (SIM-028).
 

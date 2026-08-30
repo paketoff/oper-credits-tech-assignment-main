@@ -897,6 +897,43 @@ the monthly payment as a `Decimal` argument so it never imports the simulation d
 a **band, never a decision** — nothing in the state machine reads it.
 → `SIM-022` – `SIM-029`, `DOM-029`, `DOM-030`, `AC-009`.
 
+### T54 | The confirmed financial profile
+```
+Owner  A
+Deps   T53
+Files  app/domains/applications/{entities,tables,repository,schemas,service,router}.py
+       app/domains/simulation/service.py        (monthly_payment_for, ARC-047)
+       tests/domains/applications/test_financials_api.py
+       tests/domains/test_repositories.py       (the table-set assertion)
+
+Output application_financials table, one row per application, with provenance;
+       GET/PUT /api/applications/{id}/financials returning profile + assessment
+
+Tests  test_get_financials_is_empty_before_anything_is_saved
+       test_put_records_manual_provenance
+       test_put_rejects_a_client_supplied_provenance
+       test_put_returns_the_assessment_for_the_saved_figures
+       test_put_counts_existing_credit_towards_the_obligations
+       test_put_replaces_the_profile_wholesale
+       test_financials_survive_a_borrower_patch
+       test_assessment_is_absent_without_a_linked_simulation
+       test_another_users_financials_return_404_not_403
+       test_put_rejects_a_negative_income
+
+Done   pytest tests/domains/applications/test_financials_api.py -q → 10 passed
+```
+**A table of its own, not columns on `borrowers`** — `API-037` replaces that collection wholesale on
+every PATCH, so a confirmed figure stored there would be destroyed by the borrower editing their own
+name. `test_financials_survive_a_borrower_patch` is the test that pins it.
+
+Provenance is recorded by the server, never accepted from the client: a self-reported audit trail is
+not an audit trail. Every figure written here is `MANUAL`, because extraction does not exist yet.
+
+`monthly_payment_for()` is the second method on the `ARC-047` edge, for the same reason `get_owned`
+became the second on `ARC-018` — only the simulation domain may run its calculator, and DOM-001 says
+the payment is recomputed rather than stored.
+→ `API-073` – `API-077`, `DOM-029`, `DOM-030`.
+
 ---
 
 # P4 — Integration

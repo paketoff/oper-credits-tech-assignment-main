@@ -11,6 +11,8 @@ from app.domains.applications.schemas import (
     ApplicationListResponse,
     ApplicationPatchRequest,
     ApplicationResponse,
+    FinancialsRequest,
+    FinancialsResponse,
 )
 
 router = APIRouter(prefix="/applications", tags=["applications"])
@@ -50,3 +52,19 @@ async def patch_application(
 async def submit_application(application_id: UUID, context: _Context) -> ApplicationResponse:
     """Validate and transition DRAFT -> DOCUMENTS_PENDING (API-041, APP-001)."""
     return await context.service.submit(context.session, application_id, context.user.id)
+
+
+@router.get("/{application_id}/financials", response_model=FinancialsResponse)
+async def get_financials(application_id: UUID, context: _Context) -> FinancialsResponse:
+    """The confirmed figures and the affordability assessment (API-074)."""
+    return await context.service.get_financials(context.session, application_id, context.user.id)
+
+
+@router.put("/{application_id}/financials", response_model=FinancialsResponse)
+async def put_financials(
+    application_id: UUID, payload: FinancialsRequest, context: _Context
+) -> FinancialsResponse:
+    """Replace the confirmed figures wholesale (API-073)."""
+    return await context.service.put_financials(
+        context.session, application_id, context.user.id, payload
+    )

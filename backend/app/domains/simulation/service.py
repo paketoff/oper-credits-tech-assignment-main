@@ -79,6 +79,26 @@ class SimulationService:
         """
         return await self._repository.get(session, simulation_id)
 
+    async def monthly_payment_for(
+        self, session: AsyncSession, simulation_id: UUID
+    ) -> Decimal | None:
+        """The monthly instalment of a stored simulation, or None if it is gone.
+
+        The second method on the ARC-047 edge, for the same reason `get_owned`
+        became the second on ARC-018: `applications.service` needs the figure
+        the affordability assessment is measured against (SIM-022), and only
+        this domain may run the calculator (ARC-011).
+
+        Recomputed from the stored input rather than read from a column, per
+        DOM-001. Returns None rather than raising: an application whose
+        simulation has been deleted must still render its financials, with the
+        assessment simply absent.
+        """
+        stored = await self._repository.get(session, simulation_id)
+        if stored is None:
+            return None
+        return calculator.simulate(stored.request).monthly_payment
+
     async def claim_for_user(
         self, session: AsyncSession, simulation_id: UUID, user_id: UUID
     ) -> UUID | None:

@@ -92,6 +92,8 @@ it exists because the reader is a health checker rather than a client.
 | GET | `/api/applications/{id}` | session |
 | PATCH | `/api/applications/{id}` | session |
 | POST | `/api/applications/{id}/submit` | session |
+| GET | `/api/applications/{id}/financials` | session |
+| PUT | `/api/applications/{id}/financials` | session |
 | GET | `/api/applications/{id}/checklist` | session |
 | POST | `/api/applications/{id}/documents` | session |
 | GET | `/api/applications/{id}/documents/{document_id}` | session |
@@ -336,6 +338,73 @@ Returns the full application body.
   submission-specific one. The bare state machine cannot make this distinction on its own (both are
   simply "not `DRAFT`"), so the service checks it before calling `assert_transition` (T21).
 
+## 6.1 Financials
+
+Added at T54. The figures an affordability assessment reads, and the assessment itself.
+→ `0-business-logic.md` §21, DOM-029, DOM-030.
+
+### `PUT /api/applications/{id}/financials` → 200
+
+**API-073.** Values only:
+
+```json
+{
+  "net_monthly_income": "4800.00",
+  "existing_credit_monthly": "450.00",
+  "dependants": 2
+}
+```
+
+**Provenance is not accepted from the client.** The request carries figures; the server records how
+each one arrived. Letting a caller assert `"provenance": "DOCUMENT"` would make the audit trail
+self-reported, which is the one thing an audit trail must not be — and `extra="forbid"` turns the
+attempt into a 422 rather than ignoring it.
+
+Every figure written through this endpoint is `MANUAL`, because it was typed. `DOCUMENT` provenance
+is set only by confirming an extracted proposal, which needs a feature that does not exist yet
+(DOM-030).
+
+**Replaces the profile wholesale**, the same semantics as API-037 and for the same reason: the form
+sends every field every time, and a partial merge would leave a figure and its provenance
+disagreeing about the same number.
+
+### `GET /api/applications/{id}/financials` → 200
+
+**API-074.**
+
+```json
+{
+  "net_monthly_income": {
+    "amount": "4800.00",
+    "provenance": "MANUAL",
+    "source_document_id": null,
+    "confirmed_at": "..."
+  },
+  "existing_credit_monthly": null,
+  "dependants": 0,
+  "assessment": {
+    "band": "COMFORTABLE",
+    "dsti": "0.2947",
+    "monthly_obligations": "1414.52",
+    "residual_income": "3385.48",
+    "residual_floor": "1200.00"
+  },
+  "updated_at": "..."
+}
+```
+
+**API-075.** `assessment` is **null** when the application has no linked simulation. The mortgage
+instalment is an input to the assessment (SIM-022) and there is nothing to measure against without
+one; inventing a payment would be worse than saying so. It is *not* null merely because income is
+missing — that case returns a real assessment banded `INSUFFICIENT_DATA`, which is what lets the
+frontend still show the residual floor the borrower would need to clear.
+
+**API-076.** `dsti` is a four-decimal fraction serialised as a string, exactly like `quotiteit`
+(API-005). The borrower sees the two beside each other, so they are formatted the same way.
+
+**API-077.** Both endpoints are owner-scoped and answer 404, never 403, for another user's
+application — the same rule and the same reasoning as API-034 (AUTH-035).
+
 ## 7. Checklist
 
 ### `GET /api/applications/{id}/checklist` → 200
@@ -570,6 +639,11 @@ Source: `10-api.md`, superseded by this document.
 | API-024 | A failed claim never fails signup; no `application_id` | Auth, corrected at T17 | §5 |
 | API-071 | A seeded draft has `property_type: null` until the wizard fills it | added at T21 | §6 |
 | API-072 | `ApiError.field` is `string \| null`, always present as a key | added at T27 | §10 |
+| API-073 | `PUT /financials`; provenance is never client-supplied | Financials | §6.1 |
+| API-074 | The financials response body | Financials | §6.1 |
+| API-075 | `assessment` is null without a linked simulation | Financials | §6.1 |
+| API-076 | `dsti` is a four-decimal string, like `quotiteit` | Financials | §6.1 |
+| API-077 | Owner-scoped; 404 not 403 | Financials | §6.1 |
 | API-025 | 409 `EMAIL_ALREADY_REGISTERED` | Auth | §5 |
 | API-026 | Login contract and the identical 401 | Auth | §5 |
 | API-027 | Logout returns 204 either way | Auth | §5 |

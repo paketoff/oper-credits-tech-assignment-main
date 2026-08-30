@@ -72,6 +72,7 @@ app/
       entities.py
       state_machine.py     # allowed transitions; pure
       checklist.py         # required_documents(application); pure
+      affordability.py     # assess(profile, payment); pure (T53)
       repository.py
     documents/
       router.py
