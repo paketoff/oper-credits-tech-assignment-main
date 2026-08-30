@@ -134,11 +134,10 @@ desktop.ini
 # ---------- Claude Code ----------
 .claude/settings.local.json
 
-# Local quality hooks: personal convenience, not part of the deliverable.
-# settings.json goes with them -- committed on its own it would point at
-# scripts that do not exist on a fresh clone. The enforced gate is CI.
-.claude/settings.json
-.claude/hooks/
+# .claude/settings.json and .claude/hooks/ are deliberately NOT ignored: the
+# hooks are how the agent was constrained mechanically rather than by being
+# asked nicely, and that is part of the deliverable, not personal convenience.
+# Neither file holds a secret.
 
 # ---------- Logs / temp ----------
 *.log
