@@ -21,9 +21,14 @@ obs:            ## Run the stack with the local LGTM observability stack
 	docker compose -f infra/docker-compose.yml \
 	               -f observability/docker-compose.observability.yml up --build
 
+# The root .env is sourced, not interpolated: core/config.py reads the process
+# environment and declares no env_file, deliberately — DEP-023 keeps a file from
+# being a legitimate production source of secrets. `set -a` is what turns the
+# file's assignments into exported variables for the one process that follows.
 backend:        ## Run the backend alone, bare uvicorn with reload, against backend/data
-	cd backend && DATA_DIR="$(CURDIR)/backend/data" ENVIRONMENT=development \
-	  JWT_SECRET=dev-secret-not-for-production-0123456789abcdef \
+	@set -a; [ -f .env ] && . ./.env; set +a; \
+	 cd backend && DATA_DIR="$(CURDIR)/backend/data" ENVIRONMENT=development \
+	  JWT_SECRET="$${JWT_SECRET:-dev-secret-not-for-production-0123456789abcdef}" \
 	  $(BIN)/uvicorn app.main:app --port 8000 --reload
 
 frontend:       ## Run the frontend alone, ng serve proxying /api to localhost:8000

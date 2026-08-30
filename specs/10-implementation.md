@@ -1147,6 +1147,14 @@ This is `CQ-079` — the gate that stands in for CI, which is a deliberate non-g
 
 **Gate: P5 does not start until T31–T34 are all green.** This is `AI-001`.
 
+**P4 outcome.** T32–T34 were run after P7, which is the reordering recorded above. Findings and
+their resolutions are in [`docs/sessions/p4-review.md`](../docs/sessions/p4-review.md); the two
+`VAL-027` steps that had to be restated for a pre-deploy run are in `7-validation.md` Appendix B.
+The phase found one defect that made the whole deployed application unusable — every JavaScript
+bundle was served as `index.html`, so the page never booted — plus three that no test could have
+caught because no test exercised the production image, the summary list with documents on it, or a
+server error reaching the simulator's screen. That is the argument for the phase existing.
+
 ---
 
 # P5 — AI classification

@@ -18,6 +18,15 @@ services:
     volumes:
       - ../backend:/app
       - ../backend/data:/data
+    # The repository-root .env that .env.example is a template for (DEP-018).
+    # Compose reads its own .env from the *compose file's* directory — infra/ —
+    # so without this line the `${...}` defaults below were the only values
+    # that ever applied, and a key placed where .env.example says to put it was
+    # silently ignored. `required: false` so a fresh clone with no .env still
+    # comes up.
+    env_file:
+      - path: ../.env
+        required: false
     environment:
       DATA_DIR: /data
       ENVIRONMENT: development
