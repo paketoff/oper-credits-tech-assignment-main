@@ -15,11 +15,13 @@ WORKDIR /build
 ARG PRIMENG_LICENSE_KEY=""
 ENV PRIMENG_LICENSE_KEY=$PRIMENG_LICENSE_KEY
 COPY frontend/package*.json ./
-# --legacy-peer-deps: npm 10.9's arborist crashes resolving the vitest peer
-# graph Angular 22 scaffolds with ("Cannot read properties of null (reading
-# 'edgesOut')"). The flag skips the peer walk that crashes; it does not change
-# which versions the lockfile pins.
-RUN npm ci --legacy-peer-deps
+# A plain `npm ci`, no --legacy-peer-deps. The flag used to be needed because
+# `primeng` declares `@angular/cdk` as a peer dependency and it was in neither
+# package.json nor the lockfile, so npm refused the install. Skipping the peer
+# walk hid that rather than fixing it — and it hid it *only here*, because
+# docker-compose ran `npm ci` without the flag and `make dev` was broken while
+# the production build was fine. The dependency is now declared.
+RUN npm ci
 COPY frontend/ ./
 RUN npm run build -- --configuration production
 
