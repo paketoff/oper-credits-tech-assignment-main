@@ -6,6 +6,24 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 from app.core.enums import DocumentType
+from app.domains.simulation.schemas import Money
+
+
+class ProposalResponse(BaseModel):
+    """What one document suggests for the financial profile (T58).
+
+    **A suggestion, never a value.** It pre-fills the finances form; only what
+    the borrower then confirms is stored and calculated on (DOM-030). Present
+    only when classification agreed the document is what was claimed — figures
+    read off a document that turned out to be something else describe the wrong
+    document.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    net_monthly_income: Money | None
+    existing_credit_monthly: Money | None
+    source: str
 
 
 class DocumentSummary(BaseModel):
@@ -25,6 +43,7 @@ class DocumentSummary(BaseModel):
     # not worth a sentence — the row then renders exactly as it always has.
     classification_status: str | None = None
     classification_message: str | None = None
+    proposal: ProposalResponse | None = None
 
 
 class ChecklistItem(BaseModel):

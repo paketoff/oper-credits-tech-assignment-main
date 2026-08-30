@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Step, StepItem, StepList, StepPanel, StepPanels, Stepper } from 'primeng/stepper';
@@ -13,7 +13,7 @@ import {
   FileSelection,
   RowStatus,
 } from '../../documents/components/checklist.component';
-import { Checklist } from '../../documents/documents.models';
+import { Checklist, DocumentProposal } from '../../documents/documents.models';
 import { DocumentsService } from '../../documents/documents.service';
 import { Simulation } from '../../simulation/simulation.models';
 import { SimulationService } from '../../simulation/simulation.service';
@@ -24,6 +24,7 @@ import {
   FinancesFormControls,
   FinancesSectionComponent,
 } from '../components/finances-section.component';
+import { ProposalPromptComponent, ProposalRow } from '../components/proposal-prompt.component';
 import { PropertyFormControls, PropertyStepComponent } from '../components/property-step.component';
 import { ReviewStepComponent } from '../components/review-step.component';
 
@@ -49,6 +50,7 @@ const TOTAL_STEPS = 4;
     ReviewStepComponent,
     ChecklistComponent,
     FinancesSectionComponent,
+    ProposalPromptComponent,
   ],
   templateUrl: './application-wizard.component.html',
 })
@@ -67,6 +69,13 @@ export class ApplicationWizardComponent {
   protected readonly checklist = signal<Checklist | null>(null);
   protected readonly rowStatus = signal<Record<string, RowStatus>>({});
   protected readonly financials = signal<Financials | null>(null);
+  /** Every proposal the uploaded documents made, gathered from the checklist (T58). */
+  protected readonly proposals = computed(() =>
+    (this.checklist()?.items ?? [])
+      .flatMap((item) => item.documents)
+      .map((document) => document.proposal)
+      .filter((proposal): proposal is DocumentProposal => proposal !== null),
+  );
   protected readonly savingFinancials = signal(false);
 
   // The manual-entry base case (DOM-030). Extraction, once it exists,
@@ -151,6 +160,13 @@ export class ApplicationWizardComponent {
         this.savingFinancials.set(false);
       },
     });
+  }
+
+  protected onAcceptProposal(row: ProposalRow): void {
+    // Fills the form and stops. The borrower still presses "Save and assess",
+    // so accepting a reading is never the same action as confirming it
+    // (DOM-030) — nothing is stored until they say so.
+    this.financesForm.patchValue({ [row.field]: Number(row.proposed) });
   }
 
   private refreshFinancials(): void {

@@ -23,18 +23,31 @@ from typing import Final
 
 import anthropic
 from PIL import Image
+from pydantic import BaseModel, ValidationError
 
+from app.core.enums import DocumentType
 from app.domains.documents.classification.entities import (
     ClassificationVerdict,
     ClassifiedType,
 )
-from app.domains.documents.classification.prompts import SYSTEM_PROMPT
+from app.domains.documents.classification.prompts import EXTRACTION_PROMPT, SYSTEM_PROMPT
+from app.domains.documents.extraction.schemas import schema_for
 
 # AI-013. Model and cap are named constants so the tuning surface is one place.
 # Sonnet is enough while the response is four fields; `9-ai-classification.md`
 # Appendix B records why it is not an older tier.
-MODEL: Final = "claude-sonnet-5"
-MAX_TOKENS: Final = 300
+# T57 supersedes AI-013's choice. Sonnet at 300 tokens was reasoned for a
+# four-field classification; this same call now also reads numbers off the page,
+# and the hard part stopped being "is this a payslip" and became "is that
+# 3.200 or 3.020". Latency is free here — the call runs in a background task
+# after the 201 (AI-018) — and the volume is a handful per application, so the
+# cost difference is rounding error against a misread figure the borrower then
+# has to correct by hand.
+#
+# Both are one-line constants precisely so this can go back to Sonnet once
+# T61's Tier 2 measures whether the difference is real.
+MODEL: Final = "claude-opus-5"
+MAX_TOKENS: Final = 1500
 
 # AI-022. One retry on a network error, none on a 4xx — anthropic's client
 # distinguishes the two, so this does not need hand-rolling.
@@ -102,7 +115,21 @@ def render_first_page(content: bytes, content_type: str) -> bytes:
         raise ClassificationError("could not render the first page") from exc
 
 
-def _parse(text: str) -> ClassificationVerdict:
+def _system_prompt(schema: type[BaseModel] | None) -> str:
+    """The base prompt, plus the fields to extract when there are any.
+
+    The schema is generated from the pydantic model (`model_json_schema()`), so
+    the prompt and the type it parses into cannot drift apart — adding a field
+    changes both at once.
+    """
+    if schema is None:
+        return SYSTEM_PROMPT
+    return EXTRACTION_PROMPT.format(schema=json.dumps(schema.model_json_schema()))
+
+
+def _parse(
+    text: str, schema: type[BaseModel] | None
+) -> tuple[ClassificationVerdict, object | None]:
     """Turn the model's reply into a verdict, or into `UNKNOWN` at 0 (AI-011).
 
     Every unhappy path lands in the same place on purpose. A category the enum
@@ -115,12 +142,29 @@ def _parse(text: str) -> ClassificationVerdict:
         doc_type = ClassifiedType(payload["doc_type"])
         confidence = float(payload["confidence"])
         if not 0.0 <= confidence <= 1.0:
-            return _UNREADABLE
-        return ClassificationVerdict(
+            return _UNREADABLE, None
+        verdict = ClassificationVerdict(
             doc_type=doc_type, confidence=confidence, reason=str(payload.get("reason", ""))[:120]
         )
     except (json.JSONDecodeError, KeyError, TypeError, ValueError):
-        return _UNREADABLE
+        return _UNREADABLE, None
+    return verdict, _parse_fields(payload.get("fields"), schema)
+
+
+def _parse_fields(raw: object, schema: type[BaseModel] | None) -> object | None:
+    """Validate the extracted block, or give up quietly.
+
+    Unparseable fields are **not** an unreadable verdict: the type may still
+    have been identified correctly. The document is classified as usual and
+    simply proposes nothing, which is the same outcome as a document we do not
+    extract from at all.
+    """
+    if schema is None or not isinstance(raw, dict):
+        return None
+    try:
+        return schema.model_validate(raw)
+    except ValidationError:
+        return None
 
 
 class ClassificationClient:
@@ -140,26 +184,39 @@ class ClassificationClient:
             api_key=api_key, timeout=TIMEOUT_SECONDS, max_retries=MAX_RETRIES
         )
 
-    async def classify(self, page_png: bytes) -> ClassificationVerdict:
-        """Ask what the page is.
+    async def classify(
+        self, page_png: bytes, claimed: DocumentType | None = None
+    ) -> tuple[ClassificationVerdict, object | None]:
+        """Ask what the page is and, if it is what was claimed, what it says.
+
+        **One call, not two** (T57). The claimed type is known at upload time,
+        so the request asks both questions at once: what is this actually, and
+        — if it is a payslip — what are its fields. No discriminated union and
+        no second round trip, because the schema is chosen from what the
+        borrower already told us.
 
         Args:
             page_png: One rendered page, from `render_first_page`.
+            claimed: What the borrower declared. When it has an extraction
+                schema, the model is also asked to fill it in.
 
         Returns:
-            The model's verdict, or `UNKNOWN` at confidence 0 if the answer
-            could not be read (AI-011).
+            The verdict, and the parsed fields or None. **The caller must
+            discard the fields unless `evaluate()` returns `CONFIRMED`** —
+            fields read off a document that turned out to be something else
+            describe the wrong document.
 
         Raises:
             ClassificationError: The call failed or timed out. Never surfaced
                 to the borrower — the pipeline records `FAILED` and stops
                 (AI-005, AI-023).
         """
+        schema = schema_for(claimed) if claimed is not None else None
         try:
             message = await self._client.messages.create(
                 model=MODEL,
                 max_tokens=MAX_TOKENS,
-                system=SYSTEM_PROMPT,
+                system=_system_prompt(schema),
                 messages=[
                     {
                         "role": "user",
@@ -178,7 +235,7 @@ class ClassificationClient:
             )
         except Exception as exc:
             raise ClassificationError("the classifier could not be reached") from exc
-        return _parse(_first_text(message))
+        return _parse(_first_text(message), schema)
 
 
 def _b64(data: bytes) -> str:

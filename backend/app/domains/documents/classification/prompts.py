@@ -35,3 +35,30 @@ Respond with JSON only, no prose:
 Set UNKNOWN with low confidence when unsure. A wrong confident answer is worse
 than an honest UNKNOWN.
 """
+
+
+EXTRACTION_PROMPT = (
+    SYSTEM_PROMPT
+    + """
+The borrower uploaded this file against a requirement that expects specific
+fields. If — and only if — the document really is that type, also read those
+fields off the page.
+
+Return them under a "fields" key matching this JSON schema:
+
+{schema}
+
+Rules for the fields:
+- Copy what is printed. Never estimate, never compute, never infer a missing
+  value from another one.
+- Omit any field you cannot read with confidence. A missing field is fine; a
+  guessed one is not.
+- Amounts are plain numbers in EUR, without a currency symbol or thousands
+  separator: 3200.00, not "€ 3.200,00".
+- If the document is not the expected type, omit "fields" entirely.
+
+Respond with JSON only:
+{{"doc_type": "<one category>", "confidence": <0.0-1.0>,
+  "reason": "<max 15 words>", "fields": {{...}}}}
+"""
+)

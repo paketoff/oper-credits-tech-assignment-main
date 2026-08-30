@@ -7,6 +7,7 @@ application status is still what the upload made it. The feature can fail
 completely and the product does not notice.
 """
 
+from decimal import Decimal
 from io import BytesIO
 from uuid import uuid4
 
@@ -24,6 +25,7 @@ from app.domains.documents.classification.pipeline import (
     ClassificationPipeline,
     ClassificationStatus,
 )
+from app.domains.documents.extraction.schemas import PayslipFields
 from app.domains.documents.repository import SqlDocumentRepository
 from app.domains.documents.tables import DocumentRow
 
@@ -61,15 +63,20 @@ _PROPERTY = {
 class _FakeClient:
     """Answers with a fixed verdict, or raises."""
 
-    def __init__(self, reply: ClassificationVerdict | Exception) -> None:
+    def __init__(
+        self, reply: ClassificationVerdict | Exception, fields: object | None = None
+    ) -> None:
         self._reply = reply
+        self._fields = fields
         self.calls = 0
 
-    async def classify(self, page_png: bytes) -> ClassificationVerdict:
+    async def classify(
+        self, page_png: bytes, claimed: object = None
+    ) -> tuple[ClassificationVerdict, object | None]:
         self.calls += 1
         if isinstance(self._reply, Exception):
             raise self._reply
-        return self._reply
+        return self._reply, self._fields
 
 
 async def _submitted_application(client) -> str:
@@ -192,3 +199,59 @@ async def test_a_deleted_document_is_not_an_error_to_annotate(engine, session):
 def test_every_status_is_a_plain_string(status: ClassificationStatus) -> None:
     """AI-020. Stored as a string column, so the enum must serialise cleanly."""
     assert isinstance(status.value, str)
+
+
+async def test_a_confirmed_payslip_proposes_its_net_pay(client, engine, session):
+    """T57, T58. Extraction rides the classification call and reaches the checklist."""
+    application_id = await _submitted_application(client)
+    await client.patch(
+        f"/api/applications/{application_id}",
+        json={"borrowers": [_BORROWER], "property": _PROPERTY},
+    )
+    document_id = (await _upload(client, application_id, "PAYSLIPS")).json()["id"]
+
+    pipeline = ClassificationPipeline(
+        _FakeClient(  # type: ignore[arg-type]
+            ClassificationVerdict(
+                doc_type=ClassifiedType.PAYSLIPS, confidence=0.95, reason="a salary slip"
+            ),
+            PayslipFields(net_monthly_pay=Decimal("3200.00"), period="2026-03"),
+        ),
+        SqlDocumentRepository(),
+    )
+    await pipeline.run(uuid4().__class__(document_id), DocumentType.PAYSLIPS, _PNG)
+
+    checklist = (await client.get(f"/api/applications/{application_id}/checklist")).json()
+    payslips = next(item for item in checklist["items"] if item["doc_type"] == "PAYSLIPS")
+    assert payslips["documents"][0]["proposal"]["net_monthly_income"] == "3200.00"
+    assert payslips["documents"][0]["proposal"]["source"] == "your payslip"
+
+
+async def test_fields_are_discarded_when_classification_disagrees(client, engine, session):
+    """T57. The single rule that lets both questions share one call.
+
+    Figures read off a document that turned out to be something else describe
+    the wrong document, so they are dropped even though the model returned them.
+    """
+    application_id = await _submitted_application(client)
+    await client.patch(
+        f"/api/applications/{application_id}",
+        json={"borrowers": [_BORROWER], "property": _PROPERTY},
+    )
+    document_id = (await _upload(client, application_id, "PAYSLIPS")).json()["id"]
+
+    pipeline = ClassificationPipeline(
+        _FakeClient(  # type: ignore[arg-type]
+            ClassificationVerdict(
+                doc_type=ClassifiedType.BANK_STATEMENTS, confidence=0.95, reason="an account"
+            ),
+            PayslipFields(net_monthly_pay=Decimal("9999.00")),
+        ),
+        SqlDocumentRepository(),
+    )
+    await pipeline.run(uuid4().__class__(document_id), DocumentType.PAYSLIPS, _PNG)
+
+    checklist = (await client.get(f"/api/applications/{application_id}/checklist")).json()
+    payslips = next(item for item in checklist["items"] if item["doc_type"] == "PAYSLIPS")
+    assert payslips["documents"][0]["proposal"] is None
+    assert "bank statement" in payslips["documents"][0]["classification_message"]

@@ -22,6 +22,8 @@ from app.domains.documents.classification.client import (
     ClassificationError,
     render_first_page,
 )
+from app.domains.documents.classification.entities import ClassificationOutcome
+from app.domains.documents.extraction.proposal import to_proposal
 from app.domains.documents.repository import ClassificationRecord, DocumentRepository
 
 _logger = logging.getLogger(__name__)
@@ -69,40 +71,44 @@ class ClassificationPipeline:
         """
         try:
             page = render_first_page(content, _content_type_of(content))
-            verdict = await self._client.classify(page)
+            verdict, fields = await self._client.classify(page, claimed)
             outcome = evaluator.evaluate(verdict, claimed)
         except ClassificationError:
-            await self._record(document_id, ClassificationStatus.FAILED, None)
             # The document id and nothing else: never the image, the filename,
             # the model's reason, or any text from the page (AI-028).
             _logger.warning("classification failed", extra={"document_id": str(document_id)})
+            await self._record(_failed(document_id))
             return
         except Exception:
-            await self._record(document_id, ClassificationStatus.FAILED, None)
             _logger.exception("classification errored", extra={"document_id": str(document_id)})
+            await self._record(_failed(document_id))
             return
+
+        # T57. Extracted fields are trusted **only** when classification agreed:
+        # numbers read off a document that turned out to be something else
+        # describe the wrong document. One condition, and it is the whole reason
+        # the two questions can safely share a call.
+        proposal = (
+            to_proposal(claimed, fields)
+            if outcome is ClassificationOutcome.CONFIRMED and fields is not None
+            else None
+        )
         await self._record(
-            document_id, ClassificationStatus.DONE, outcome.value, verdict.doc_type.value
+            ClassificationRecord(
+                document_id=document_id,
+                status=ClassificationStatus.DONE.value,
+                outcome=outcome.value,
+                detected_type=verdict.doc_type.value,
+                proposed_income=proposal.net_monthly_income if proposal else None,
+                proposed_credit=proposal.existing_credit_monthly if proposal else None,
+                proposal_source=proposal.source if proposal else None,
+            )
         )
 
-    async def _record(
-        self,
-        document_id: UUID,
-        status: ClassificationStatus,
-        outcome: str | None,
-        detected_type: str | None = None,
-    ) -> None:
+    async def _record(self, record: ClassificationRecord) -> None:
         """Write the result in this task's own session, and commit it."""
         async with background_session() as session:
-            await self._repository.set_classification(
-                session,
-                ClassificationRecord(
-                    document_id=document_id,
-                    status=status.value,
-                    outcome=outcome,
-                    detected_type=detected_type,
-                ),
-            )
+            await self._repository.set_classification(session, record)
             await session.commit()
 
 
@@ -115,3 +121,10 @@ def _content_type_of(content: bytes) -> str:
     from app.domains.documents.file_type import detect_content_type
 
     return detect_content_type(content) or "application/octet-stream"
+
+
+def _failed(document_id: UUID) -> ClassificationRecord:
+    """The row to write when classification could not complete (AI-023)."""
+    return ClassificationRecord(
+        document_id=document_id, status=ClassificationStatus.FAILED.value, outcome=None
+    )

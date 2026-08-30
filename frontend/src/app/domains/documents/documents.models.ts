@@ -34,6 +34,20 @@ export interface DocumentSummary {
    */
   classification_status: string | null;
   classification_message: string | null;
+  /**
+   * What this document suggests for the finances form (`T58`). **A suggestion,
+   * never a value**: only what the borrower confirms is stored and calculated
+   * on (`DOM-030`). Null unless classification agreed the document is what was
+   * claimed.
+   */
+  proposal: DocumentProposal | null;
+}
+
+/** Mirrors `ProposalResponse` field for field (`T58`). Money stays a string (`CQ-027`). */
+export interface DocumentProposal {
+  net_monthly_income: string | null;
+  existing_credit_monthly: string | null;
+  source: string;
 }
 
 /** Mirrors `ChecklistItem` field for field (`API-045`, `API-046`). */
