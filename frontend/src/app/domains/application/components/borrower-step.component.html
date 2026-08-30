@@ -31,17 +31,12 @@
     />
   </div>
 
-  <div class="flex flex-col gap-1">
-    <label for="monthly_net_income" class="text-label font-semibold"
-      >Monthly net income (optional)</label
-    >
-    <input
-      id="monthly_net_income"
-      type="number"
-      formControlName="monthly_net_income"
-      class="rounded-control border-border bg-surface-3 border px-3 py-2.5 text-base"
-    />
-  </div>
+  <!-- Income is asked once, on the application page, where it is the figure the
+       affordability assessment actually reads (DOM-029). It used to be asked
+       here as well and the answer went nowhere: this collection is replaced
+       wholesale on every PATCH (API-037), so anything stored on it is gone the
+       next time the borrower edits their answers, and it carries no provenance.
+       Two questions, one of which silently did not count. -->
 
   <div class="flex items-start gap-2">
     <input

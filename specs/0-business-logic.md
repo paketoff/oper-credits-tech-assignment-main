@@ -281,6 +281,12 @@ PATCH (`8-api.md` API-037) and carries no provenance, so it stays what it always
 borrower typed into the wizard. The figure the affordability assessment actually reads lives on the
 confirmed financial profile, DOM-029. → §21
 
+**Corrected again at T32.** The wizard asked for it *as well as* the finances
+form, and only the second answer counted — two questions for one figure, the
+first of which silently went nowhere. The borrower step no longer asks. The
+field stays on the wire and on the row: it is what a borrower typed in an
+earlier version, and dropping a column is a migration, not a correction.
+
 **DOM-028.** A borrower is between 18 and 75 years old at submission, computed from
 `date_of_birth`. Outside that range the application cannot be submitted — `7-validation.md` VAL-011.
 

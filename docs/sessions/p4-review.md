@@ -101,8 +101,9 @@ forbids it). Both docstrings now say this instead of saying the feature "does no
 `FinancialProfile` instead, because `API-037` replaces the borrower collection wholesale on every
 PATCH. `DOM-023` records the supersession, so it is documented rather than dangling — but the
 borrower is still asked for their income twice, in two places, and only the second one counts. Left
-as-is: removing it touches seventeen files including three specs, which is a change to make
-deliberately and not during a validation pass.
+**Fixed after the walkthrough**, when the borrower hit it themselves: the wizard no longer asks.
+The field stays on the wire and on the row — dropping a column is a migration, not a correction —
+but nothing collects it any more, and the question is asked once, where the answer counts.
 
 **`auth.interceptor.ts` passes every request through unchanged.** A structural placeholder that
 `ARC-020`'s tree calls for, and its docstring says so. Kept.
