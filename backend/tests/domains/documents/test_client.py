@@ -16,13 +16,16 @@ from typing import Any
 import pytest
 from PIL import Image
 
+from app.core.enums import DocumentType
 from app.domains.documents.classification.client import (
     MAX_EDGE_PX,
     ClassificationClient,
     ClassificationError,
+    _system_prompt,
     render_first_page,
 )
 from app.domains.documents.classification.entities import ClassifiedType
+from app.domains.documents.extraction.schemas import EXTRACTION_SCHEMAS
 
 
 class _Block:
@@ -149,3 +152,49 @@ def test_unrenderable_bytes_raise_rather_than_returning_a_verdict() -> None:
     """Nothing was asked, so there is no answer to disbelieve — this is a failure."""
     with pytest.raises(ClassificationError):
         render_first_page(b"not an image", "image/png")
+
+
+class _ThinkingBlock:
+    """What Opus 5 puts first: `.thinking`, and deliberately no `.text`."""
+
+    def __init__(self, thinking: str) -> None:
+        self.type = "thinking"
+        self.thinking = thinking
+
+
+async def test_a_thinking_block_before_the_answer_is_skipped() -> None:
+    # The live-call bug. Opus 5 answers with a thinking block first by default,
+    # so reading content[0] returned "" and every real classification came back
+    # UNKNOWN at zero confidence — an outcome the borrower is never told about,
+    # which is why nothing looked broken. Every mock in this file had a single
+    # text block, so the whole suite passed over it.
+    client, messages = _client("unused")
+    reply = '{"doc_type": "TAX_ASSESSMENT", "confidence": 0.88, "reason": "aanslagbiljet"}'
+
+    async def create(**kwargs: Any) -> Any:
+        messages.last_kwargs = kwargs
+        message = _Message(reply)
+        message.content = [_ThinkingBlock("weighing the layout"), *message.content]
+        return message
+
+    messages.create = create  # type: ignore[method-assign]
+
+    verdict, _ = await client.classify(_png(10, 10))
+
+    assert verdict.doc_type is ClassifiedType.TAX_ASSESSMENT
+    assert verdict.confidence == 0.88
+
+
+@pytest.mark.parametrize("doc_type", sorted(EXTRACTION_SCHEMAS, key=lambda t: t.value))
+def test_the_extraction_prompt_builds_for_every_schema(doc_type: DocumentType) -> None:
+    # Both prompts are full of literal JSON. Built with `str.format`, every
+    # brace in them was read as a field and the call raised
+    # `KeyError: '"doc_type"'` for every type that has a schema — inside the
+    # request's own try block, so the feature degraded to FAILED and said
+    # nothing (AI-023). No test reached here because every other test in this
+    # file calls `classify` without a claimed type, which skips the schema
+    # branch entirely.
+    prompt = _system_prompt(EXTRACTION_SCHEMAS[doc_type])
+
+    assert "{schema}" not in prompt
+    assert '"properties"' in prompt

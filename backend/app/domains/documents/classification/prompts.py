@@ -37,6 +37,13 @@ than an honest UNKNOWN.
 """
 
 
+# `{schema}` is substituted by a plain `str.replace`, never by `str.format`.
+# Both prompts are full of literal JSON, and `format` reads every one of those
+# braces as a field: it raised `KeyError: '"doc_type"'` on the response example
+# in SYSTEM_PROMPT, for every document type that has an extraction schema. That
+# exception was raised inside the request's own try block, so the whole feature
+# degraded to FAILED — silently, since a failed classification is deliberately
+# never shown to the borrower (AI-023).
 EXTRACTION_PROMPT = (
     SYSTEM_PROMPT
     + """
@@ -58,7 +65,7 @@ Rules for the fields:
 - If the document is not the expected type, omit "fields" entirely.
 
 Respond with JSON only:
-{{"doc_type": "<one category>", "confidence": <0.0-1.0>,
-  "reason": "<max 15 words>", "fields": {{...}}}}
+{"doc_type": "<one category>", "confidence": <0.0-1.0>,
+  "reason": "<max 15 words>", "fields": {...}}
 """
 )

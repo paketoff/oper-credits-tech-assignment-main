@@ -119,10 +119,13 @@ def _system_prompt(schema: type[BaseModel] | None) -> str:
     The schema is generated from the pydantic model (`model_json_schema()`), so
     the prompt and the type it parses into cannot drift apart — adding a field
     changes both at once.
+
+    `replace`, not `format`: the prompt is mostly literal JSON, and `format`
+    treats every brace in it as a field to substitute. See `prompts.py`.
     """
     if schema is None:
         return SYSTEM_PROMPT
-    return EXTRACTION_PROMPT.format(schema=json.dumps(schema.model_json_schema()))
+    return EXTRACTION_PROMPT.replace("{schema}", json.dumps(schema.model_json_schema()))
 
 
 def _parse(
@@ -244,12 +247,20 @@ def _b64(data: bytes) -> str:
 def _first_text(message: object) -> str:
     """Pull the first text block out of a response, tolerating any other shape.
 
-    Defensive rather than trusting: an unexpected response shape degrades to
-    `UNKNOWN` through `_parse` instead of raising, because a shape we did not
-    expect is an answer we cannot read, not a transport failure.
+    **Scans for the text block rather than taking `content[0]`.** Opus 5 answers
+    with a thinking block first by default, which carries `.thinking` and no
+    `.text`; reading position zero therefore returned the empty string, `_parse`
+    read that as unreadable, and every classification degraded to `UNKNOWN` at
+    zero confidence — silently, because that is a legitimate outcome. Found by
+    the first live call, which is exactly what no amount of mocking would have
+    shown.
+
+    Still defensive rather than trusting: a response shape we did not expect
+    degrades to `UNKNOWN` through `_parse` instead of raising, because a shape
+    we cannot read is an answer we cannot read, not a transport failure.
     """
-    content = getattr(message, "content", None)
-    if not content:
-        return ""
-    text = getattr(content[0], "text", None)
-    return text if isinstance(text, str) else ""
+    for block in getattr(message, "content", None) or ():
+        text = getattr(block, "text", None)
+        if isinstance(text, str):
+            return text
+    return ""
