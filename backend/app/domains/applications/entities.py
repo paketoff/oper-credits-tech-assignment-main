@@ -62,8 +62,11 @@ class Borrower:
     without naming it, the way T12's checklist tests already did before this
     field existed.
 
-    Income is captured but not used for a decision: affordability is a
-    deliberate cut (DOM-023, SCP-011).
+    `monthly_net_income` is what the borrower typed into the wizard, and the
+    affordability assessment deliberately does **not** read it (DOM-023,
+    superseded at T53): this collection is replaced wholesale on every PATCH
+    (API-037) and carries no provenance. The figure that is assessed lives on
+    `FinancialProfile`, where it is confirmed and provenanced (DOM-029).
     """
 
     full_name: str

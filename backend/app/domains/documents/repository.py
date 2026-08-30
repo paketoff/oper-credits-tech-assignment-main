@@ -1,5 +1,6 @@
 """Queries against the documents table."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Protocol
@@ -32,6 +33,12 @@ class DocumentRepository(Protocol):
 
     async def delete(self, session: AsyncSession, document_id: UUID) -> None:
         """Remove a document row."""
+        ...
+
+    async def uploaded_types_for(
+        self, session: AsyncSession, application_ids: Sequence[UUID]
+    ) -> dict[UUID, frozenset[DocumentType]]:
+        """The distinct document types held by each of these applications."""
         ...
 
     async def set_classification(
@@ -94,6 +101,7 @@ class SqlDocumentRepository:
             storage_key=document.storage_key,
             content_type=document.content_type,
             size_bytes=document.size_bytes,
+            uploaded_at=document.uploaded_at,
         )
         session.add(row)
         await session.flush()
@@ -103,6 +111,26 @@ class SqlDocumentRepository:
         """Fetch one document, or None."""
         row = await session.get(DocumentRow, document_id)
         return _to_entity(row) if row else None
+
+    async def uploaded_types_for(
+        self, session: AsyncSession, application_ids: Sequence[UUID]
+    ) -> dict[UUID, frozenset[DocumentType]]:
+        """The distinct document types held by each of these applications.
+
+        Two columns, not entities: the summary list needs to know *which types*
+        an application has, and loading every row to count them would read the
+        filename and size of every file the borrower ever uploaded to answer a
+        question about set membership.
+        """
+        if not application_ids:
+            return {}
+        statement = select(DocumentRow.application_id, DocumentRow.doc_type).where(
+            DocumentRow.application_id.in_(application_ids)
+        )
+        uploaded: dict[UUID, set[DocumentType]] = {}
+        for application_id, doc_type in (await session.execute(statement)).all():
+            uploaded.setdefault(application_id, set()).add(DocumentType(doc_type))
+        return {key: frozenset(value) for key, value in uploaded.items()}
 
     async def list_for_application(
         self, session: AsyncSession, application_id: UUID

@@ -175,3 +175,19 @@ async def test_downloaded_bytes_round_trip(client, engine):
     assert response.status_code == 200
     assert response.content == _PDF
     assert "attachment" in response.headers["content-disposition"]
+
+
+async def test_the_summary_list_counts_the_documents_actually_uploaded(client, engine):
+    # The list route used to live in applications/router.py, which had no way
+    # to reach the documents table and passed an empty map. Every row read
+    # "0 of 6 required documents uploaded" no matter how many were there, and
+    # nothing caught it: no test had ever listed an application that had any.
+    await client.post("/api/auth/signup", json=_CREDENTIALS_A)
+    application_id = await _submitted_application(client)
+    await _upload(client, application_id, "IDENTITY", _PDF)
+    await _upload(client, application_id, "BANK_STATEMENTS", _PDF)
+
+    listed = (await client.get("/api/applications")).json()["items"][0]
+
+    assert listed["documents_satisfied"] == 2
+    assert listed["documents_required"] == 6

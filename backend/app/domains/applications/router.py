@@ -8,7 +8,6 @@ from fastapi import APIRouter, Depends
 from app.domains.applications.dependencies import ApplicationContext, get_application_context
 from app.domains.applications.schemas import (
     ApplicationCreateRequest,
-    ApplicationListResponse,
     ApplicationPatchRequest,
     ApplicationResponse,
     FinancialsRequest,
@@ -18,12 +17,6 @@ from app.domains.applications.schemas import (
 router = APIRouter(prefix="/applications", tags=["applications"])
 
 _Context = Annotated[ApplicationContext, Depends(get_application_context)]
-
-
-@router.get("", response_model=ApplicationListResponse)
-async def list_applications(context: _Context) -> ApplicationListResponse:
-    """The borrower's own applications, and nobody else's (API-029, AUTH-034)."""
-    return await context.service.list_for_user(context.session, context.user.id, {})
 
 
 @router.post("", response_model=ApplicationResponse, status_code=201)

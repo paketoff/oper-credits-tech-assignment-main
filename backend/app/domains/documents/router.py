@@ -14,6 +14,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 
+from app.domains.applications.schemas import ApplicationListResponse
 from app.domains.documents.dependencies import (
     DocumentContext,
     get_document_context,
@@ -52,6 +53,16 @@ def _attachment(content: bytes, document: Document) -> Response:
         media_type=document.content_type,
         headers={"Content-Disposition": f'attachment; filename="{document.filename}"'},
     )
+
+
+@router.get("", response_model=ApplicationListResponse)
+async def list_applications(context: _Context) -> ApplicationListResponse:
+    """The borrower's own applications, and nobody else's (API-029, AUTH-034).
+
+    In this router because the summary counts documents; see
+    `DocumentService.list_applications`.
+    """
+    return await context.service.list_applications(context.session, context.user.id)
 
 
 @router.get("/{application_id}/checklist", response_model=ChecklistResponse)

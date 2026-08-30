@@ -91,6 +91,15 @@ class ApplicationService:
         ]
         return ApplicationListResponse(items=items)
 
+    async def ids_for_user(self, session: AsyncSession, user_id: UUID) -> list[UUID]:
+        """Just the ids this user owns, for a caller that needs them first.
+
+        `documents.service` needs to know *which* applications to count
+        documents for before it can hand `list_for_user` the map it takes, and
+        it may not query the applications table itself (ARC-009).
+        """
+        return [app.id for app in await self._repository.list_for_user(session, user_id)]
+
     async def get(
         self, session: AsyncSession, application_id: UUID, user_id: UUID
     ) -> ApplicationResponse:

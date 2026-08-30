@@ -1,6 +1,7 @@
 """Document flow: validate, store the blob, write the row, move the application."""
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from fastapi import BackgroundTasks
@@ -10,6 +11,7 @@ from app.core.enums import DocumentType
 from app.core.errors import ApplicationError, DocumentError, NotFoundError
 from app.core.storage import StorageBackend
 from app.domains.applications.entities import Application, ApplicationStatus, DocumentRequirement
+from app.domains.applications.schemas import ApplicationListResponse
 from app.domains.applications.service import ApplicationService
 from app.domains.documents.classification import messages
 from app.domains.documents.classification.entities import claimed_as_classified
@@ -93,6 +95,22 @@ class DocumentService:
         self._storage = storage
         self._classifier = classifier
 
+    async def list_applications(
+        self, session: AsyncSession, user_id: UUID
+    ) -> ApplicationListResponse:
+        """The borrower's applications, each with a real document count (API-029).
+
+        Here rather than in `applications` for the same reason the checklist
+        route is (`2-architecture.md` §5.1): the summary needs one application's
+        requirements *and* its documents, and only this domain may query the
+        documents table (ARC-009). `applications.service` used to be handed an
+        empty map by its own router, so every row in the list read
+        "0 of 6 required documents uploaded" however many were actually there.
+        """
+        application_ids = await self._applications.ids_for_user(session, user_id)
+        uploaded = await self._repository.uploaded_types_for(session, application_ids)
+        return await self._applications.list_for_user(session, user_id, uploaded)
+
     async def checklist(
         self, session: AsyncSession, application_id: UUID, user_id: UUID
     ) -> ChecklistResponse:
@@ -162,7 +180,12 @@ class DocumentService:
             storage_key=storage_key,
             content_type=content_type,
             size_bytes=len(upload.content),
-            uploaded_at=None,  # type: ignore[arg-type]  # the column default fills this
+            # Stamped here rather than left to the column default. The default
+            # only fills a column, and the entity is built before the insert —
+            # so this field was previously None with a `type: ignore` holding
+            # the declared type up, which is exactly the kind of hole CQ-020
+            # exists to close.
+            uploaded_at=datetime.now(UTC),
         )
         created = await self._repository.create(session, document)
         status = await self._recompute(session, application_id)
