@@ -14,6 +14,12 @@ const envPath = join(frontendRoot, '.env');
 const outPath = join(frontendRoot, 'src/app/core/env.generated.ts');
 
 function readLicenseKey() {
+  // The environment wins over .env: .dockerignore excludes .env from the build
+  // context on purpose, so a container build has no file to read and takes the
+  // key from a --build-arg instead. Locally the file is the convenient source.
+  if (process.env.PRIMENG_LICENSE_KEY) {
+    return process.env.PRIMENG_LICENSE_KEY.trim();
+  }
   if (!existsSync(envPath)) {
     return '';
   }

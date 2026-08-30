@@ -7,6 +7,13 @@
 # ---------- 1. build the Angular bundle ----------
 FROM node:22-alpine AS frontend
 WORKDIR /build
+# The PrimeUI Community licence key. Not a runtime secret — it ships inside
+# main.js and is visible to every browser — but it is per-developer, so it stays
+# out of git (.env, gitignored) and reaches a container build as a build arg:
+#   fly deploy --build-arg PRIMENG_LICENSE_KEY=...
+# Absent, the build still succeeds and the app shows PrimeUI's licence banner.
+ARG PRIMENG_LICENSE_KEY=""
+ENV PRIMENG_LICENSE_KEY=$PRIMENG_LICENSE_KEY
 COPY frontend/package*.json ./
 # --legacy-peer-deps: npm 10.9's arborist crashes resolving the vitest peer
 # graph Angular 22 scaffolds with ("Cannot read properties of null (reading
