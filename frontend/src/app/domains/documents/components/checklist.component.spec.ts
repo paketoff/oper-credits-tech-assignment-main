@@ -49,7 +49,7 @@ describe('ChecklistComponent', () => {
     fixture.componentRef.setInput('checklist', checklistWith(null));
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('1 of 2 required documents uploaded.');
+    expect(fixture.nativeElement.textContent).toContain('1 of 2 uploaded');
   });
 });
 
@@ -98,7 +98,7 @@ describe('ChecklistComponent classification states', () => {
     expect(fixture.nativeElement.textContent).not.toContain('could not');
     // The row itself is untouched — the document still satisfies its requirement.
     expect(fixture.nativeElement.textContent).toContain('march.pdf');
-    expect(fixture.nativeElement.textContent).toContain('1 of 1 required documents uploaded.');
+    expect(fixture.nativeElement.textContent).toContain('1 of 1 uploaded');
   });
 
   it('a likely mismatch shows the server-composed sentence and keeps the file (AI-006)', async () => {

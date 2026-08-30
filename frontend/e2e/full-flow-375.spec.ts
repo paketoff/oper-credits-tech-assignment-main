@@ -8,9 +8,7 @@ function uniqueEmail(): string {
 // a 375px viewport (the `chromium-375` project). UI-067's keyboard check
 // rides along: the sign-up submit below is triggered by focus + Enter, not
 // a click.
-test('simulate, sign up, complete the wizard and upload a document at 375px', async ({
-  page,
-}) => {
+test('simulate, sign up, complete the wizard and upload a document at 375px', async ({ page }) => {
   await page.goto('/calculator');
   await expect(page.getByText('1.414,52')).toBeVisible();
 
@@ -42,19 +40,22 @@ test('simulate, sign up, complete the wizard and upload a document at 375px', as
   await page.getByRole('button', { name: 'Submit application' }).click();
   await submitted;
 
-  await expect(page.getByText('Application submitted')).toBeVisible();
-  await expect(page.getByText(/required documents uploaded/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your application' })).toBeVisible();
+  await expect(page.getByText(/of \d+ uploaded/)).toBeVisible();
 
   const uploaded = page.waitForResponse(
     (response) =>
       response.url().includes(`/api/applications/${id}/documents`) &&
       response.request().method() === 'POST',
   );
-  await page.locator('input[type="file"]').first().setInputFiles({
-    name: 'id.pdf',
-    mimeType: 'application/pdf',
-    buffer: Buffer.from('%PDF-1.4 test document'),
-  });
+  await page
+    .locator('input[type="file"]')
+    .first()
+    .setInputFiles({
+      name: 'id.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.4 test document'),
+    });
   const uploadResponse = await uploaded;
   expect(uploadResponse.status()).toBe(201);
   await expect(page.getByText('Uploaded').first()).toBeVisible();

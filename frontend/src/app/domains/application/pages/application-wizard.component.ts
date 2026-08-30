@@ -19,6 +19,7 @@ import { Simulation } from '../../simulation/simulation.models';
 import { SimulationService } from '../../simulation/simulation.service';
 import { Application, Financials, FinancialsRequest } from '../application.models';
 import { ApplicationService } from '../application.service';
+import { STATUS_CHIPS } from '../status-chip';
 import { BorrowerFormControls, BorrowerStepComponent } from '../components/borrower-step.component';
 import {
   FinancesFormControls,
@@ -61,6 +62,9 @@ export class ApplicationWizardComponent {
   private readonly documentsService = inject(DocumentsService);
 
   private readonly applicationId = this.route.snapshot.paramMap.get('id') ?? '';
+
+  /** UI-053, shared with the applications list so the two cannot disagree. */
+  protected readonly statusChips = STATUS_CHIPS;
 
   protected readonly activeStep = signal(1);
   protected readonly application = signal<Application | null>(null);

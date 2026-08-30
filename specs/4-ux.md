@@ -214,8 +214,23 @@ checklist is derived, not fixed — DOC-005 – DOC-008.
 
 ### 7.3 Progress is explicit
 
-**UX-039.** A count at the top: *"4 of 7 required documents uploaded."* When the last one lands, the
-application status changes to complete and the change is visible without a reload — APP-003.
+**UX-039.** A count at the top of the section: *"4 of 7 uploaded"*, beside a **segmented bar** — one
+segment per required document, filled up to the count. The bar is what makes the count readable
+without doing the arithmetic; segmented rather than continuous because a checklist is five to eight
+items, so a segment per requirement reads as "four of seven" directly. The segments are
+`aria-hidden`: the count already says it in words, and a dynamic width cannot be expressed as a class
+anyway (`3-ui.md` UI-029).
+
+The wording is shorter than this rule originally quoted ("4 of 7 required documents uploaded"),
+because the section heading now supplies "documents" and the bar supplies the rest — corrected at
+T64.
+
+When the last one lands, the application status changes to complete and the change is visible without
+a reload — APP-003.
+
+**UX-067.** The accepted types and the size limit are stated **once per section**, above the rows,
+not repeated on every row. `UX-042` asks for them before the picker opens; once satisfies it, and six
+copies of the same sentence was noise rather than reassurance (T64).
 
 ### 7.4 Upload behaviour
 
@@ -332,6 +347,7 @@ Source: `06-ux.md`, superseded by this document.
 | UX-037 | Each row shows type, Dutch term, required, state | 6 Upload per requirement | §7.1 |
 | UX-038 | The checklist explains why a row is required | 6 The checklist explains itself | §7.2 |
 | UX-039 | An explicit progress count, updating without reload | 6 Progress is explicit | §7.3 |
+| UX-067 | Accepted types stated once per section, not per row | 6 Progress is explicit | §7.3 |
 | UX-040 | Optimistic upload | 6 Upload behaviour | §7.4 |
 | UX-041 | On failure the row reverts and shows the reason | 6 Upload behaviour | §7.4 |
 | UX-042 | Accepted types and size stated before picking | 6 Upload behaviour | §7.4 |
