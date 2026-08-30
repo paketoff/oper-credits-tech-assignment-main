@@ -47,14 +47,16 @@ import { User } from '../auth-state.service';
           @if (user(); as currentUser) {
             <a
               routerLink="/applications"
-              class="rounded-control text-body-sm text-surface-fixed px-2 py-1.5 font-semibold whitespace-nowrap transition-colors hover:bg-white/10 sm:px-3"
+              class="rounded-control text-body-sm text-surface-fixed hidden px-3 py-1.5 font-semibold whitespace-nowrap transition-colors hover:bg-white/10 sm:inline"
             >
               My applications
             </a>
-            <!-- Hidden below sm:. A long address does not wrap and pushed the
-                 whole account menu past a 375px viewport (UX-061); the borrower
-                 already knows who they are signed in as, and Log out does not
-                 need it to make sense. -->
+            <!-- Both this and the nav link above are hidden below sm:. A long
+                 address does not wrap, and even without it the band still ran
+                 past a 375px viewport (UX-061) and clipped Log out. The
+                 borrower already knows who they are signed in as, and the logo
+                 is a link home; Log out is the one control that has to be
+                 reachable. -->
             <span
               class="text-body-sm text-surface-fixed/80 hidden max-w-[16rem] truncate sm:inline"
               >{{ currentUser.email }}</span

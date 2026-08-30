@@ -59,4 +59,13 @@ test('simulate, sign up, complete the wizard and upload a document at 375px', as
   const uploadResponse = await uploaded;
   expect(uploadResponse.status()).toBe(201);
   await expect(page.getByText('Uploaded').first()).toBeVisible();
+
+  // UX-061 means the flow fits, not merely that it completes. This assertion
+  // is what the scenario was missing: the header ran past 375px twice — once
+  // on a long email address, once on the signed-in nav — and both times every
+  // step above still passed while the page scrolled sideways.
+  const overflows = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(overflows).toBe(false);
 });
