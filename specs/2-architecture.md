@@ -72,6 +72,7 @@ app/
       entities.py
       state_machine.py     # allowed transitions; pure
       checklist.py         # required_documents(application); pure
+      affordability.py     # assess(profile, payment); pure (T53)
       repository.py
     documents/
       router.py
@@ -81,8 +82,9 @@ app/
       entities.py
       file_type.py         # magic-byte detection; pure
       classification/      # optional feature, 9-ai-classification.md
+        entities.py        # ClassifiedType, verdict, outcome; domain types (T35)
         prompts.py         # the system prompt, a module-level constant
-        evaluator.py        # the decision table; pure
+        evaluator.py       # the decision table; pure
         client.py          # the API call
       repository.py
     auth/

@@ -55,8 +55,8 @@ Two tiers instead:
 
 **T-P5. Tier 1 — pure domain logic: 100%, enforced.**
 `domains/simulation/calculator.py`, `domains/applications/state_machine.py`,
-`domains/applications/checklist.py`, `domains/documents/file_type.py`,
-`domains/documents/classification/evaluator.py`.
+`domains/applications/checklist.py`, `domains/applications/affordability.py`,
+`domains/documents/file_type.py`, `domains/documents/classification/evaluator.py`.
 
 These are pure functions with a finite number of branches. Full coverage is achievable, meaningful,
 and it is where being wrong is unrecoverable.
@@ -65,6 +65,7 @@ and it is where being wrong is unrecoverable.
 pytest --cov=app.domains.simulation.calculator \
        --cov=app.domains.applications.state_machine \
        --cov=app.domains.applications.checklist \
+       --cov=app.domains.applications.affordability \
        --cov=app.domains.documents.file_type \
        --cov=app.domains.documents.classification.evaluator \
        --cov-fail-under=100
@@ -844,6 +845,146 @@ Done   `npm run build`, `ng test`, `make e2e`, `make lint` all green; a real
 
 ---
 
+# P7 — Documents produce data
+
+Added after batch 4.5, when the question "what does this project actually *do* with an uploaded
+document?" turned out to have the honest answer: nothing. A document satisfies a checklist row by the
+type the borrower declared and is never opened again.
+
+**The rule that makes this one feature rather than three: a document produces a *proposal*, the
+borrower confirms it, and only confirmed data is ever calculated on.** That extends `AI-003` ("the
+model advises, deterministic code owns the outcome") from a document's *type* to its *values* instead
+of contradicting it, and it makes manual entry the base case rather than a bolt-on — the same form,
+with nothing pre-filled. With `AI_CLASSIFICATION_ENABLED=false` the borrower types everything and the
+product still works end to end, so `AI-039` holds by construction.
+
+**Ordering note.** `AI-001` puts classification last, after every flow works on the deployed URL. T31
+is run first to satisfy exactly that; the rest of P4 (T32 – T34) is deliberately deferred. That is a
+conscious reordering, recorded here rather than left to be noticed.
+
+### T53 | Affordability calculator
+```
+Owner  A
+Deps   —
+Files  app/domains/applications/affordability.py
+       app/domains/applications/entities.py
+       tests/domains/applications/test_affordability.py
+
+Output assess(profile, monthly_payment) -> AffordabilityAssessment
+       DSTI and restleefgeld bands; every threshold a named constant
+
+Tests  test_residual_floor_single_adult_no_dependants_is_the_base
+       test_residual_floor_second_adult_raises_it
+       test_residual_floor_each_dependant_raises_it
+       test_residual_floor_clamps_nonsensical_household_sizes
+       test_assess_bands_the_income_share
+       test_assess_residual_exactly_on_the_floor_is_tight_not_outside
+       test_assess_residual_below_the_floor_is_outside_typical_norms
+       test_assess_takes_the_worse_of_the_two_measures
+       test_assess_missing_income_returns_insufficient_data
+       test_assess_non_positive_income_returns_insufficient_data
+       test_assess_existing_credit_counts_towards_the_obligations
+       test_assess_absent_existing_credit_is_treated_as_zero
+       test_assess_never_reports_a_decision
+       test_ac009_primary_case_on_a_modest_income_is_outside_norms
+       test_ac009_the_same_household_on_a_higher_income_is_comfortable
+
+Done   pytest tests/domains/applications/test_affordability.py -q → 17 passed
+       coverage on affordability.py is 100%
+```
+Supersedes the `SCP-011` cut. Pure, fourth module beside `checklist.py` and `state_machine.py`; takes
+the monthly payment as a `Decimal` argument so it never imports the simulation domain. The output is
+a **band, never a decision** — nothing in the state machine reads it.
+→ `SIM-022` – `SIM-029`, `DOM-029`, `DOM-030`, `AC-009`.
+
+### T54 | The confirmed financial profile
+```
+Owner  A
+Deps   T53
+Files  app/domains/applications/{entities,tables,repository,schemas,service,router}.py
+       app/domains/simulation/service.py        (monthly_payment_for, ARC-047)
+       tests/domains/applications/test_financials_api.py
+       tests/domains/test_repositories.py       (the table-set assertion)
+
+Output application_financials table, one row per application, with provenance;
+       GET/PUT /api/applications/{id}/financials returning profile + assessment
+
+Tests  test_get_financials_is_empty_before_anything_is_saved
+       test_put_records_manual_provenance
+       test_put_rejects_a_client_supplied_provenance
+       test_put_returns_the_assessment_for_the_saved_figures
+       test_put_counts_existing_credit_towards_the_obligations
+       test_put_replaces_the_profile_wholesale
+       test_financials_survive_a_borrower_patch
+       test_assessment_is_absent_without_a_linked_simulation
+       test_another_users_financials_return_404_not_403
+       test_put_rejects_a_negative_income
+
+Done   pytest tests/domains/applications/test_financials_api.py -q → 10 passed
+```
+**A table of its own, not columns on `borrowers`** — `API-037` replaces that collection wholesale on
+every PATCH, so a confirmed figure stored there would be destroyed by the borrower editing their own
+name. `test_financials_survive_a_borrower_patch` is the test that pins it.
+
+Provenance is recorded by the server, never accepted from the client: a self-reported audit trail is
+not an audit trail. Every figure written here is `MANUAL`, because extraction does not exist yet.
+
+`monthly_payment_for()` is the second method on the `ARC-047` edge, for the same reason `get_owned`
+became the second on `ARC-018` — only the simulation domain may run its calculator, and DOM-001 says
+the payment is recomputed rather than stored.
+→ `API-073` – `API-077`, `DOM-029`, `DOM-030`.
+
+### T55 | Finances capture and the affordability panel
+```
+Owner  C
+Deps   T54
+Files  src/app/domains/application/components/finances-section.component.{ts,html}
+       src/app/domains/application/{application.models.ts,application.service.ts}
+       src/app/domains/application/pages/application-wizard.component.{ts,html}
+       src/app/core/api-client.service.ts        (put(), which had no caller before)
+
+Output The finances form and the affordability result on the application page
+Tests  the existing wizard spec, extended for the financials request
+
+Done   `npm run build` succeeds; a borrower who uploads nothing can type an
+       income and get a band back — the end-to-end proof that the AI layer is
+       optional (AI-039, proven before the AI layer exists)
+```
+The whole of Group A closes here. With `AI_CLASSIFICATION_ENABLED` never having been switched on —
+and, at this point, nothing behind it even built — the product answers *can I afford this* end to
+end. That is the property the plan is arranged around: extraction pre-fills these fields later and
+changes nothing else.
+→ `UX-065`, `UX-066`, `SIM-028`.
+
+### T62 | Fix: a reload dropped the anonymous simulation
+```
+Owner  C
+Deps   T55
+Files  src/app/domains/simulation/simulation.service.ts
+       src/app/domains/simulation/simulation.service.spec.ts
+       src/app/domains/auth/pages/signup-page.component.ts
+       e2e/simulation-claim.spec.ts
+
+Output The held simulation id survives a reload (sessionStorage, one tab) and
+       is dropped once claimed
+
+Tests  remembers the simulation id across a reload (DOM-026)
+       forgets the id once it has been claimed (DOM-027)
+       starts empty in a fresh tab
+       e2e: a reload between simulating and signing up still claims it
+
+Done   `make e2e` green; the new scenario fails with the fix reverted
+```
+Found by hand while verifying T55, not by any check. The id lived only in a signal, so refreshing or
+typing `/signup` into the address bar dropped it. Signup still succeeded — `UX-028` requires that —
+so the failure was silent, and the draft was simply created unseeded. Once T53/T54 existed the cost
+grew: no seeded simulation means no instalment, and `API-075` then returns a null assessment.
+
+The regression test was confirmed to have teeth by reverting the fix and watching it fail.
+→ `DOM-026` (corrected), `DOM-027`.
+
+---
+
 # P4 — Integration
 
 ### T31 | Deployed end to end
@@ -903,66 +1044,138 @@ Only past the gate. Spec in [`9-ai-classification.md`](9-ai-classification.md).
 ```
 Owner  A
 Deps   gate
-Files  app/domains/documents/classification/evaluator.py
+Files  app/domains/documents/classification/{entities,evaluator}.py
        tests/domains/documents/test_evaluator.py
 
 Output evaluate(verdict, claimed) -> ClassificationOutcome
        CONFIDENCE_FLOOR and HIGH_CONFIDENCE as named constants
+       ClassifiedType / ClassificationVerdict / ClassificationOutcome as domain
+       types, so evaluator.py imports no framework and stays pure (ARC-013)
 
 Tests  test_below_confidence_floor_returns_inconclusive_despite_sharp_mismatch
        test_matching_type_above_floor_returns_confirmed
        test_unknown_above_floor_returns_unrecognised
        test_mismatch_medium_confidence_returns_possible_mismatch
        test_mismatch_high_confidence_returns_likely_mismatch
+       test_decision_table_is_covered_end_to_end        (parameterised, AI-034)
        test_thresholds_are_module_constants_not_literals
+       test_every_document_type_has_a_classified_counterpart
+       test_unknown_is_not_a_document_type
 
-Done   pytest tests/domains/documents/test_evaluator.py -q → 6 passed
-       coverage on evaluator.py is 100%
+Done   pytest tests/domains/documents/test_evaluator.py -q → 16 passed
+       coverage on evaluator.py and entities.py is 100%
 ```
 Pure function, no network, written first. The first test is the one that proves code owns the
-outcome, not the model. → `AI-014` – `AI-017`, `AI-033` – `AI-034`.
+outcome, not the model: the model is maximally wrong — a passport called a construction quote — and
+the answer is still silence, because the confidence was below the floor.
+
+`ClassificationVerdict` is a frozen dataclass here rather than the pydantic model `AI-011` sketches.
+The pydantic model parses the API response and belongs to `client.py` (T36); splitting them is what
+keeps `evaluator.py` importable without a framework, the same discipline `ARC-013` already applies to
+`calculator.py` and `checklist.py`. `entities.py` is a new file in the classification package,
+recorded in `ARC-002`.
+→ `AI-011` – `AI-017`, `AI-033` – `AI-034`.
 
 ### T36 | Model client
 ```
 Owner  B          (ARC-028 names classification/{client,prompts}.py in unit B)
 Deps   T35
 Files  app/domains/documents/classification/{client,prompts}.py
-Output classify(image_bytes) -> ClassificationVerdict
-Tests  test_malformed_json_degrades_to_unknown_zero_confidence
-       test_unknown_category_degrades_to_unknown
-       test_out_of_range_confidence_is_rejected
+       tests/domains/documents/test_client.py
+Output render_first_page(content, content_type) -> PNG bytes
+       ClassificationClient.classify(page_png) -> ClassificationVerdict
+       ClassificationError for transport failures only
+Tests  test_a_well_formed_answer_becomes_a_verdict
+       test_malformed_json_degrades_to_unknown_zero_confidence  (8 cases)
        test_filename_is_never_included_in_the_request
-       test_only_first_page_is_rendered
-       test_timeout_raises_classification_error
-Done   pytest tests/domains/documents/test_client.py -q → 6 passed
+       test_a_transport_failure_raises_rather_than_degrading
+       test_the_model_and_cap_are_sent_as_configured
+       test_only_first_page_is_rendered_and_downscaled
+       test_a_small_image_is_not_upscaled
+       test_unrenderable_bytes_raise_rather_than_returning_a_verdict
+Done   pytest tests/domains/documents/test_client.py -q → 15 passed,
+       entirely mocked: no key, no network, no cost
 ```
+**Two failure modes, deliberately kept apart.** A *malformed answer* is not a failure — invalid JSON,
+an unknown category, a confidence of 2.0, an empty body all degrade to `UNKNOWN` at 0 (`AI-011`),
+which the evaluator then bands `INCONCLUSIVE` and the borrower is told nothing. A *transport failure*
+is: it raises `ClassificationError`, and T37 turns that into `FAILED`, which renders as nothing
+(`AI-021`).
+
+`ClassificationError` is a plain exception, not a `DomainError`: domain errors carry a registry code
+and map to an HTTP status (`CQ-053`), and this one must never reach the borrower at all.
+
+The model constant is `claude-sonnet-5` at 300 tokens while the answer is four fields, exactly as
+`AI-013` reasons. It changes at T57, where the same call also has to read numbers off the page.
 → `AI-007` – `AI-013`, `AI-022`, `AI-035`.
 
 ### T37 | Pipeline and flag
 ```
 Owner  B
 Deps   T36, T23
-Files  app/domains/documents/service.py, app/core/config.py
-Output Background classification task; AI_CLASSIFICATION_ENABLED flag
+Files  app/domains/documents/classification/pipeline.py
+       app/domains/documents/{service,router,repository,tables,dependencies}.py
+       app/core/database.py            (background_session)
+       tests/domains/documents/test_pipeline.py
+Output ClassificationPipeline.run(); two advisory columns; the flag wiring
 Tests  test_flag_off_skips_classification_entirely
        test_upload_succeeds_when_classifier_raises
-       test_failed_classification_leaves_document_stored_and_status_correct
+       test_failed_classification_is_recorded_without_an_outcome
        test_outcome_never_changes_doc_type_or_satisfaction
-Done   pytest tests/domains/documents/test_pipeline.py -q → 4 passed
+       test_a_deleted_document_is_not_an_error_to_annotate
+       test_every_status_is_a_plain_string
+Done   pytest tests/domains/documents/test_pipeline.py -q → 9 passed
 ```
 `test_upload_succeeds_when_classifier_raises` is the one to point at on the walkthrough — it proves
-`AI-005`. → `AI-004` – `AI-006`, `AI-018` – `AI-024`, `AI-036` – `AI-037`.
+`AI-005`: the classifier throws, and the 201, the row, the checklist count and the application status
+are all still exactly what the upload made them.
+
+**Two columns, not one** (clarifying `AI-020`, whose list mixed both). `classification_status` is the
+lifecycle — `PENDING` / `DONE` / `FAILED` / `SKIPPED`, "did this run at all". `classification_outcome`
+is the evaluator's verdict and is null unless the status is `DONE`. One column carrying both would
+make "failed" and "inconclusive" the same value, and they have different causes.
+
+**The flag is structural, not conditional** (`AI-024`): with it off, `_get_classifier()` returns None,
+so no client is constructed and `ANTHROPIC_API_KEY` is never read. The service's `classifier` is
+`None` and scheduling is a no-op, leaving both columns null.
+
+`background_session()` is new in `core/database.py`: the request session closes when the response is
+sent, so a task that runs *after* the commit must own one. `BackgroundTasks` reaches the service
+through `DocumentContext`, the bundle that already exists to keep handlers inside `CQ-038`'s four
+slots.
+→ `AI-004` – `AI-006`, `AI-018` – `AI-024`, `AI-036` – `AI-037`.
 
 ### T38 | Classification in the UI
 ```
 Owner  C
 Deps   T37
-Files  src/app/domains/documents/*
-Output Row states for pending, confirmed, mismatch
-Tests  test_failed_and_skipped_render_as_nothing
-       test_likely_mismatch_offers_keep_anyway
-Done   `npm test -- --include=**/documents/**` passes
+Files  app/domains/documents/classification/messages.py
+       app/domains/documents/{schemas,service,repository,tables}.py
+       src/app/domains/documents/*
+       tests/domains/documents/test_messages.py
+Output The checklist's nested documents gain classification_status and a
+       server-composed classification_message; the row renders it
+Tests  test_a_likely_mismatch_names_both_types
+       test_a_possible_mismatch_is_hedged
+       test_unrecognised_asks_the_borrower_to_check_the_file
+       test_silent_cases_compose_to_nothing
+       test_every_classified_type_has_a_label
+       (frontend) failed and skipped render as nothing (AI-021)
+       (frontend) a likely mismatch shows the sentence and keeps the file
+Done   pytest tests/domains/documents/test_messages.py -q → 7 passed;
+       `ng test` → 28 passed
 ```
+**The message is composed server-side** (`AI-026`), so the frontend renders a string and never
+implements the decision table: a threshold or a wording can change without redeploying a client that
+would otherwise disagree with the server about what a mismatch means.
+
+A **third column** was needed beyond `AI-020`'s two. `AI-025`'s sentence names the type the model
+actually saw — *"this looks like a bank statement"* — which the outcome alone cannot supply, so
+`classification_detected_type` is stored rather than parsed back out of a composed string.
+
+Every silent case composes to `None` through one path: never classified, skipped, failed, or
+classified without enough confidence to trust. The row then renders exactly as it did before the
+feature existed.
 → `AI-021`, `AI-025` – `AI-027`, `AI-041`.
 
 ---

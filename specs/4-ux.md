@@ -258,6 +258,22 @@ light one inverted.
 preference is not an account control). The choice persists across visits (`localStorage`) and, on a
 first visit with nothing stored yet, follows the OS's own `prefers-color-scheme`.
 
+## 9.1 The finances section
+
+**UX-065.** On the application page, once submitted: net monthly income, existing monthly credit and
+dependants, with the affordability result below them (`0-business-logic.md` §21).
+
+**Manual entry is the base case, not a fallback.** The form starts empty and the borrower types into
+it; nothing here needs a document. Extraction, when it exists, pre-fills exactly these fields and
+changes nothing else about the screen — which is what makes the whole AI layer switchable off
+(`9-ai-classification.md` AI-039) and what serves a borrower who would rather not upload anything.
+
+**UX-066.** The result reads as information, never as a verdict. The band chip uses the same
+`UI-053` palette as every other status chip, the copy says what the number means and what would ease
+it, and the section closes by saying in words that these are norms lenders commonly apply, not a
+legal limit, and that this is not a credit decision — `SIM-028`, and the same discipline as the
+above-norm quotiteit chip (`UX-057`).
+
 ## 10. Definition of done
 
 - **UX-055** — The simulator shows a computed result on first paint with no interaction.
@@ -339,6 +355,8 @@ Source: `06-ux.md`, superseded by this document.
 | UX-060 | Done: every checklist row uploads and explains itself | 9 Definition of done | §10 |
 | UX-061 | Done: the flow completes at 375px | 9 Definition of done | §10 |
 | UX-064 | Dark mode toggle: persisted, defaults to `prefers-color-scheme` | 8 Not doing | §9 |
+| UX-065 | The finances section; manual entry is the base case | 9.1 The finances section | §9.1 |
+| UX-066 | The result reads as information, never a verdict | 9.1 The finances section | §9.1 |
 
 # Appendix B — What this spec implements
 

@@ -7,6 +7,8 @@ import {
   ApplicationCreateRequest,
   ApplicationList,
   ApplicationPatchRequest,
+  Financials,
+  FinancialsRequest,
 } from './application.models';
 
 /**
@@ -39,5 +41,15 @@ export class ApplicationService {
   /** Runs full validation across every step, then transitions the application (`API-041`). */
   submit(id: string): Observable<Application> {
     return this.api.post<Application>(`/applications/${id}/submit`, {});
+  }
+
+  /** The confirmed figures and the affordability assessment derived from them (`API-074`). */
+  financials(id: string): Observable<Financials> {
+    return this.api.get<Financials>(`/applications/${id}/financials`);
+  }
+
+  /** Replaces the confirmed figures wholesale (`API-073`); provenance is the server's to record. */
+  putFinancials(id: string, request: FinancialsRequest): Observable<Financials> {
+    return this.api.put<Financials>(`/applications/${id}/financials`, request);
   }
 }

@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from uuid import UUID, uuid4
 
+from fastapi import BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.enums import DocumentType
@@ -10,9 +11,12 @@ from app.core.errors import ApplicationError, DocumentError, NotFoundError
 from app.core.storage import StorageBackend
 from app.domains.applications.entities import Application, ApplicationStatus, DocumentRequirement
 from app.domains.applications.service import ApplicationService
+from app.domains.documents.classification import messages
+from app.domains.documents.classification.entities import claimed_as_classified
+from app.domains.documents.classification.pipeline import ClassificationPipeline
 from app.domains.documents.entities import Document
 from app.domains.documents.file_type import detect_content_type
-from app.domains.documents.repository import DocumentRepository
+from app.domains.documents.repository import ClassificationRecord, DocumentRepository
 from app.domains.documents.schemas import (
     ChecklistItem,
     ChecklistResponse,
@@ -47,6 +51,21 @@ class UploadRequest:
     content: bytes
 
 
+@dataclass(frozen=True, slots=True)
+class UploadContext:
+    """Who is uploading, to which application, and where to schedule follow-up.
+
+    Bundled to stay inside CQ-038's four slots: `upload` already takes the
+    session and the request body, and classification needs FastAPI's
+    `BackgroundTasks` to reach the service without the router acquiring a
+    second service call (CQ-018).
+    """
+
+    application_id: UUID
+    user_id: UUID
+    background_tasks: BackgroundTasks
+
+
 class DocumentService:
     """Uploaded documents and the derived checklist that reads them.
 
@@ -60,11 +79,18 @@ class DocumentService:
         repository: DocumentRepository,
         applications: ApplicationService,
         storage: StorageBackend,
+        classifier: ClassificationPipeline | None = None,
     ) -> None:
-        """Take the repository as a protocol, and the one foreign service."""
+        """Take the repository, the foreign service (ARC-018), storage, and the classifier.
+
+        `classifier` is None whenever `AI_CLASSIFICATION_ENABLED` is off, which
+        is what makes AI-024 structural rather than conditional: with the flag
+        off the object does not exist, so no client is built and no key is read.
+        """
         self._repository = repository
         self._applications = applications
         self._storage = storage
+        self._classifier = classifier
 
     async def checklist(
         self, session: AsyncSession, application_id: UUID, user_id: UUID
@@ -80,7 +106,11 @@ class DocumentService:
         uploaded_types = frozenset(document.doc_type for document in documents)
 
         requirements = self._applications.checklist(application, uploaded_types)
-        items = [self._to_item(requirement, documents) for requirement in requirements]
+        classifications = await self._repository.classifications_for(session, application_id)
+        items = [
+            self._to_item(requirement, documents, classifications)
+            for requirement in requirements
+        ]
         required = [item for item in items if item.required]
         return ChecklistResponse(
             required_count=len(required),
@@ -91,8 +121,7 @@ class DocumentService:
     async def upload(
         self,
         session: AsyncSession,
-        application_id: UUID,
-        user_id: UUID,
+        context: UploadContext,
         upload: UploadRequest,
     ) -> DocumentResponse:
         """Validate, store the blob, write the row, and move the application.
@@ -110,7 +139,10 @@ class DocumentService:
                 DOCUMENT_TYPE_NOT_REQUIRED when `doc_type` is not in this
                 application's checklist (API-052).
         """
-        application = await self._applications.get_owned(session, application_id, user_id)
+        application_id = context.application_id
+        application = await self._applications.get_owned(
+            session, application_id, context.user_id
+        )
         if application.status not in _UPLOAD_OPEN_STATES:
             raise ApplicationError(code="INVALID_STATE_TRANSITION")
         if len(upload.content) < _MIN_SIZE_BYTES:
@@ -134,6 +166,7 @@ class DocumentService:
         created = await self._repository.create(session, document)
         status = await self._recompute(session, application_id)
         await session.commit()
+        self._schedule_classification(context, created.id, upload)
         return DocumentResponse(
             id=created.id,
             doc_type=created.doc_type,
@@ -209,7 +242,10 @@ class DocumentService:
         return await self._applications.recompute_status(session, application_id, uploaded)
 
     def _to_item(
-        self, requirement: DocumentRequirement, documents: list[Document]
+        self,
+        requirement: DocumentRequirement,
+        documents: list[Document],
+        classifications: dict[UUID, ClassificationRecord],
     ) -> ChecklistItem:
         """Assemble one row, nesting the documents that satisfy it.
 
@@ -224,10 +260,48 @@ class DocumentService:
             required=requirement.required,
             satisfied=requirement.satisfied,
             reason=requirement.reason,
-            documents=[
-                DocumentSummary(
-                    id=d.id, filename=d.filename, size_bytes=d.size_bytes, uploaded_at=d.uploaded_at
-                )
-                for d in matching
-            ],
+            documents=[self._to_summary(d, classifications) for d in matching],
+        )
+
+    def _to_summary(
+        self, document: Document, classifications: dict[UUID, ClassificationRecord]
+    ) -> DocumentSummary:
+        """Nest one uploaded file, with its advisory classification (AI-025, AI-026).
+
+        The message is composed here, server-side, so the frontend renders a
+        string and never implements the decision table. With the classifier off
+        there is no record and both fields are null.
+        """
+        record = classifications.get(document.id)
+        return DocumentSummary(
+            id=document.id,
+            filename=document.filename,
+            size_bytes=document.size_bytes,
+            uploaded_at=document.uploaded_at,
+            classification_status=record.status or None if record else None,
+            classification_message=messages.compose(
+                record.outcome if record else None,
+                record.detected_type if record else None,
+                claimed_as_classified(document.doc_type),
+            ),
+        )
+
+    def _schedule_classification(
+        self, context: UploadContext, document_id: UUID, upload: UploadRequest
+    ) -> None:
+        """Queue classification to run after the response (AI-018, AI-019).
+
+        Called only after `session.commit()` has returned: the document row and
+        the application status are already durable, so nothing this task does —
+        including failing outright — can affect what the borrower was told
+        (AI-005).
+
+        With the flag off `self._classifier` is None and this is a no-op,
+        leaving the column null. `FastAPI`'s `BackgroundTasks` is enough at this
+        size; a broker would be infrastructure for its own sake (AI-019).
+        """
+        if self._classifier is None:
+            return
+        context.background_tasks.add_task(
+            self._classifier.run, document_id, upload.doc_type, upload.content
         )

@@ -69,6 +69,10 @@ export class SignupPageComponent {
       )
       .subscribe({
         next: (application) => {
+          // The id has done its job and can never be claimed twice (DOM-027);
+          // keeping it would offer a stale simulation to the next signup in
+          // this tab.
+          this.simulationService.forget();
           void this.router.navigate(['/applications', application.id]);
         },
         error: (error: unknown) => {

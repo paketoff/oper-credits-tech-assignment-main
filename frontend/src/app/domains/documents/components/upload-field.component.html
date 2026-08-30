@@ -21,15 +21,33 @@
   }
 
   @for (document of item().documents; track document.id) {
-    <div class="flex items-center justify-between gap-4 text-sm">
-      <span>{{ document.filename }}</span>
-      <button
-        type="button"
-        (click)="documentRemoved.emit(document.id)"
-        class="text-body-sm text-accent hover:text-accent-hover font-semibold"
-      >
-        Remove
-      </button>
+    <div class="flex flex-col gap-1">
+      <div class="flex items-center justify-between gap-4 text-sm">
+        <span>{{ document.filename }}</span>
+        <button
+          type="button"
+          (click)="documentRemoved.emit(document.id)"
+          class="text-body-sm text-accent hover:text-accent-hover cursor-pointer font-semibold"
+        >
+          Remove
+        </button>
+      </div>
+
+      <!-- AI-025, AI-026: a server-composed sentence, or nothing at all. The
+           borrower keeps the document either way — a mismatch is a hint, never
+           a decision (AI-006). -->
+      @if (document.classification_message; as message) {
+        <p
+          class="text-body-sm rounded-control px-2 py-1"
+          [class]="
+            document.classification_status === 'DONE' && message.startsWith('This looks like the')
+              ? 'text-muted'
+              : 'bg-signal-soft text-ink-fixed'
+          "
+        >
+          {{ message }}
+        </p>
+      }
     </div>
   }
 

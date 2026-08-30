@@ -1,5 +1,7 @@
 """Queries against the applications and borrowers tables."""
 
+from datetime import datetime
+from decimal import Decimal
 from typing import Protocol
 from uuid import UUID
 
@@ -12,12 +14,15 @@ from app.domains.applications.entities import (
     Application,
     ApplicationStatus,
     Borrower,
+    ConfirmedAmount,
     EmploymentType,
+    FinancialProfile,
     PropertyDetails,
     PropertySeed,
     PropertyType,
+    Provenance,
 )
-from app.domains.applications.tables import ApplicationRow, BorrowerRow
+from app.domains.applications.tables import ApplicationRow, BorrowerRow, FinancialProfileRow
 
 
 class ApplicationRepository(Protocol):
@@ -55,6 +60,18 @@ class ApplicationRepository(Protocol):
         status: ApplicationStatus | None,
     ) -> Application | None:
         """Apply a partial update and return the reloaded application."""
+        ...
+
+    async def get_financials(
+        self, session: AsyncSession, application_id: UUID
+    ) -> FinancialProfile | None:
+        """Fetch the confirmed financial profile, or None if never saved."""
+        ...
+
+    async def upsert_financials(
+        self, session: AsyncSession, profile: FinancialProfile
+    ) -> FinancialProfile:
+        """Insert or replace the profile wholesale, and return it reloaded."""
         ...
 
 
@@ -100,6 +117,49 @@ def _to_property_seed(row: ApplicationRow) -> PropertySeed | None:
         region=Region(row.region),
         is_first_home=bool(row.is_first_home),
         purchase_price=row.purchase_price,
+    )
+
+
+def _to_confirmed_amount(
+    amount: Decimal | None,
+    provenance: str | None,
+    source_document_id: UUID | None,
+    confirmed_at: datetime | None,
+) -> ConfirmedAmount | None:
+    """Reassemble one confirmed figure from its four flat columns.
+
+    All-or-nothing: a figure without its provenance and timestamp is a
+    half-written row, and returning it as if it were confirmed would put a
+    number of unknown origin in front of an underwriter.
+    """
+    if amount is None or provenance is None or confirmed_at is None:
+        return None
+    return ConfirmedAmount(
+        amount=amount,
+        provenance=Provenance(provenance),
+        source_document_id=source_document_id,
+        confirmed_at=confirmed_at,
+    )
+
+
+def _to_financial_profile(row: FinancialProfileRow) -> FinancialProfile:
+    """Map the financials row to the domain type."""
+    return FinancialProfile(
+        application_id=row.application_id,
+        net_monthly_income=_to_confirmed_amount(
+            row.net_monthly_income,
+            row.net_monthly_income_provenance,
+            row.net_monthly_income_source_document_id,
+            row.net_monthly_income_confirmed_at,
+        ),
+        existing_credit_monthly=_to_confirmed_amount(
+            row.existing_credit_monthly,
+            row.existing_credit_provenance,
+            row.existing_credit_source_document_id,
+            row.existing_credit_confirmed_at,
+        ),
+        dependants=row.dependants,
+        updated_at=row.updated_at,
     )
 
 
@@ -222,6 +282,44 @@ class SqlApplicationRepository:
             row.status = status.value
         await session.flush()
         return await self._reload(session, application_id)
+
+    async def get_financials(
+        self, session: AsyncSession, application_id: UUID
+    ) -> FinancialProfile | None:
+        """Fetch the confirmed profile, or None if the borrower never saved one."""
+        row = await session.get(FinancialProfileRow, application_id)
+        return _to_financial_profile(row) if row else None
+
+    async def upsert_financials(
+        self, session: AsyncSession, profile: FinancialProfile
+    ) -> FinancialProfile:
+        """Insert or replace the profile wholesale.
+
+        Wholesale rather than field by field, for the same reason
+        `replace_borrowers` is (API-037): the form sends every field every time,
+        and a partial merge would leave a figure and its provenance disagreeing.
+        """
+        row = await session.get(FinancialProfileRow, profile.application_id)
+        if row is None:
+            row = FinancialProfileRow(application_id=profile.application_id)
+            session.add(row)
+
+        income = profile.net_monthly_income
+        row.net_monthly_income = income.amount if income else None
+        row.net_monthly_income_provenance = income.provenance.value if income else None
+        row.net_monthly_income_source_document_id = income.source_document_id if income else None
+        row.net_monthly_income_confirmed_at = income.confirmed_at if income else None
+
+        credit = profile.existing_credit_monthly
+        row.existing_credit_monthly = credit.amount if credit else None
+        row.existing_credit_provenance = credit.provenance.value if credit else None
+        row.existing_credit_source_document_id = credit.source_document_id if credit else None
+        row.existing_credit_confirmed_at = credit.confirmed_at if credit else None
+
+        row.dependants = profile.dependants
+        await session.flush()
+        await session.refresh(row)
+        return _to_financial_profile(row)
 
     async def _reload(self, session: AsyncSession, application_id: UUID) -> Application:
         """Read the row back with its borrowers, so no caller lazy-loads."""

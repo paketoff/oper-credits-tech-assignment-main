@@ -36,3 +36,18 @@ class DocumentRow(Base):
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+
+    # AI-020. These two exist only for the optional classifier, and the domain
+    # `Document` entity deliberately does not carry them: with the feature off
+    # they stay null and nothing reads them, so the domain stays readable
+    # without knowing the feature exists.
+    #
+    # Two columns rather than one because they answer different questions.
+    # `classification_status` is the lifecycle — did it run at all. `outcome`
+    # is the evaluator's verdict, and is null unless the status is DONE.
+    classification_status: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    classification_outcome: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    # AI-025's sentence names the type the model actually saw ("this looks like
+    # a bank statement"), which the outcome alone cannot supply. A third column
+    # rather than parsing it back out of a composed string.
+    classification_detected_type: Mapped[str | None] = mapped_column(String(32), nullable=True)

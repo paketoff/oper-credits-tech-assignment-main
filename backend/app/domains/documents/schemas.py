@@ -21,6 +21,10 @@ class DocumentSummary(BaseModel):
     filename: str
     size_bytes: int
     uploaded_at: datetime
+    # AI-025. Both null with the classifier off, and both null for any outcome
+    # not worth a sentence — the row then renders exactly as it always has.
+    classification_status: str | None = None
+    classification_message: str | None = None
 
 
 class ChecklistItem(BaseModel):

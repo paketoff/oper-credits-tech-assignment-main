@@ -23,6 +23,10 @@ export class ApiClient {
     return this.http.patch<T>(this.url(path), body, { withCredentials: true });
   }
 
+  put<T>(path: string, body: unknown): Observable<T> {
+    return this.http.put<T>(this.url(path), body, { withCredentials: true });
+  }
+
   delete<T>(path: string): Observable<T> {
     return this.http.delete<T>(this.url(path), { withCredentials: true });
   }

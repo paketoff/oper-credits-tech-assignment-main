@@ -81,6 +81,13 @@
           Status: <span class="text-ink font-semibold">{{ app.status }}</span>
         </p>
       </div>
+      <app-finances-section
+        [form]="financesForm"
+        [financials]="financials()"
+        [saving]="savingFinancials()"
+        (save)="onSaveFinancials($event)"
+      />
+
       @if (checklist(); as list) {
         <app-checklist
           [checklist]="list"

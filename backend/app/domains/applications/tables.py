@@ -52,6 +52,50 @@ class ApplicationRow(Base):
     )
 
 
+class FinancialProfileRow(Base):
+    """The confirmed figures the affordability assessment reads (DOM-029).
+
+    **A separate table, not columns on `borrowers`.** API-037 replaces the
+    borrower collection wholesale on every PATCH, so a figure stored there is
+    destroyed the next time the borrower edits the wizard — which is exactly
+    what must not happen to a number they confirmed off a document.
+
+    One row per application, so `application_id` is the primary key: there is
+    nothing to say about a second profile for the same file.
+
+    The provenance columns are flat rather than a JSON blob for the same reason
+    `borrowers` is a table (CQ-085): "which figures came from a document" is a
+    question worth being able to ask in SQL.
+    """
+
+    __tablename__ = "application_financials"
+
+    application_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("applications.id", ondelete="CASCADE"), primary_key=True
+    )
+
+    net_monthly_income: Mapped[Decimal | None] = mapped_column(_MONEY, nullable=True)
+    net_monthly_income_provenance: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    net_monthly_income_source_document_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
+    net_monthly_income_confirmed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    existing_credit_monthly: Mapped[Decimal | None] = mapped_column(_MONEY, nullable=True)
+    existing_credit_provenance: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    existing_credit_source_document_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
+    existing_credit_confirmed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    dependants: Mapped[int] = mapped_column(default=0)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+
 class BorrowerRow(Base):
     """One person on an application.
 

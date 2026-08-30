@@ -38,18 +38,22 @@ _INPUT = SimulationInput(
 
 
 async def test_create_all_builds_every_table(engine):
-    # CQ-085: five tables, no more and no fewer.
-    async with engine.connect() as connection:
-        names = await connection.run_sync(lambda sync: set(inspect(sync).get_table_names()))
-
-    assert {"users", "simulations", "applications", "borrowers", "documents"} <= names
-    assert set(Base.metadata.tables) == {
+    # CQ-085: six tables, no more and no fewer. `application_financials` is a
+    # table of its own rather than columns on `borrowers` because API-037
+    # replaces that collection wholesale on every PATCH (DOM-029).
+    expected = {
         "users",
         "simulations",
         "applications",
         "borrowers",
         "documents",
+        "application_financials",
     }
+    async with engine.connect() as connection:
+        names = await connection.run_sync(lambda sync: set(inspect(sync).get_table_names()))
+
+    assert expected <= names
+    assert set(Base.metadata.tables) == expected
 
 
 async def test_users_email_unique_index_exists(session):
