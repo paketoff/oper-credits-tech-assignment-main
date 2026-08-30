@@ -72,3 +72,43 @@ export interface ApplicationSummary {
 export interface ApplicationList {
   items: ApplicationSummary[];
 }
+
+/** Mirrors `Provenance` (`DOM-029`). `DOCUMENT` means the borrower confirmed what a document said. */
+export type Provenance = 'MANUAL' | 'DOCUMENT';
+
+/** Mirrors `ConfirmedAmountResponse` field for field (`API-074`). */
+export interface ConfirmedAmount {
+  amount: string;
+  provenance: Provenance;
+  source_document_id: string | null;
+  confirmed_at: string;
+}
+
+/** Mirrors `AffordabilityBand` (`SIM-028`). A band, never a decision. */
+export type AffordabilityBand =
+  'COMFORTABLE' | 'TIGHT' | 'OUTSIDE_TYPICAL_NORMS' | 'INSUFFICIENT_DATA';
+
+/** Mirrors `AffordabilityResponse` field for field (`API-074`, `API-076`). */
+export interface Affordability {
+  band: AffordabilityBand;
+  dsti: string | null;
+  monthly_obligations: string;
+  residual_income: string | null;
+  residual_floor: string;
+}
+
+/** Mirrors `FinancialsRequest` (`API-073`). Values only — the server records provenance. */
+export interface FinancialsRequest {
+  net_monthly_income: string | null;
+  existing_credit_monthly: string | null;
+  dependants: number;
+}
+
+/** Mirrors `FinancialsResponse` field for field (`API-074`, `API-075`). */
+export interface Financials {
+  net_monthly_income: ConfirmedAmount | null;
+  existing_credit_monthly: ConfirmedAmount | null;
+  dependants: number;
+  assessment: Affordability | null;
+  updated_at: string | null;
+}

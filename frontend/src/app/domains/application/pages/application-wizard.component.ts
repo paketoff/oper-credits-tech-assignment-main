@@ -17,9 +17,13 @@ import { Checklist } from '../../documents/documents.models';
 import { DocumentsService } from '../../documents/documents.service';
 import { Simulation } from '../../simulation/simulation.models';
 import { SimulationService } from '../../simulation/simulation.service';
-import { Application } from '../application.models';
+import { Application, Financials, FinancialsRequest } from '../application.models';
 import { ApplicationService } from '../application.service';
 import { BorrowerFormControls, BorrowerStepComponent } from '../components/borrower-step.component';
+import {
+  FinancesFormControls,
+  FinancesSectionComponent,
+} from '../components/finances-section.component';
 import { PropertyFormControls, PropertyStepComponent } from '../components/property-step.component';
 import { ReviewStepComponent } from '../components/review-step.component';
 
@@ -44,6 +48,7 @@ const TOTAL_STEPS = 4;
     PropertyStepComponent,
     ReviewStepComponent,
     ChecklistComponent,
+    FinancesSectionComponent,
   ],
   templateUrl: './application-wizard.component.html',
 })
@@ -61,6 +66,16 @@ export class ApplicationWizardComponent {
   protected readonly submitting = signal(false);
   protected readonly checklist = signal<Checklist | null>(null);
   protected readonly rowStatus = signal<Record<string, RowStatus>>({});
+  protected readonly financials = signal<Financials | null>(null);
+  protected readonly savingFinancials = signal(false);
+
+  // The manual-entry base case (DOM-030). Extraction, once it exists,
+  // pre-fills exactly these controls and changes nothing else here.
+  protected readonly financesForm = new FormGroup<FinancesFormControls>({
+    net_monthly_income: new FormControl<number | null>(null),
+    existing_credit_monthly: new FormControl<number | null>(null),
+    dependants: new FormControl(0, { nonNullable: true }),
+  });
 
   // VAL-011: at least one borrower, each requiring full_name, date_of_birth,
   // employment_type. Only this step's own fields are validated (UX-032) —
@@ -119,6 +134,37 @@ export class ApplicationWizardComponent {
         application ? { ...application, status: result.application_status } : application,
       );
       this.refreshChecklist();
+    });
+  }
+
+  protected onSaveFinancials(request: FinancialsRequest): void {
+    if (this.savingFinancials()) {
+      return;
+    }
+    this.savingFinancials.set(true);
+    this.applicationService.putFinancials(this.applicationId, request).subscribe({
+      next: (financials) => {
+        this.financials.set(financials);
+        this.savingFinancials.set(false);
+      },
+      error: () => {
+        this.savingFinancials.set(false);
+      },
+    });
+  }
+
+  private refreshFinancials(): void {
+    this.applicationService.financials(this.applicationId).subscribe((financials) => {
+      this.financials.set(financials);
+      this.financesForm.patchValue({
+        net_monthly_income: financials.net_monthly_income
+          ? Number(financials.net_monthly_income.amount)
+          : null,
+        existing_credit_monthly: financials.existing_credit_monthly
+          ? Number(financials.existing_credit_monthly.amount)
+          : null,
+        dependants: financials.dependants,
+      });
     });
   }
 
@@ -239,6 +285,7 @@ export class ApplicationWizardComponent {
     }
     if (application.status !== 'DRAFT') {
       this.refreshChecklist();
+      this.refreshFinancials();
     }
   }
 }

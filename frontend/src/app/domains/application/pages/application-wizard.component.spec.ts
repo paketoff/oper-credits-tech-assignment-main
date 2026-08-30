@@ -147,6 +147,15 @@ describe('ApplicationWizardComponent', () => {
     httpMock
       .expectOne('/api/applications/app-1/checklist')
       .flush({ required_count: 1, satisfied_count: 0, items: [] });
+    // A submitted application also loads its confirmed financials (T54): the
+    // finances section is part of this page, not a separate screen.
+    httpMock.expectOne('/api/applications/app-1/financials').flush({
+      net_monthly_income: null,
+      existing_credit_monthly: null,
+      dependants: 0,
+      assessment: null,
+      updated_at: null,
+    });
     fixture.detectChanges();
     return fixture;
   }

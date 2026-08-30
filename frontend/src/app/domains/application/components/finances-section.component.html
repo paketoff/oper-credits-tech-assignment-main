@@ -1,0 +1,107 @@
+<section class="rounded-card border-border border p-5">
+  <h2 class="text-h3 font-display font-semibold">Your finances</h2>
+  <p class="text-body-sm text-muted mt-1">
+    Used to check this loan against the norms Belgian lenders usually apply. You can type these in
+    yourself — nothing here needs a document.
+  </p>
+
+  <form [formGroup]="form()" (ngSubmit)="onSubmit()" class="mt-5 flex flex-col gap-4">
+    <div class="flex flex-col gap-1">
+      <label for="net_monthly_income" class="text-label font-semibold">Net monthly income</label>
+      <p-inputnumber
+        inputId="net_monthly_income"
+        formControlName="net_monthly_income"
+        mode="currency"
+        currency="EUR"
+        locale="nl-BE"
+        [min]="0"
+        class="w-full"
+      />
+      <span class="text-body-sm text-muted">What lands in your account each month, after tax.</span>
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label for="existing_credit_monthly" class="text-label font-semibold"
+        >Existing monthly credit</label
+      >
+      <p-inputnumber
+        inputId="existing_credit_monthly"
+        formControlName="existing_credit_monthly"
+        mode="currency"
+        currency="EUR"
+        locale="nl-BE"
+        [min]="0"
+        class="w-full"
+      />
+      <span class="text-body-sm text-muted"
+        >Car loans, other credit. Leave empty if you have none.</span
+      >
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label for="dependants" class="text-label font-semibold">Dependants</label>
+      <input
+        id="dependants"
+        type="number"
+        formControlName="dependants"
+        min="0"
+        max="20"
+        class="rounded-control border-border bg-surface-3 border px-3 py-2.5 text-base"
+      />
+      <span class="text-body-sm text-muted"
+        >Children or others who depend on your household income.</span
+      >
+    </div>
+
+    <button
+      type="submit"
+      [disabled]="saving()"
+      class="rounded-control bg-accent hover:bg-accent-hover h-10 cursor-pointer text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {{ saving() ? 'Saving…' : 'Save and assess' }}
+    </button>
+  </form>
+
+  @if (financials()?.assessment; as assessment) {
+    <div class="border-border mt-6 border-t pt-5">
+      <div class="flex items-center justify-between gap-4">
+        <h3 class="text-h3 font-display font-semibold">Affordability</h3>
+        <span
+          class="rounded-pill px-2.5 py-1 text-xs font-semibold"
+          [class]="bandCopy[assessment.band].classes"
+          role="status"
+        >
+          {{ bandCopy[assessment.band].label }}
+        </span>
+      </div>
+
+      <p class="text-body-sm text-muted mt-2">{{ bandCopy[assessment.band].body }}</p>
+
+      <dl class="text-body-sm mt-4 grid grid-cols-2 gap-x-4 gap-y-2">
+        <dt class="text-muted">Monthly obligations</dt>
+        <dd class="tabular text-ink text-right">{{ assessment.monthly_obligations | money }}</dd>
+
+        @if (assessment.dsti) {
+          <dt class="text-muted">Share of net income</dt>
+          <dd class="tabular text-ink text-right">{{ assessment.dsti | percent }}</dd>
+        }
+
+        @if (assessment.residual_income) {
+          <dt class="text-muted">
+            Left each month
+            <span class="text-mono text-accent font-mono">(restleefgeld)</span>
+          </dt>
+          <dd class="tabular text-ink text-right">{{ assessment.residual_income | money }}</dd>
+        }
+
+        <dt class="text-muted">Typical floor for your household</dt>
+        <dd class="tabular text-ink text-right">{{ assessment.residual_floor | money }}</dd>
+      </dl>
+
+      <p class="text-body-sm text-muted mt-4">
+        These are the norms lenders commonly apply, not a legal limit, and this is not a credit
+        decision.
+      </p>
+    </div>
+  }
+</section>

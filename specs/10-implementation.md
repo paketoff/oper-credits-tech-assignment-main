@@ -934,6 +934,28 @@ became the second on `ARC-018` — only the simulation domain may run its calcul
 the payment is recomputed rather than stored.
 → `API-073` – `API-077`, `DOM-029`, `DOM-030`.
 
+### T55 | Finances capture and the affordability panel
+```
+Owner  C
+Deps   T54
+Files  src/app/domains/application/components/finances-section.component.{ts,html}
+       src/app/domains/application/{application.models.ts,application.service.ts}
+       src/app/domains/application/pages/application-wizard.component.{ts,html}
+       src/app/core/api-client.service.ts        (put(), which had no caller before)
+
+Output The finances form and the affordability result on the application page
+Tests  the existing wizard spec, extended for the financials request
+
+Done   `npm run build` succeeds; a borrower who uploads nothing can type an
+       income and get a band back — the end-to-end proof that the AI layer is
+       optional (AI-039, proven before the AI layer exists)
+```
+The whole of Group A closes here. With `AI_CLASSIFICATION_ENABLED` never having been switched on —
+and, at this point, nothing behind it even built — the product answers *can I afford this* end to
+end. That is the property the plan is arranged around: extraction pre-fills these fields later and
+changes nothing else.
+→ `UX-065`, `UX-066`, `SIM-028`.
+
 ---
 
 # P4 — Integration
