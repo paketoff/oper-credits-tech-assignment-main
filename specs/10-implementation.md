@@ -956,6 +956,33 @@ end. That is the property the plan is arranged around: extraction pre-fills thes
 changes nothing else.
 → `UX-065`, `UX-066`, `SIM-028`.
 
+### T62 | Fix: a reload dropped the anonymous simulation
+```
+Owner  C
+Deps   T55
+Files  src/app/domains/simulation/simulation.service.ts
+       src/app/domains/simulation/simulation.service.spec.ts
+       src/app/domains/auth/pages/signup-page.component.ts
+       e2e/simulation-claim.spec.ts
+
+Output The held simulation id survives a reload (sessionStorage, one tab) and
+       is dropped once claimed
+
+Tests  remembers the simulation id across a reload (DOM-026)
+       forgets the id once it has been claimed (DOM-027)
+       starts empty in a fresh tab
+       e2e: a reload between simulating and signing up still claims it
+
+Done   `make e2e` green; the new scenario fails with the fix reverted
+```
+Found by hand while verifying T55, not by any check. The id lived only in a signal, so refreshing or
+typing `/signup` into the address bar dropped it. Signup still succeeded — `UX-028` requires that —
+so the failure was silent, and the draft was simply created unseeded. Once T53/T54 existed the cost
+grew: no seeded simulation means no instalment, and `API-075` then returns a null assessment.
+
+The regression test was confirmed to have teeth by reverting the fix and watching it fail.
+→ `DOM-026` (corrected), `DOM-027`.
+
 ---
 
 # P4 — Integration

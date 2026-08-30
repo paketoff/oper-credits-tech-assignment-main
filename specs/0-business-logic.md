@@ -316,7 +316,19 @@ are deliberately not part of this entity: the domain has to stay readable with t
 **DOM-025.** A simulation is created anonymously. When the borrower signs up, the simulation they
 were looking at is attached to the new user.
 
-- **DOM-026** — The anonymous `id` is held client-side and passed to the signup call.
+- **DOM-026 (corrected at T62)** — The anonymous `id` is held client-side and passed to the signup
+  call, and it **survives a page reload** (`sessionStorage`, one tab). Held only in memory it was
+  lost whenever the borrower refreshed or typed `/signup` into the address bar: signup still
+  succeeded, as `4-ux.md` UX-028 requires, but the draft was created unseeded — and once §21 existed,
+  that also left the affordability assessment with no instalment to measure against (`8-api.md`
+  API-075). Found by hand while verifying T55; the failure was silent in both directions, which is
+  why it survived the batch-4 e2e suite.
+
+  `sessionStorage` rather than `localStorage` deliberately: the claim needs to outlive a reload, not
+  follow the borrower around for weeks on a shared machine. This is **not** the token `6-auth.md`
+  AUTH-053 forbids storing — it is an unguessable UUID4 for an anonymous, unclaimed calculation that
+  is readable by anyone holding it by design (`8-api.md` API-021), and it is worthless once claimed
+  (DOM-027). It is dropped as soon as it is used.
 - **DOM-027** — Attaching sets `user_id` if and only if it is currently null. A simulation already
   owned by another user is never reassigned; the attempt is ignored rather than erroring.
 
@@ -885,7 +897,7 @@ Where two sources are listed, this document carries the union of both — see Ap
 | DOM-023 | Income captured, not used for a decision | 00 · cut table + 01 · Application | §9.4 |
 | DOM-024 | First-home flag is application-level | 01 · Application | §9.4 |
 | DOM-025 | Anonymous simulation is attached on signup | 01 · Claiming a simulation | §10 |
-| DOM-026 | Anonymous `id` held client-side | 01 · Claiming a simulation | §10 |
+| DOM-026 | Anonymous `id` held client-side, surviving a reload (T62) | 01 · Claiming a simulation | §10 |
 | DOM-027 | Attach iff `user_id` is null; never reassign | 01 · Claiming a simulation | §10 |
 | DOM-028 | Borrower aged 18 – 75 at submission | added for `7-validation.md` | §9.4 |
 | DOM-029 | The confirmed financial profile, with provenance | added at T53 | §21.1 |
