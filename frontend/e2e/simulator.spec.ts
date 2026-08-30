@@ -63,3 +63,24 @@ test('clearing a field mid-edit and retyping does not freeze future recompute', 
 
   await expect(page.getByText('1.414,52')).not.toBeVisible({ timeout: 5000 });
 });
+
+// The borrower's own figures survive leaving the page and coming back. The
+// form was rebuilt from the prefilled primary case on every visit, so typing
+// 200 000 and navigating away silently restored 300 000 — and the first paint
+// then recomputed from those defaults, replacing the simulation they had just
+// made with one they never asked for.
+test('the figures typed into the calculator survive leaving and returning', async ({ page }) => {
+  await page.goto('/calculator');
+  await expect(page.getByText('1.414,52')).toBeVisible();
+
+  await page.locator('#property_value').click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.type('200000');
+  await page.keyboard.press('Tab');
+  await expect(page.getByText('1.414,52')).toBeHidden();
+
+  await page.goto('/');
+  await page.goto('/calculator');
+
+  await expect(page.locator('#property_value')).toHaveValue(/200\.000/);
+});

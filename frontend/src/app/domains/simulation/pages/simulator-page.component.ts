@@ -37,6 +37,18 @@ const PRIMARY_CASE = {
 
 const DEBOUNCE_MS = 300;
 
+/** Turn a stored request back into the numbers the form holds. */
+function toFormValue(request: SimulationRequest): RawFormValue {
+  return {
+    property_value: Number(request.property_value),
+    own_contribution: Number(request.own_contribution),
+    term_months: request.term_months,
+    annual_nominal_rate_percent: Number(request.annual_nominal_rate) * 100,
+    region: request.region,
+    is_first_home: request.is_first_home,
+  };
+}
+
 interface RawFormValue {
   property_value: number;
   own_contribution: number;
@@ -71,25 +83,33 @@ function toRequest(value: RawFormValue): SimulationRequest {
 export class SimulatorPageComponent {
   private readonly simulationService = inject(SimulationService);
 
+  // What the borrower last typed, when there is any — otherwise AC-003's
+  // primary case. Restoring it is what makes leaving the page and coming back
+  // keep their figures instead of silently resetting to 300 000.
+  private readonly initial: RawFormValue = ((): RawFormValue => {
+    const stored = this.simulationService.lastRequest();
+    return stored ? toFormValue(stored) : PRIMARY_CASE;
+  })();
+
   readonly form = new FormGroup<SimulatorFormControls>({
-    property_value: new FormControl(PRIMARY_CASE.property_value, {
+    property_value: new FormControl(this.initial.property_value, {
       nonNullable: true,
       validators: [Validators.required, Validators.min(10_000), Validators.max(10_000_000)],
     }),
-    own_contribution: new FormControl(PRIMARY_CASE.own_contribution, {
+    own_contribution: new FormControl(this.initial.own_contribution, {
       nonNullable: true,
       validators: [Validators.required, Validators.min(0)],
     }),
-    term_months: new FormControl(PRIMARY_CASE.term_months, {
+    term_months: new FormControl(this.initial.term_months, {
       nonNullable: true,
       validators: [Validators.required, Validators.min(12), Validators.max(360)],
     }),
-    annual_nominal_rate_percent: new FormControl(PRIMARY_CASE.annual_nominal_rate_percent, {
+    annual_nominal_rate_percent: new FormControl(this.initial.annual_nominal_rate_percent, {
       nonNullable: true,
       validators: [Validators.required, Validators.min(0), Validators.max(20)],
     }),
-    region: new FormControl(PRIMARY_CASE.region, { nonNullable: true }),
-    is_first_home: new FormControl(PRIMARY_CASE.is_first_home, { nonNullable: true }),
+    region: new FormControl(this.initial.region, { nonNullable: true }),
+    is_first_home: new FormControl(this.initial.is_first_home, { nonNullable: true }),
   });
 
   protected readonly result = signal<Simulation | null>(null);

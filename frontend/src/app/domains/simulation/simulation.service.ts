@@ -5,6 +5,7 @@ import { ApiClient } from '../../core/api-client.service';
 import { Simulation, SimulationRequest } from './simulation.models';
 
 const STORAGE_KEY = 'last-simulation-id';
+const INPUTS_KEY = 'last-simulation-inputs';
 
 /**
  * HTTP and state for the simulation domain (`ARC-020`). Holds the last
@@ -25,6 +26,19 @@ const STORAGE_KEY = 'last-simulation-id';
  * design (`API-021`), and it becomes worthless the moment it is claimed
  * (`DOM-027`).
  */
+/** Reads the stored inputs back, tolerating anything that is not ours. */
+function readStoredRequest(): SimulationRequest | null {
+  const raw = sessionStorage.getItem(INPUTS_KEY);
+  if (raw === null) {
+    return null;
+  }
+  try {
+    return JSON.parse(raw) as SimulationRequest;
+  } catch {
+    return null;
+  }
+}
+
 @Injectable({ providedIn: 'root' })
 export class SimulationService {
   private readonly api = inject(ApiClient);
@@ -32,10 +46,24 @@ export class SimulationService {
   private readonly lastIdSignal = signal<string | null>(sessionStorage.getItem(STORAGE_KEY));
   readonly lastId = this.lastIdSignal.asReadonly();
 
+  /**
+   * The inputs behind that id. The simulator rebuilt its form from the
+   * prefilled primary case on every visit, so leaving the page and coming back
+   * silently threw away what the borrower had typed — and the first paint then
+   * computed a *new* simulation from those defaults, overwriting the id above
+   * with figures they never asked for.
+   */
+  private readonly lastRequestSignal = signal<SimulationRequest | null>(readStoredRequest());
+  readonly lastRequest = this.lastRequestSignal.asReadonly();
+
   simulate(request: SimulationRequest): Observable<Simulation> {
-    return this.api
-      .post<Simulation>('/simulations', request)
-      .pipe(tap((simulation) => this.remember(simulation.id)));
+    return this.api.post<Simulation>('/simulations', request).pipe(
+      tap((simulation) => {
+        this.remember(simulation.id);
+        this.lastRequestSignal.set(request);
+        sessionStorage.setItem(INPUTS_KEY, JSON.stringify(request));
+      }),
+    );
   }
 
   /** Reads a simulation back — public, since the id is an unguessable UUID4 (`API-021`). */
@@ -46,7 +74,9 @@ export class SimulationService {
   /** Drop the held id once it has been claimed — it can never be claimed twice (`DOM-027`). */
   forget(): void {
     this.lastIdSignal.set(null);
+    this.lastRequestSignal.set(null);
     sessionStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(INPUTS_KEY);
   }
 
   private remember(id: string): void {
