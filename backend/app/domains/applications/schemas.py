@@ -140,10 +140,11 @@ class FinancialsRequest(BaseModel):
     """The body of `PUT /api/applications/{id}/financials` (API-073).
 
     Values only. **Provenance is not accepted from the client** — the service
-    records how each figure arrived, and in this ticket every figure arrives by
-    being typed (DOM-029). Letting the caller assert `DOCUMENT` would make the
-    audit trail self-reported, which is the one thing an audit trail must not
-    be.
+    records how each figure arrived, and every figure that arrives here was
+    submitted by the borrower, whether they typed it or accepted a document's
+    proposal into the form first (DOM-029, DOM-030). Letting the caller assert
+    `DOCUMENT` would make the audit trail self-reported, which is the one thing
+    an audit trail must not be.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

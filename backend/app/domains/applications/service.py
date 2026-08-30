@@ -219,10 +219,14 @@ class ApplicationService:
     ) -> FinancialsResponse:
         """Replace the confirmed profile wholesale (API-073).
 
-        Every figure written here is `MANUAL`: it was typed. The `DOCUMENT`
-        provenance is only ever set by confirming a proposal, which needs the
-        extraction feature that does not exist yet — recording "typed" for a
-        typed number is the honest thing to store in the meantime (DOM-029).
+        Every figure written here is `MANUAL`, including one the borrower
+        accepted from a document's proposal: accepting fills the form, and the
+        borrower still presses save, so what arrives here is what they
+        submitted (DOM-030). `Provenance.DOCUMENT` therefore has no live path
+        in this build — deliberately. Writing it would mean trusting the client
+        to assert its own provenance, and verifying the claim instead would
+        need `applications` to read the documents table, which ARC-009 forbids.
+        Recorded in `docs/sessions/p4-review.md` rather than left to be noticed.
         """
         application = await self.get_owned(session, application_id, user_id)
         confirmed_at = datetime.now(UTC)

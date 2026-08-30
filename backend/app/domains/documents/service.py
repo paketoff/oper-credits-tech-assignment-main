@@ -337,11 +337,11 @@ def _to_proposal_response(record: ClassificationRecord | None) -> ProposalRespon
 
     Absent whenever the classifier did not run, disagreed with what the borrower
     declared, or read no usable figure — all of which mean the same thing to the
-    finances form: there is nothing to offer.
+    finances form: there is nothing to offer. The pipeline never writes a source
+    without at least one figure (`FinancialProposal.is_empty`), so one check
+    covers all three.
     """
     if record is None or record.proposal_source is None:
-        return None
-    if record.proposed_income is None and record.proposed_credit is None:
         return None
     return ProposalResponse(
         net_monthly_income=record.proposed_income,

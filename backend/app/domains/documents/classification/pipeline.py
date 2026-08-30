@@ -94,6 +94,10 @@ class ClassificationPipeline:
             if outcome is ClassificationOutcome.CONFIRMED and fields is not None
             else None
         )
+        # A proposal that reads nothing is not a proposal. Deciding that here,
+        # once, is what keeps the read side from having to re-derive it.
+        if proposal is not None and proposal.is_empty():
+            proposal = None
         await self._record(
             ClassificationRecord(
                 document_id=document_id,
