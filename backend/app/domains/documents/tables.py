@@ -47,3 +47,7 @@ class DocumentRow(Base):
     # is the evaluator's verdict, and is null unless the status is DONE.
     classification_status: Mapped[str | None] = mapped_column(String(24), nullable=True)
     classification_outcome: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    # AI-025's sentence names the type the model actually saw ("this looks like
+    # a bank statement"), which the outcome alone cannot supply. A third column
+    # rather than parsing it back out of a composed string.
+    classification_detected_type: Mapped[str | None] = mapped_column(String(32), nullable=True)

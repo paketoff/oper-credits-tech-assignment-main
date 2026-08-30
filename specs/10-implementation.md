@@ -1149,12 +1149,33 @@ slots.
 ```
 Owner  C
 Deps   T37
-Files  src/app/domains/documents/*
-Output Row states for pending, confirmed, mismatch
-Tests  test_failed_and_skipped_render_as_nothing
-       test_likely_mismatch_offers_keep_anyway
-Done   `npm test -- --include=**/documents/**` passes
+Files  app/domains/documents/classification/messages.py
+       app/domains/documents/{schemas,service,repository,tables}.py
+       src/app/domains/documents/*
+       tests/domains/documents/test_messages.py
+Output The checklist's nested documents gain classification_status and a
+       server-composed classification_message; the row renders it
+Tests  test_a_likely_mismatch_names_both_types
+       test_a_possible_mismatch_is_hedged
+       test_unrecognised_asks_the_borrower_to_check_the_file
+       test_silent_cases_compose_to_nothing
+       test_every_classified_type_has_a_label
+       (frontend) failed and skipped render as nothing (AI-021)
+       (frontend) a likely mismatch shows the sentence and keeps the file
+Done   pytest tests/domains/documents/test_messages.py -q → 7 passed;
+       `ng test` → 28 passed
 ```
+**The message is composed server-side** (`AI-026`), so the frontend renders a string and never
+implements the decision table: a threshold or a wording can change without redeploying a client that
+would otherwise disagree with the server about what a mismatch means.
+
+A **third column** was needed beyond `AI-020`'s two. `AI-025`'s sentence names the type the model
+actually saw — *"this looks like a bank statement"* — which the outcome alone cannot supply, so
+`classification_detected_type` is stored rather than parsed back out of a composed string.
+
+Every silent case composes to `None` through one path: never classified, skipped, failed, or
+classified without enough confidence to trust. The row then renders exactly as it did before the
+feature existed.
 → `AI-021`, `AI-025` – `AI-027`, `AI-041`.
 
 ---

@@ -81,17 +81,26 @@ class ClassificationPipeline:
             await self._record(document_id, ClassificationStatus.FAILED, None)
             _logger.exception("classification errored", extra={"document_id": str(document_id)})
             return
-        await self._record(document_id, ClassificationStatus.DONE, outcome.value)
+        await self._record(
+            document_id, ClassificationStatus.DONE, outcome.value, verdict.doc_type.value
+        )
 
     async def _record(
-        self, document_id: UUID, status: ClassificationStatus, outcome: str | None
+        self,
+        document_id: UUID,
+        status: ClassificationStatus,
+        outcome: str | None,
+        detected_type: str | None = None,
     ) -> None:
         """Write the result in this task's own session, and commit it."""
         async with background_session() as session:
             await self._repository.set_classification(
                 session,
                 ClassificationRecord(
-                    document_id=document_id, status=status.value, outcome=outcome
+                    document_id=document_id,
+                    status=status.value,
+                    outcome=outcome,
+                    detected_type=detected_type,
                 ),
             )
             await session.commit()

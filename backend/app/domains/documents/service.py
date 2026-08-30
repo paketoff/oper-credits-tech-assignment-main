@@ -11,10 +11,12 @@ from app.core.errors import ApplicationError, DocumentError, NotFoundError
 from app.core.storage import StorageBackend
 from app.domains.applications.entities import Application, ApplicationStatus, DocumentRequirement
 from app.domains.applications.service import ApplicationService
+from app.domains.documents.classification import messages
+from app.domains.documents.classification.entities import claimed_as_classified
 from app.domains.documents.classification.pipeline import ClassificationPipeline
 from app.domains.documents.entities import Document
 from app.domains.documents.file_type import detect_content_type
-from app.domains.documents.repository import DocumentRepository
+from app.domains.documents.repository import ClassificationRecord, DocumentRepository
 from app.domains.documents.schemas import (
     ChecklistItem,
     ChecklistResponse,
@@ -104,7 +106,11 @@ class DocumentService:
         uploaded_types = frozenset(document.doc_type for document in documents)
 
         requirements = self._applications.checklist(application, uploaded_types)
-        items = [self._to_item(requirement, documents) for requirement in requirements]
+        classifications = await self._repository.classifications_for(session, application_id)
+        items = [
+            self._to_item(requirement, documents, classifications)
+            for requirement in requirements
+        ]
         required = [item for item in items if item.required]
         return ChecklistResponse(
             required_count=len(required),
@@ -236,7 +242,10 @@ class DocumentService:
         return await self._applications.recompute_status(session, application_id, uploaded)
 
     def _to_item(
-        self, requirement: DocumentRequirement, documents: list[Document]
+        self,
+        requirement: DocumentRequirement,
+        documents: list[Document],
+        classifications: dict[UUID, ClassificationRecord],
     ) -> ChecklistItem:
         """Assemble one row, nesting the documents that satisfy it.
 
@@ -251,12 +260,30 @@ class DocumentService:
             required=requirement.required,
             satisfied=requirement.satisfied,
             reason=requirement.reason,
-            documents=[
-                DocumentSummary(
-                    id=d.id, filename=d.filename, size_bytes=d.size_bytes, uploaded_at=d.uploaded_at
-                )
-                for d in matching
-            ],
+            documents=[self._to_summary(d, classifications) for d in matching],
+        )
+
+    def _to_summary(
+        self, document: Document, classifications: dict[UUID, ClassificationRecord]
+    ) -> DocumentSummary:
+        """Nest one uploaded file, with its advisory classification (AI-025, AI-026).
+
+        The message is composed here, server-side, so the frontend renders a
+        string and never implements the decision table. With the classifier off
+        there is no record and both fields are null.
+        """
+        record = classifications.get(document.id)
+        return DocumentSummary(
+            id=document.id,
+            filename=document.filename,
+            size_bytes=document.size_bytes,
+            uploaded_at=document.uploaded_at,
+            classification_status=record.status or None if record else None,
+            classification_message=messages.compose(
+                record.outcome if record else None,
+                record.detected_type if record else None,
+                claimed_as_classified(document.doc_type),
+            ),
         )
 
     def _schedule_classification(

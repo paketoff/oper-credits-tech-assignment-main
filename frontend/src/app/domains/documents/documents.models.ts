@@ -24,6 +24,16 @@ export interface DocumentSummary {
   filename: string;
   size_bytes: number;
   uploaded_at: string;
+  /**
+   * Advisory only (`AI-025`). Both null with the classifier off, and both null
+   * for any outcome not worth a sentence — a failed classification is our
+   * problem, not the borrower's, and renders as nothing (`AI-021`).
+   *
+   * The message is composed server-side (`AI-026`): this client renders a
+   * string and never implements the decision table.
+   */
+  classification_status: string | null;
+  classification_message: string | null;
 }
 
 /** Mirrors `ChecklistItem` field for field (`API-045`, `API-046`). */

@@ -39,6 +39,12 @@ class DocumentRepository(Protocol):
         """Record whether classification ran and what it decided (AI-020)."""
         ...
 
+    async def classifications_for(
+        self, session: AsyncSession, application_id: UUID
+    ) -> dict[UUID, "ClassificationRecord"]:
+        """Advisory classification columns, keyed by document id."""
+        ...
+
 
 @dataclass(frozen=True, slots=True)
 class ClassificationRecord:
@@ -51,6 +57,7 @@ class ClassificationRecord:
     document_id: UUID
     status: str
     outcome: str | None
+    detected_type: str | None = None
 
 
 def _to_entity(row: DocumentRow) -> Document:
@@ -121,4 +128,27 @@ class SqlDocumentRepository:
             return
         row.classification_status = result.status
         row.classification_outcome = result.outcome
+        row.classification_detected_type = result.detected_type
         await session.flush()
+
+    async def classifications_for(
+        self, session: AsyncSession, application_id: UUID
+    ) -> dict[UUID, ClassificationRecord]:
+        """Advisory columns for one application's documents, keyed by document id.
+
+        A separate read rather than fields on the `Document` entity: AI-020
+        keeps the domain type free of this feature, so it stays readable — and
+        the flag stays genuinely removable — without knowing the classifier
+        exists.
+        """
+        statement = select(DocumentRow).where(DocumentRow.application_id == application_id)
+        rows = (await session.execute(statement)).scalars().all()
+        return {
+            row.id: ClassificationRecord(
+                document_id=row.id,
+                status=row.classification_status or "",
+                outcome=row.classification_outcome,
+                detected_type=row.classification_detected_type,
+            )
+            for row in rows
+        }

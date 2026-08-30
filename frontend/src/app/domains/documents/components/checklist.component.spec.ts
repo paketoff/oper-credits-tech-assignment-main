@@ -52,3 +52,63 @@ describe('ChecklistComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('1 of 2 required documents uploaded.');
   });
 });
+
+describe('ChecklistComponent classification states', () => {
+  function withDocument(status: string | null, message: string | null): Checklist {
+    return {
+      required_count: 1,
+      satisfied_count: 1,
+      items: [
+        {
+          doc_type: 'PAYSLIPS',
+          label_en: 'Recent payslips',
+          label_nl: 'loonfiches',
+          required: true,
+          satisfied: true,
+          reason: null,
+          documents: [
+            {
+              id: 'd1',
+              filename: 'march.pdf',
+              size_bytes: 1024,
+              uploaded_at: 'x',
+              classification_status: status,
+              classification_message: message,
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  async function render(checklist: Checklist) {
+    await TestBed.configureTestingModule({ imports: [ChecklistComponent] }).compileComponents();
+    const fixture = TestBed.createComponent(ChecklistComponent);
+    fixture.componentRef.setInput('checklist', checklist);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  it('failed and skipped render as nothing (AI-021)', async () => {
+    // Both arrive as a null message: a failed classification is our problem,
+    // and a disabled feature is not news.
+    const fixture = await render(withDocument('FAILED', null));
+
+    expect(fixture.nativeElement.textContent).not.toContain('could not');
+    // The row itself is untouched — the document still satisfies its requirement.
+    expect(fixture.nativeElement.textContent).toContain('march.pdf');
+    expect(fixture.nativeElement.textContent).toContain('1 of 1 required documents uploaded.');
+  });
+
+  it('a likely mismatch shows the server-composed sentence and keeps the file (AI-006)', async () => {
+    const fixture = await render(
+      withDocument('DONE', 'This looks like a bank statement, but it was uploaded as a payslip.'),
+    );
+
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('This looks like a bank statement');
+    // The borrower keeps it: still listed, still satisfying the requirement.
+    expect(text).toContain('march.pdf');
+    expect(text).toContain('Uploaded');
+  });
+});
