@@ -17,6 +17,7 @@ Two failure modes, kept deliberately apart:
 (CQ-053), and this one must never reach the borrower at all (AI-005, AI-023).
 """
 
+import base64
 import json
 from io import BytesIO
 from typing import Final
@@ -33,10 +34,7 @@ from app.domains.documents.classification.entities import (
 from app.domains.documents.classification.prompts import EXTRACTION_PROMPT, SYSTEM_PROMPT
 from app.domains.documents.extraction.schemas import schema_for
 
-# AI-013. Model and cap are named constants so the tuning surface is one place.
-# Sonnet is enough while the response is four fields; `9-ai-classification.md`
-# Appendix B records why it is not an older tier.
-# T57 supersedes AI-013's choice. Sonnet at 300 tokens was reasoned for a
+# AI-013, superseded at T57. Sonnet at 300 tokens was reasoned for a
 # four-field classification; this same call now also reads numbers off the page,
 # and the hard part stopped being "is this a payslip" and became "is that
 # 3.200 or 3.020". Latency is free here — the call runs in a background task
@@ -240,8 +238,6 @@ class ClassificationClient:
 
 def _b64(data: bytes) -> str:
     """Base64 for the image block."""
-    import base64
-
     return base64.standard_b64encode(data).decode("ascii")
 
 

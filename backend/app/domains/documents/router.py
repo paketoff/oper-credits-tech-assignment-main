@@ -11,11 +11,16 @@ split exists to avoid.
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 
-from app.core.enums import DocumentType
-from app.domains.documents.dependencies import DocumentContext, get_document_context
+from app.domains.documents.dependencies import (
+    DocumentContext,
+    get_document_context,
+    get_upload_context,
+    get_upload_request,
+)
+from app.domains.documents.entities import Document
 from app.domains.documents.schemas import (
     ChecklistResponse,
     DocumentDeleteResponse,
@@ -26,6 +31,27 @@ from app.domains.documents.service import UploadContext, UploadRequest
 router = APIRouter(prefix="/applications", tags=["documents"])
 
 _Context = Annotated[DocumentContext, Depends(get_document_context)]
+_Upload = Annotated[UploadRequest, Depends(get_upload_request)]
+_UploadContext = Annotated[UploadContext, Depends(get_upload_context)]
+
+
+def _attachment(content: bytes, document: Document) -> Response:
+    """Render stored bytes as a download (API-054).
+
+    Response wiring, not logic — the same carve-out `auth/router.py` makes for
+    the session cookie. The handler still makes exactly one service call
+    (CQ-017), and the service still holds no HTTP concept of its own (ARC-005):
+    it returns bytes and a row, and this decides what an HTTP download is.
+
+    `Content-Disposition: attachment` is not decoration. The bytes are
+    borrower-supplied, and rendering an uploaded file inline is how a stored
+    HTML or SVG payload executes on the application's own origin.
+    """
+    return Response(
+        content=content,
+        media_type=document.content_type,
+        headers={"Content-Disposition": f'attachment; filename="{document.filename}"'},
+    )
 
 
 @router.get("/{application_id}/checklist", response_model=ChecklistResponse)
@@ -36,29 +62,10 @@ async def get_checklist(application_id: UUID, context: _Context) -> ChecklistRes
 
 @router.post("/{application_id}/documents", response_model=DocumentResponse, status_code=201)
 async def upload_document(
-    application_id: UUID,
-    context: _Context,
-    doc_type: Annotated[DocumentType, Form()],
-    file: Annotated[UploadFile, File()],
+    context: _Context, upload_context: _UploadContext, upload: _Upload
 ) -> DocumentResponse:
-    """Upload one file against a checklist requirement (API-048).
-
-    The size limit is enforced earlier, by the body-size middleware, before
-    this handler — or `UploadFile` itself — ever sees the bytes (VAL-024).
-    """
-    content = await file.read()
-    upload = UploadRequest(
-        doc_type=doc_type, filename=file.filename or "upload", content=content
-    )
-    return await context.service.upload(
-        context.session,
-        UploadContext(
-            application_id=application_id,
-            user_id=context.user.id,
-            background_tasks=context.background_tasks,
-        ),
-        upload,
-    )
+    """Upload one file against a checklist requirement (API-048)."""
+    return await context.service.upload(context.session, upload_context, upload)
 
 
 @router.get("/{application_id}/documents/{document_id}")
@@ -66,13 +73,10 @@ async def download_document(
     application_id: UUID, document_id: UUID, context: _Context
 ) -> Response:
     """Return a document's bytes as an attachment, never as a static file (API-054)."""
-    content, document = await context.service.download(
-        context.session, application_id, context.user.id, document_id
-    )
-    return Response(
-        content=content,
-        media_type=document.content_type,
-        headers={"Content-Disposition": f'attachment; filename="{document.filename}"'},
+    return _attachment(
+        *await context.service.download(
+            context.session, application_id, context.user.id, document_id
+        )
     )
 
 

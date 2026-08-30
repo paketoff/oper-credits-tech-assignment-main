@@ -24,6 +24,7 @@ from app.domains.documents.classification.client import (
 )
 from app.domains.documents.classification.entities import ClassificationOutcome
 from app.domains.documents.extraction.proposal import to_proposal
+from app.domains.documents.file_type import detect_content_type
 from app.domains.documents.repository import ClassificationRecord, DocumentRepository
 
 _logger = logging.getLogger(__name__)
@@ -118,8 +119,6 @@ def _content_type_of(content: bytes) -> str:
     The same magic-byte check the upload already used (VAL-022). Cheap, and it
     keeps this task independent of what the caller believed.
     """
-    from app.domains.documents.file_type import detect_content_type
-
     return detect_content_type(content) or "application/octet-stream"
 
 

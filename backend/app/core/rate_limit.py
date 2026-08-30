@@ -57,5 +57,12 @@ class RateLimiter:
         recent.append(now)
 
     def reset(self, key: str) -> None:
-        """Forget a key. Used by tests, and after a successful login."""
+        """Forget a key.
+
+        Nothing in `app/` calls this: `AUTH-040` counts *attempts*, and a
+        successful login is an attempt like any other — clearing the window on
+        success would let an attacker reset their own budget with one valid
+        credential. It exists so a test can arrange a window without waiting
+        five minutes for one to expire.
+        """
         self._attempts.pop(key, None)
