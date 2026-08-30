@@ -14,6 +14,7 @@ import { InputNumber } from 'primeng/inputnumber';
 import { Select } from 'primeng/select';
 
 import { ApiError } from '../../../core/error-codes';
+import { REGION_LABELS, optionsOf } from '../../../core/labels';
 import { Region } from '../../../core/models';
 
 export interface SimulatorFormControls {
@@ -30,11 +31,7 @@ interface RegionOption {
   value: Region;
 }
 
-const REGION_OPTIONS: RegionOption[] = [
-  { label: 'Flanders', value: 'FLANDERS' },
-  { label: 'Wallonia', value: 'WALLONIA' },
-  { label: 'Brussels', value: 'BRUSSELS' },
-];
+const REGION_OPTIONS: RegionOption[] = optionsOf(REGION_LABELS);
 
 // Same precision as `PercentPipe`'s display of the server's own quotiteit
 // figure — rounding each side to 0 decimals independently can make the two

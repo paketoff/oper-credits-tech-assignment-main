@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Select } from 'primeng/select';
 
+import { EMPLOYMENT_LABELS, optionsOf } from '../../../core/labels';
 import { EmploymentType } from '../../../core/models';
 
 export interface BorrowerFormControls {
@@ -17,11 +18,7 @@ interface EmploymentOption {
   value: EmploymentType;
 }
 
-const EMPLOYMENT_OPTIONS: EmploymentOption[] = [
-  { label: 'Employee', value: 'EMPLOYEE' },
-  { label: 'Self-employed', value: 'SELF_EMPLOYED' },
-  { label: 'Other', value: 'OTHER' },
-];
+const EMPLOYMENT_OPTIONS: EmploymentOption[] = optionsOf(EMPLOYMENT_LABELS);
 
 /** Step 1: who is borrowing (`DOM-022`). Dumb — the page owns the form (`ARC-022`). */
 @Component({

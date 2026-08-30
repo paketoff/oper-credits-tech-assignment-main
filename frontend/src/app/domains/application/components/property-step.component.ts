@@ -3,6 +3,7 @@ import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { InputNumber } from 'primeng/inputnumber';
 import { Select } from 'primeng/select';
 
+import { PROPERTY_TYPE_LABELS, REGION_LABELS, optionsOf } from '../../../core/labels';
 import { PropertyType, Region } from '../../../core/models';
 
 export interface PropertyFormControls {
@@ -12,16 +13,9 @@ export interface PropertyFormControls {
   purchase_price: FormControl<number>;
 }
 
-const REGION_OPTIONS = [
-  { label: 'Flanders', value: 'FLANDERS' as Region },
-  { label: 'Wallonia', value: 'WALLONIA' as Region },
-  { label: 'Brussels', value: 'BRUSSELS' as Region },
-];
+const REGION_OPTIONS = optionsOf(REGION_LABELS);
 
-const PROPERTY_TYPE_OPTIONS = [
-  { label: 'Existing', value: 'EXISTING' as PropertyType },
-  { label: 'New build', value: 'NEW_BUILD' as PropertyType },
-];
+const PROPERTY_TYPE_OPTIONS = optionsOf(PROPERTY_TYPE_LABELS);
 
 /** Step 2: the property (`DOM-024`). Dumb — the page owns the form (`ARC-022`). */
 @Component({

@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 
+import { EMPLOYMENT_LABELS, REGION_LABELS } from '../../../core/labels';
 import { MoneyPipe } from '../../../shared/money.pipe';
 import { Simulation } from '../../simulation/simulation.models';
 import { Application } from '../application.models';
@@ -16,6 +17,10 @@ import { Application } from '../application.models';
   templateUrl: './review-step.component.html',
 })
 export class ReviewStepComponent {
+  /** The last screen before submission read `FLANDERS` and `EMPLOYEE` out loud. */
+  protected readonly regionLabels = REGION_LABELS;
+  protected readonly employmentLabels = EMPLOYMENT_LABELS;
+
   readonly application = input.required<Application>();
   readonly simulation = input<Simulation | null>(null);
   readonly submitting = input(false);

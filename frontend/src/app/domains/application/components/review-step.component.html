@@ -15,7 +15,7 @@
         <dt class="text-muted">Name</dt>
         <dd>{{ borrower.full_name }}</dd>
         <dt class="text-muted">Employment</dt>
-        <dd>{{ borrower.employment_type }}</dd>
+        <dd>{{ employmentLabels[borrower.employment_type] }}</dd>
       </dl>
     }
   </section>
@@ -34,7 +34,7 @@
     @if (application().property; as property) {
       <dl class="text-body-sm mt-2 grid grid-cols-2 gap-y-1">
         <dt class="text-muted">Region</dt>
-        <dd>{{ property.region }}</dd>
+        <dd>{{ regionLabels[property.region] }}</dd>
         <dt class="text-muted">Purchase price</dt>
         <dd class="tabular">{{ property.purchase_price | money }}</dd>
       </dl>
