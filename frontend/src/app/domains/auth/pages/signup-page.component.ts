@@ -7,6 +7,7 @@ import { switchMap } from 'rxjs';
 import { ApiError } from '../../../core/error-codes';
 import { ApplicationService } from '../../application/application.service';
 import { SimulationService } from '../../simulation/simulation.service';
+import { PasswordToggleComponent } from '../../../shared/password-toggle.component';
 import { AuthBrandingPanelComponent } from '../components/auth-branding-panel.component';
 import { AuthService } from '../auth.service';
 
@@ -25,7 +26,7 @@ interface SignupFormControls {
 @Component({
   selector: 'app-signup-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, AuthBrandingPanelComponent],
+  imports: [ReactiveFormsModule, RouterLink, AuthBrandingPanelComponent, PasswordToggleComponent],
   templateUrl: './signup-page.component.html',
 })
 export class SignupPageComponent {
@@ -44,9 +45,14 @@ export class SignupPageComponent {
     }),
   });
 
+  protected readonly passwordVisible = signal(false);
   protected readonly submitting = signal(false);
   /** A field-less error only — a field-level one is set on its own control (UX-024). */
   protected readonly formError = signal<string | null>(null);
+
+  protected togglePassword(): void {
+    this.passwordVisible.update((visible) => !visible);
+  }
 
   protected submit(): void {
     if (this.form.invalid || this.submitting()) {

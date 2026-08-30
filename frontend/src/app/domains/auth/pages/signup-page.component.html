@@ -36,18 +36,21 @@
 
         <div class="flex flex-col gap-1">
           <label for="password" class="text-label font-semibold">Password</label>
-          <input
-            id="password"
-            type="password"
-            formControlName="password"
-            autocomplete="new-password"
-            class="rounded-control bg-surface-3 border px-3 py-2.5 text-base"
-            [class]="
-              form.controls.password.invalid && form.controls.password.touched
-                ? 'border-danger'
-                : 'border-border'
-            "
-          />
+          <div class="relative">
+            <input
+              id="password"
+              [type]="passwordVisible() ? 'text' : 'password'"
+              formControlName="password"
+              autocomplete="new-password"
+              class="rounded-control bg-surface-3 w-full border py-2.5 pr-11 pl-3 text-base"
+              [class]="
+                form.controls.password.invalid && form.controls.password.touched
+                  ? 'border-danger'
+                  : 'border-border'
+              "
+            />
+            <app-password-toggle [visible]="passwordVisible()" (toggled)="togglePassword()" />
+          </div>
           @if (form.controls.password.errors?.['minlength'] && form.controls.password.touched) {
             <span class="text-danger text-sm">At least 10 characters.</span>
           }

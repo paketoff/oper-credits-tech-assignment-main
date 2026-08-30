@@ -4,6 +4,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { ApiError } from '../../../core/error-codes';
+import { PasswordToggleComponent } from '../../../shared/password-toggle.component';
 import { AuthBrandingPanelComponent } from '../components/auth-branding-panel.component';
 import { AuthService } from '../auth.service';
 
@@ -21,7 +22,7 @@ interface LoginFormControls {
 @Component({
   selector: 'app-login-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, AuthBrandingPanelComponent],
+  imports: [ReactiveFormsModule, RouterLink, AuthBrandingPanelComponent, PasswordToggleComponent],
   templateUrl: './login-page.component.html',
 })
 export class LoginPageComponent {
@@ -34,8 +35,13 @@ export class LoginPageComponent {
     password: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
   });
 
+  protected readonly passwordVisible = signal(false);
   protected readonly submitting = signal(false);
   protected readonly formError = signal<string | null>(null);
+
+  protected togglePassword(): void {
+    this.passwordVisible.update((visible) => !visible);
+  }
 
   protected submit(): void {
     if (this.form.invalid || this.submitting()) {
