@@ -1081,15 +1081,32 @@ recorded in `ARC-002`.
 Owner  B          (ARC-028 names classification/{client,prompts}.py in unit B)
 Deps   T35
 Files  app/domains/documents/classification/{client,prompts}.py
-Output classify(image_bytes) -> ClassificationVerdict
-Tests  test_malformed_json_degrades_to_unknown_zero_confidence
-       test_unknown_category_degrades_to_unknown
-       test_out_of_range_confidence_is_rejected
+       tests/domains/documents/test_client.py
+Output render_first_page(content, content_type) -> PNG bytes
+       ClassificationClient.classify(page_png) -> ClassificationVerdict
+       ClassificationError for transport failures only
+Tests  test_a_well_formed_answer_becomes_a_verdict
+       test_malformed_json_degrades_to_unknown_zero_confidence  (8 cases)
        test_filename_is_never_included_in_the_request
-       test_only_first_page_is_rendered
-       test_timeout_raises_classification_error
-Done   pytest tests/domains/documents/test_client.py -q → 6 passed
+       test_a_transport_failure_raises_rather_than_degrading
+       test_the_model_and_cap_are_sent_as_configured
+       test_only_first_page_is_rendered_and_downscaled
+       test_a_small_image_is_not_upscaled
+       test_unrenderable_bytes_raise_rather_than_returning_a_verdict
+Done   pytest tests/domains/documents/test_client.py -q → 15 passed,
+       entirely mocked: no key, no network, no cost
 ```
+**Two failure modes, deliberately kept apart.** A *malformed answer* is not a failure — invalid JSON,
+an unknown category, a confidence of 2.0, an empty body all degrade to `UNKNOWN` at 0 (`AI-011`),
+which the evaluator then bands `INCONCLUSIVE` and the borrower is told nothing. A *transport failure*
+is: it raises `ClassificationError`, and T37 turns that into `FAILED`, which renders as nothing
+(`AI-021`).
+
+`ClassificationError` is a plain exception, not a `DomainError`: domain errors carry a registry code
+and map to an HTTP status (`CQ-053`), and this one must never reach the borrower at all.
+
+The model constant is `claude-sonnet-5` at 300 tokens while the answer is four fields, exactly as
+`AI-013` reasons. It changes at T57, where the same call also has to read numbers off the page.
 → `AI-007` – `AI-013`, `AI-022`, `AI-035`.
 
 ### T37 | Pipeline and flag
