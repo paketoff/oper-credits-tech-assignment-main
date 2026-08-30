@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { InputNumber } from 'primeng/inputnumber';
 
 import { MoneyPipe } from '../../../shared/money.pipe';
@@ -59,7 +60,7 @@ const BAND_COPY: Record<AffordabilityBand, BandCopy> = {
 @Component({
   selector: 'app-finances-section',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, InputNumber, MoneyPipe, PercentPipe],
+  imports: [ReactiveFormsModule, RouterLink, InputNumber, MoneyPipe, PercentPipe],
   templateUrl: './finances-section.component.html',
 })
 export class FinancesSectionComponent {

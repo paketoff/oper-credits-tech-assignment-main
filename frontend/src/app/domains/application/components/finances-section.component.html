@@ -62,7 +62,27 @@
     </button>
   </form>
 
-  @if (financials()?.assessment; as assessment) {
+  <!-- The assessment needs an instalment, and the instalment comes from the
+       linked simulation (ARC-047). A borrower who signed up straight from
+       /signup, without ever opening the calculator, has no simulation on their
+       application — so the whole panel simply did not render and nothing said
+       why. Filling the form and pressing save produced silence. -->
+  @if (!financials()?.assessment) {
+    <div class="border-border mt-6 border-t pt-5">
+      <h3 class="text-h3 font-display font-semibold">Affordability</h3>
+      <p class="text-body-sm text-muted mt-2">
+        We check these figures against your monthly payment, and this application has no simulation
+        attached to it. A simulation is attached when an application is started from the calculator;
+        it cannot be added to this one afterwards.
+      </p>
+      <a
+        routerLink="/calculator"
+        class="text-body-sm text-accent hover:text-accent-hover mt-3 inline-block font-semibold"
+      >
+        Start one from the calculator
+      </a>
+    </div>
+  } @else if (financials()?.assessment; as assessment) {
     <div class="border-border mt-6 border-t pt-5">
       <div class="flex items-center justify-between gap-4">
         <h3 class="text-h3 font-display font-semibold">Affordability</h3>
