@@ -21,7 +21,7 @@ from app.domains.documents.schemas import (
     DocumentDeleteResponse,
     DocumentResponse,
 )
-from app.domains.documents.service import UploadRequest
+from app.domains.documents.service import UploadContext, UploadRequest
 
 router = APIRouter(prefix="/applications", tags=["documents"])
 
@@ -50,7 +50,15 @@ async def upload_document(
     upload = UploadRequest(
         doc_type=doc_type, filename=file.filename or "upload", content=content
     )
-    return await context.service.upload(context.session, application_id, context.user.id, upload)
+    return await context.service.upload(
+        context.session,
+        UploadContext(
+            application_id=application_id,
+            user_id=context.user.id,
+            background_tasks=context.background_tasks,
+        ),
+        upload,
+    )
 
 
 @router.get("/{application_id}/documents/{document_id}")

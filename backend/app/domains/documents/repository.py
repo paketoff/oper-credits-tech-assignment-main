@@ -1,5 +1,6 @@
 """Queries against the documents table."""
 
+from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
 
@@ -31,6 +32,25 @@ class DocumentRepository(Protocol):
     async def delete(self, session: AsyncSession, document_id: UUID) -> None:
         """Remove a document row."""
         ...
+
+    async def set_classification(
+        self, session: AsyncSession, result: "ClassificationRecord"
+    ) -> None:
+        """Record whether classification ran and what it decided (AI-020)."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class ClassificationRecord:
+    """One document's classification result, bundled to stay inside CQ-038.
+
+    Advisory columns only (AI-020): `outcome` is null unless `status` is DONE,
+    and neither ever touches `doc_type` (AI-017).
+    """
+
+    document_id: UUID
+    status: str
+    outcome: str | None
 
 
 def _to_entity(row: DocumentRow) -> Document:
@@ -85,4 +105,20 @@ class SqlDocumentRepository:
     async def delete(self, session: AsyncSession, document_id: UUID) -> None:
         """Remove a document row. The blob is removed by the service."""
         await session.execute(delete(DocumentRow).where(DocumentRow.id == document_id))
+        await session.flush()
+
+    async def set_classification(
+        self, session: AsyncSession, result: ClassificationRecord
+    ) -> None:
+        """Annotate one row. Advisory only: never touches `doc_type` (AI-017).
+
+        A document deleted between the upload and this task finishing is a
+        normal race rather than an error — there is simply nothing left to
+        annotate, and the task has nobody to report it to anyway.
+        """
+        row = await session.get(DocumentRow, result.document_id)
+        if row is None:
+            return
+        row.classification_status = result.status
+        row.classification_outcome = result.outcome
         await session.flush()

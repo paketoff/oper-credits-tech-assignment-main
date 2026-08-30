@@ -1113,16 +1113,37 @@ The model constant is `claude-sonnet-5` at 300 tokens while the answer is four f
 ```
 Owner  B
 Deps   T36, T23
-Files  app/domains/documents/service.py, app/core/config.py
-Output Background classification task; AI_CLASSIFICATION_ENABLED flag
+Files  app/domains/documents/classification/pipeline.py
+       app/domains/documents/{service,router,repository,tables,dependencies}.py
+       app/core/database.py            (background_session)
+       tests/domains/documents/test_pipeline.py
+Output ClassificationPipeline.run(); two advisory columns; the flag wiring
 Tests  test_flag_off_skips_classification_entirely
        test_upload_succeeds_when_classifier_raises
-       test_failed_classification_leaves_document_stored_and_status_correct
+       test_failed_classification_is_recorded_without_an_outcome
        test_outcome_never_changes_doc_type_or_satisfaction
-Done   pytest tests/domains/documents/test_pipeline.py -q → 4 passed
+       test_a_deleted_document_is_not_an_error_to_annotate
+       test_every_status_is_a_plain_string
+Done   pytest tests/domains/documents/test_pipeline.py -q → 9 passed
 ```
 `test_upload_succeeds_when_classifier_raises` is the one to point at on the walkthrough — it proves
-`AI-005`. → `AI-004` – `AI-006`, `AI-018` – `AI-024`, `AI-036` – `AI-037`.
+`AI-005`: the classifier throws, and the 201, the row, the checklist count and the application status
+are all still exactly what the upload made them.
+
+**Two columns, not one** (clarifying `AI-020`, whose list mixed both). `classification_status` is the
+lifecycle — `PENDING` / `DONE` / `FAILED` / `SKIPPED`, "did this run at all". `classification_outcome`
+is the evaluator's verdict and is null unless the status is `DONE`. One column carrying both would
+make "failed" and "inconclusive" the same value, and they have different causes.
+
+**The flag is structural, not conditional** (`AI-024`): with it off, `_get_classifier()` returns None,
+so no client is constructed and `ANTHROPIC_API_KEY` is never read. The service's `classifier` is
+`None` and scheduling is a no-op, leaving both columns null.
+
+`background_session()` is new in `core/database.py`: the request session closes when the response is
+sent, so a task that runs *after* the commit must own one. `BackgroundTasks` reaches the service
+through `DocumentContext`, the bundle that already exists to keep handlers inside `CQ-038`'s four
+slots.
+→ `AI-004` – `AI-006`, `AI-018` – `AI-024`, `AI-036` – `AI-037`.
 
 ### T38 | Classification in the UI
 ```

@@ -79,6 +79,17 @@ async def get_session() -> AsyncIterator[AsyncSession]:
         yield session
 
 
+def background_session() -> AsyncSession:
+    """A session for work that outlives the request that started it.
+
+    `get_session` is a per-request dependency and its session is closed the
+    moment the response is sent. A task scheduled to run *after* the commit —
+    document classification, AI-018 — therefore cannot borrow it, and must own
+    one it also closes. Same factory, same settings; only the lifetime differs.
+    """
+    return _session_factory()
+
+
 async def create_all() -> None:
     """Create every table at startup. No Alembic (CQ-082).
 
