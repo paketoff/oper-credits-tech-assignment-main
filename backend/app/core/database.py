@@ -11,7 +11,7 @@ filesystem and never in the database (ARC-010).
 from collections.abc import AsyncIterator
 from sqlite3 import Connection as SQLiteConnection
 
-from sqlalchemy import event
+from sqlalchemy import Connection, event, inspect
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -90,11 +90,43 @@ def background_session() -> AsyncSession:
     return _session_factory()
 
 
-async def create_all() -> None:
-    """Create every table at startup. No Alembic (CQ-082).
+def _add_missing_columns(connection: Connection) -> None:
+    """Add columns the code has and the database does not (CQ-082, corrected).
 
-    Migrations are a deliberate cut: one environment, one schema, no data to
-    preserve. Adding them later is additive rather than a rewrite.
+    `create_all` is `CREATE TABLE IF NOT EXISTS`: it creates what is absent and
+    never touches what is present. With a volume that survives every deploy
+    (DEP-003), that means the schema freezes at whatever the *first* deploy
+    created. The classifier columns added at T35 – T58 therefore never appeared
+    on the deployed database, and every query against `documents` failed with
+    "no such column" — a 500 on the checklist route and nowhere else, because
+    nothing else reads that table.
+
+    Additive only, and deliberately so. Nothing here drops, renames or retypes:
+    those need a real migration tool, and this exists to close the gap that no
+    migration tool leaves open in the first place — not to become one. A column
+    that cannot be added without a default is skipped rather than guessed at.
+    """
+    inspector = inspect(connection)
+    for table in Base.metadata.sorted_tables:
+        if not inspector.has_table(table.name):
+            continue
+        present = {column["name"] for column in inspector.get_columns(table.name)}
+        for column in table.columns:
+            if column.name in present or not column.nullable:
+                continue
+            type_sql = column.type.compile(connection.dialect)
+            connection.exec_driver_sql(
+                f"ALTER TABLE {table.name} ADD COLUMN {column.name} {type_sql}"  # noqa: S608
+            )
+
+
+async def create_all() -> None:
+    """Create every table at startup, and reconcile added columns (CQ-082).
+
+    Migrations are a deliberate cut: one environment, one schema, no data worth
+    a rewrite to preserve. What that cut did *not* cover is a new nullable
+    column on a table that already exists — see `_add_missing_columns`.
     """
     async with _engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
+        await connection.run_sync(_add_missing_columns)

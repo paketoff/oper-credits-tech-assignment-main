@@ -51,3 +51,24 @@ async def test_pragmas_survive_a_new_connection(engine, pragma):
         result = await second.execute(text(f"PRAGMA {pragma}"))
 
     assert result.scalar() in (1, "wal")
+
+
+async def test_a_column_added_after_the_table_exists_is_reconciled(tmp_path):
+    # The deployed failure: the volume outlives every deploy (DEP-003) and
+    # `create_all` is CREATE TABLE IF NOT EXISTS, so the classifier columns
+    # added at T35 - T58 never reached the production `documents` table. Every
+    # read of it answered 500 with "no such column", on the checklist route and
+    # nowhere else.
+    import sqlalchemy
+    from sqlalchemy import inspect, text
+
+    from app.core.database import _add_missing_columns
+
+    engine = sqlalchemy.create_engine(f"sqlite:///{tmp_path}/legacy.db")
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE documents (id TEXT PRIMARY KEY)"))
+        _add_missing_columns(connection)
+        columns = {c["name"] for c in inspect(connection).get_columns("documents")}
+
+    assert "proposed_income" in columns
+    assert "classification_status" in columns
