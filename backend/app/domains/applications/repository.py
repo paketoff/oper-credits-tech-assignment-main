@@ -52,6 +52,12 @@ class ApplicationRepository(Protocol):
         """Replace the borrower collection wholesale (API-037)."""
         ...
 
+    async def attach_simulation(
+        self, session: AsyncSession, application_id: UUID, simulation_id: UUID
+    ) -> Application | None:
+        """Point an application at a simulation, or None if it does not exist."""
+        ...
+
     async def update(
         self,
         session: AsyncSession,
@@ -280,6 +286,23 @@ class SqlApplicationRepository:
             row.purchase_price = property_details.purchase_price
         if status is not None:
             row.status = status.value
+        await session.flush()
+        return await self._reload(session, application_id)
+
+    async def attach_simulation(
+        self, session: AsyncSession, application_id: UUID, simulation_id: UUID
+    ) -> Application | None:
+        """Point an application at a simulation.
+
+        Its own method rather than a fifth parameter on `update`: that one is
+        already at CQ-038's four, and the two changes have nothing to do with
+        each other. Ownership of the simulation is the service's to check
+        (ARC-047) — this only writes.
+        """
+        row = await session.get(ApplicationRow, application_id)
+        if row is None:
+            return None
+        row.simulation_id = simulation_id
         await session.flush()
         return await self._reload(session, application_id)
 

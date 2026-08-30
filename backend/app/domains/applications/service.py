@@ -130,6 +130,8 @@ class ApplicationService:
         if payload.borrowers is not None:
             borrowers = tuple(self._to_borrower(b) for b in payload.borrowers)
             await self._repository.replace_borrowers(session, application_id, borrowers)
+        if payload.simulation_id is not None:
+            await self._attach_simulation(session, application_id, user_id, payload.simulation_id)
         property_details = self._to_property(payload.property) if payload.property else None
         updated = await self._repository.update(session, application_id, property_details, None)
         if updated is None:
@@ -321,6 +323,39 @@ class ApplicationService:
         """
         requirements = required_documents(application.profile())
         return mark_satisfied(requirements, uploaded)
+
+    async def _attach_simulation(
+        self, session: AsyncSession, application_id: UUID, user_id: UUID, simulation_id: UUID
+    ) -> None:
+        """Point the application at a simulation this borrower may have.
+
+        Three cases, and the middle one is the ordinary path: `POST
+        /api/simulations` is public and sets no owner (DOM-025), so a borrower
+        who runs the calculator while already signed in produces an *anonymous*
+        simulation. Claiming it here is the same move signup makes, through the
+        same method — an unowned calculation belongs to whoever holds its
+        unguessable id (DOM-027).
+
+        Resolved through `simulation.service`, never its repository (ARC-047).
+
+        Raises:
+            NotFoundError: SIMULATION_NOT_FOUND when it does not exist, or
+                belongs to somebody else. Unlike seeding at creation — where a
+                missing simulation must not block making an application
+                (AUTH-031) — this was asked for explicitly, so failing silently
+                would leave the borrower pressing a button that does nothing.
+        """
+        simulation = await self._simulations.get_stored(session, simulation_id)
+        if simulation is None:
+            raise NotFoundError(code="SIMULATION_NOT_FOUND")
+        if simulation.user_id is None:
+            # The claim carries the `user_id IS NULL` condition in its own
+            # WHERE, so two borrowers racing for the same id cannot both win.
+            if await self._simulations.claim_for_user(session, simulation_id, user_id) is None:
+                raise NotFoundError(code="SIMULATION_NOT_FOUND")
+        elif simulation.user_id != user_id:
+            raise NotFoundError(code="SIMULATION_NOT_FOUND")
+        await self._repository.attach_simulation(session, application_id, simulation_id)
 
     async def _seed_from_simulation(
         self, session: AsyncSession, user_id: UUID, simulation_id: UUID | None

@@ -67,8 +67,16 @@ export class FinancesSectionComponent {
   readonly form = input.required<FormGroup<FinancesFormControls>>();
   readonly financials = input<Financials | null>(null);
   readonly saving = input(false);
+  /**
+   * The simulation the borrower has in this browser session, when the
+   * application has none of its own. Null hides the offer and leaves only the
+   * explanation — there is nothing to attach.
+   */
+  readonly attachableSimulationId = input<string | null>(null);
+  readonly attaching = input(false);
 
   readonly save = output<FinancialsRequest>();
+  readonly attachSimulation = output<string>();
 
   protected readonly bandCopy = BAND_COPY;
 

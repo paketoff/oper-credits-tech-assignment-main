@@ -97,6 +97,13 @@ class ApplicationPatchRequest(BaseModel):
 
     borrowers: list[BorrowerRequest] | None = None
     property: PropertyRequest | None = None
+    # A borrower who signed up without opening the calculator has an
+    # application with no simulation on it, and therefore no instalment for the
+    # affordability check to measure against (API-075). Attaching one had no
+    # path: the link was made at creation and never again. Unlike `status`,
+    # this is data the borrower owns — the service still resolves it through
+    # `simulation.service` and refuses one that is not theirs (ARC-047).
+    simulation_id: UUID | None = None
 
 
 class ApplicationResponse(BaseModel):

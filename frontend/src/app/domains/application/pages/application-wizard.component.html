@@ -141,7 +141,10 @@
             [form]="financesForm"
             [financials]="financials()"
             [saving]="savingFinancials()"
+            [attachableSimulationId]="attachableSimulationId()"
+            [attaching]="attachingSimulation()"
             (save)="onSaveFinancials($event)"
+            (attachSimulation)="onAttachSimulation($event)"
           />
           <app-proposal-prompt
             [proposals]="proposals()"

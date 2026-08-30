@@ -41,6 +41,8 @@ export interface PropertyDetails {
 
 /** Mirrors `ApplicationPatchRequest` (`API-035`). Only present keys are sent (`API-036`). */
 export interface ApplicationPatchRequest {
+  /** Attaches a simulation after the fact; the server checks it is claimable. */
+  simulation_id?: string;
   borrowers?: BorrowerRequest[];
   property?: PropertyRequest;
 }

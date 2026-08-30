@@ -222,3 +222,78 @@ async def test_patch_allowed_in_documents_pending_not_once_locked(client, engine
 
     assert response.status_code == 200
     assert response.json()["borrowers"][0]["employment_type"] == "SELF_EMPLOYED"
+
+
+async def test_a_simulation_can_be_attached_after_the_application_exists(client, engine):
+    # A borrower who signs up without opening the calculator has no simulation
+    # on their application, so the affordability check has no instalment to
+    # measure against and the whole panel stayed empty (API-075). Attaching one
+    # had no path at all: the link was made at creation and never again.
+    await client.post(
+        "/api/auth/signup",
+        json={"email": "attach@example.com", "password": "hunter2hunter2"},
+    )
+    application_id = (await client.post("/api/applications", json={})).json()["id"]
+    simulation_id = (
+        await client.post(
+            "/api/simulations",
+            json={
+                "property_value": "300000.00",
+                "own_contribution": "30000.00",
+                "term_months": 300,
+                "annual_nominal_rate": "0.0400",
+                "region": "FLANDERS",
+                "is_first_home": True,
+            },
+        )
+    ).json()["id"]
+
+    response = await client.patch(
+        f"/api/applications/{application_id}", json={"simulation_id": simulation_id}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["simulation_id"] == simulation_id
+
+
+async def test_someone_elses_simulation_cannot_be_attached(client, engine):
+    # The id is an unguessable UUID4 and readable by anyone holding it
+    # (API-021), so ownership has to be checked here or a stranger's figures
+    # could be pinned to this application.
+    await client.post(
+        "/api/auth/signup",
+        json={"email": "owner@example.com", "password": "hunter2hunter2"},
+    )
+    simulation_id = (
+        await client.post(
+            "/api/simulations",
+            json={
+                "property_value": "300000.00",
+                "own_contribution": "30000.00",
+                "term_months": 300,
+                "annual_nominal_rate": "0.0400",
+                "region": "FLANDERS",
+                "is_first_home": True,
+            },
+        )
+    ).json()["id"]
+    # Claimed by its owner first — an *unclaimed* simulation belongs to whoever
+    # holds its id, by design (DOM-027), so the theft only becomes a theft once
+    # it has an owner.
+    owned_application = (await client.post("/api/applications", json={})).json()["id"]
+    await client.patch(
+        f"/api/applications/{owned_application}", json={"simulation_id": simulation_id}
+    )
+    await client.post("/api/auth/logout")
+    await client.post(
+        "/api/auth/signup",
+        json={"email": "thief@example.com", "password": "hunter2hunter2"},
+    )
+    application_id = (await client.post("/api/applications", json={})).json()["id"]
+
+    response = await client.patch(
+        f"/api/applications/{application_id}", json={"simulation_id": simulation_id}
+    )
+
+    assert response.status_code == 404
+    assert response.json()["code"] == "SIMULATION_NOT_FOUND"

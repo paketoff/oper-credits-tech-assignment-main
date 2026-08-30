@@ -106,6 +106,15 @@ export class ApplicationWizardComponent {
    * application from a page that had not finished loading.
    */
   protected readonly notFound = signal(false);
+  protected readonly attachingSimulation = signal(false);
+  /**
+   * Offered only when this application has no simulation and the browser
+   * session is holding one (`DOM-026`). That is the whole loop the empty
+   * affordability panel was missing: run the calculator, come back, attach.
+   */
+  protected readonly attachableSimulationId = computed(() =>
+    this.application()?.simulation_id ? null : this.simulationService.lastId(),
+  );
 
   // The manual-entry base case (DOM-030). Extraction, once it exists,
   // pre-fills exactly these controls and changes nothing else here.
@@ -175,6 +184,24 @@ export class ApplicationWizardComponent {
         application ? { ...application, status: result.application_status } : application,
       );
       this.refreshChecklist();
+    });
+  }
+
+  protected onAttachSimulation(simulationId: string): void {
+    if (this.attachingSimulation()) {
+      return;
+    }
+    this.attachingSimulation.set(true);
+    this.applicationService.patch(this.applicationId, { simulation_id: simulationId }).subscribe({
+      next: (application) => {
+        this.application.set(application);
+        this.attachingSimulation.set(false);
+        // The assessment is derived from the instalment, so it only becomes
+        // answerable once the simulation is on the application.
+        this.refreshFinancials();
+        this.simulationService.get(simulationId).subscribe((s) => this.simulation.set(s));
+      },
+      error: () => this.attachingSimulation.set(false),
     });
   }
 
