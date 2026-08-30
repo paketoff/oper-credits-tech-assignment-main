@@ -2,11 +2,14 @@
 
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Index, String
+from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+
+_MONEY = Numeric(12, 2)
 
 
 class DocumentRow(Base):
@@ -51,3 +54,11 @@ class DocumentRow(Base):
     # a bank statement"), which the outcome alone cannot supply. A third column
     # rather than parsing it back out of a composed string.
     classification_detected_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+    # T57/T58. What this document proposed for the financial profile. Advisory
+    # like the columns above: a proposal the borrower confirms into
+    # `application_financials`, never something the assessment reads directly
+    # (DOM-030).
+    proposed_income: Mapped[Decimal | None] = mapped_column(_MONEY, nullable=True)
+    proposed_credit: Mapped[Decimal | None] = mapped_column(_MONEY, nullable=True)
+    proposal_source: Mapped[str | None] = mapped_column(String(64), nullable=True)

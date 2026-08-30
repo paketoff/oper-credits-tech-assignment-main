@@ -100,6 +100,9 @@ module = ["pdf2image.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
+markers = [
+    "live: hits the real Anthropic API; costs money, never a gate (T61)",
+]
 testpaths = ["tests"]
 pythonpath = ["."]          # `app` is importable without an editable install
 addopts = "--import-mode=importlib"  # test_api.py exists in three domains

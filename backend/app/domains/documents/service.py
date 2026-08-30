@@ -23,6 +23,7 @@ from app.domains.documents.schemas import (
     DocumentDeleteResponse,
     DocumentResponse,
     DocumentSummary,
+    ProposalResponse,
 )
 
 # DOC-002, VAL-013.
@@ -284,6 +285,7 @@ class DocumentService:
                 record.detected_type if record else None,
                 claimed_as_classified(document.doc_type),
             ),
+            proposal=_to_proposal_response(record),
         )
 
     def _schedule_classification(
@@ -305,3 +307,21 @@ class DocumentService:
         context.background_tasks.add_task(
             self._classifier.run, document_id, upload.doc_type, upload.content
         )
+
+
+def _to_proposal_response(record: ClassificationRecord | None) -> ProposalResponse | None:
+    """Surface a document's proposal, or nothing when it made none (T58).
+
+    Absent whenever the classifier did not run, disagreed with what the borrower
+    declared, or read no usable figure — all of which mean the same thing to the
+    finances form: there is nothing to offer.
+    """
+    if record is None or record.proposal_source is None:
+        return None
+    if record.proposed_income is None and record.proposed_credit is None:
+        return None
+    return ProposalResponse(
+        net_monthly_income=record.proposed_income,
+        existing_credit_monthly=record.proposed_credit,
+        source=record.proposal_source,
+    )

@@ -67,7 +67,7 @@ def _png(width: int, height: int) -> bytes:
 async def test_a_well_formed_answer_becomes_a_verdict() -> None:
     client, _ = _client('{"doc_type": "PAYSLIPS", "confidence": 0.91, "reason": "a salary slip"}')
 
-    verdict = await client.classify(_png(10, 10))
+    verdict, _ = await client.classify(_png(10, 10))
 
     assert verdict.doc_type is ClassifiedType.PAYSLIPS
     assert verdict.confidence == 0.91
@@ -92,7 +92,7 @@ async def test_malformed_json_degrades_to_unknown_zero_confidence(reply: str) ->
     """AI-011, AI-035. Every unreadable answer means the same thing to the borrower."""
     client, _ = _client(reply)
 
-    verdict = await client.classify(_png(10, 10))
+    verdict, _ = await client.classify(_png(10, 10))
 
     assert verdict.doc_type is ClassifiedType.UNKNOWN
     assert verdict.confidence == 0.0
@@ -121,13 +121,13 @@ async def test_a_transport_failure_raises_rather_than_degrading() -> None:
 
 
 async def test_the_model_and_cap_are_sent_as_configured() -> None:
-    """AI-013. A low cap bounds both cost and latency."""
+    """T57 supersedes AI-013: the same call now also reads numbers off the page."""
     client, messages = _client('{"doc_type": "EPC", "confidence": 0.8}')
 
     await client.classify(_png(10, 10))
 
-    assert messages.last_kwargs["model"] == "claude-sonnet-5"
-    assert messages.last_kwargs["max_tokens"] == 300
+    assert messages.last_kwargs["model"] == "claude-opus-5"
+    assert messages.last_kwargs["max_tokens"] == 1500
 
 
 def test_only_first_page_is_rendered_and_downscaled() -> None:

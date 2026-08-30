@@ -1,6 +1,7 @@
 """Queries against the documents table."""
 
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Protocol
 from uuid import UUID
 
@@ -58,6 +59,12 @@ class ClassificationRecord:
     status: str
     outcome: str | None
     detected_type: str | None = None
+    # T57/T58. What the document proposed for the financial profile — a
+    # suggestion the borrower confirms, never a value anything calculates on
+    # (DOM-030).
+    proposed_income: Decimal | None = None
+    proposed_credit: Decimal | None = None
+    proposal_source: str | None = None
 
 
 def _to_entity(row: DocumentRow) -> Document:
@@ -129,6 +136,9 @@ class SqlDocumentRepository:
         row.classification_status = result.status
         row.classification_outcome = result.outcome
         row.classification_detected_type = result.detected_type
+        row.proposed_income = result.proposed_income
+        row.proposed_credit = result.proposed_credit
+        row.proposal_source = result.proposal_source
         await session.flush()
 
     async def classifications_for(
@@ -149,6 +159,9 @@ class SqlDocumentRepository:
                 status=row.classification_status or "",
                 outcome=row.classification_outcome,
                 detected_type=row.classification_detected_type,
+                proposed_income=row.proposed_income,
+                proposed_credit=row.proposed_credit,
+                proposal_source=row.proposal_source,
             )
             for row in rows
         }

@@ -74,6 +74,7 @@ describe('ChecklistComponent classification states', () => {
               uploaded_at: 'x',
               classification_status: status,
               classification_message: message,
+              proposal: null,
             },
           ],
         },
