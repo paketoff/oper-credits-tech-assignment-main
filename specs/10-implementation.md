@@ -1060,6 +1060,42 @@ prompt.
 **A known limit, stated rather than implied away:** a synthetic `loonfiche` is cleaner than a
 photographed one, so Tier 2 passing does not prove the model handles a crumpled phone photo.
 
+### T63 – T64 | The application page, reworked
+```
+Owner  C
+Deps   T59
+Files  src/app/domains/application/status-chip.ts            (extracted)
+       src/app/domains/application/pages/application-wizard.component.{ts,html}
+       src/app/domains/application/pages/applications-list.component.ts
+       src/app/domains/documents/components/checklist.component.{ts,html}
+       src/app/domains/documents/components/upload-field.component.html
+       src/app/core/shell/app-header.component.ts
+       e2e/full-flow-375.spec.ts, checklist.component.spec.ts
+
+Output Two-column page, section headings, the UI-053 status chip, UI-052 rows
+Tests  the existing checklist and 375px specs, updated for the new copy
+Done   ng test → 32 passed; make e2e → 12 passed; a visual pass at 1200px and
+       375px in both themes
+```
+Prompted by the user: the upload forms "did not fit" under *Your finances*. That instinct landed on
+five separate problems, two of them outright spec violations — `UI-052` was never implemented (six
+identical cards, no icon column, and a filled accent button on rows that were **already satisfied**),
+and the status rendered as the raw enum `DOCUMENTS_PENDING` while `UI-053`'s chip already existed and
+was already used by the list.
+
+Documents now lead: the application sits at `DOCUMENTS_PENDING`, so they are what blocks it, while
+affordability blocks nothing. Finances was on top only because it was built later.
+
+**Two bugs found by looking, not by any check:**
+* Satisfied rows lost their text in dark mode. `bg-success-soft` is theme-invariant by design
+  (`UI-072`) and `text-ink` inverts to near-white on it — the same failure `UI-072` was written for
+  after T48, reintroduced here and caught only by screenshotting both themes.
+* The **header overflowed a 375px viewport**, pre-existing since T46/T52: a long email neither wraps
+  nor truncates and pushed *Log out* off-screen (`scrollWidth` 523 against a 375 viewport). The
+  `UX-061` e2e scenario never caught it because it asserts the flow completes, not that the page does
+  not scroll sideways.
+→ `UI-052` (extended), `UI-054` (corrected), `UI-073`, `UX-039` (corrected), `UX-067`.
+
 ---
 
 # P4 — Integration

@@ -142,8 +142,13 @@ mode specifically so white text stays legible on it in both themes, §2.1) — s
 sitting on them use the fixed tokens too, not the invertible `ink`/`surface` pair. `--color-accent`
 and `--color-success` did not need a `-fixed` counterpart: nothing in this codebase uses them as
 plain text on the page **and** paired with their own soft fill in a way that pulls in both directions
-at once — accent's button/link split is solved by the compromise value above; success's only use
-(`upload-field.component.html`'s "Uploaded" badge) never leaves its own soft fill.
+at once — accent's button/link split is solved by the compromise value above; success is only ever the tick on
+a satisfied checklist row, which never leaves its own soft fill.
+
+The satisfied checklist row is the third fixed-colour surface, joining the header and the branding
+panel: `bg-success-soft` is theme-invariant, so its label, filename and remove link all take `-fixed`
+tokens. Getting this wrong is not subtle — `text-ink` there inverts to near-white and the row's text
+vanishes, which is exactly what happened at T64 before it was caught by looking.
 
 ## 3. Typography
 
@@ -418,6 +423,20 @@ beneath in `text-muted text-xs`. Total row: `border-t-2 border-ink font-semibold
 check; outstanding rows stay on `bg-surface` with an upload control. Required and not satisfied gets
 `text-ink`; optional gets `text-muted`.
 
+**Rows, not cards** (T64). One bordered container with the rows separated by hairlines, the same
+treatment `UI-051` gives the cost table. Six free-standing cards read as six unrelated forms rather
+than one checklist, which is what they are.
+
+**A satisfied row collapses to one line** — check, label, filename, a quiet remove link — and **loses
+the upload control entirely**. Only what is still outstanding stays tall, so the remaining work is
+the only thing on the page with height. Two things survive the collapse: the classification message,
+which is the one item on a satisfied row that may still need attention (`AI-025`), and the state in
+words. `bg-success-soft` is theme-invariant (`UI-072`), so text on a satisfied row uses the `-fixed`
+tokens; `text-ink` there inverts to near-white and disappears.
+
+**The tick is decorative** (`aria-hidden`), so the row also carries the state as text for a screen
+reader — colour and an icon never carry meaning alone (`UI-059`).
+
 ### 7.6 Status chips
 
 **UI-053.** `rounded-pill px-2.5 py-1 text-xs font-semibold`. Draft `bg-surface-3 text-muted`,
@@ -436,13 +455,19 @@ text-danger`.
 | Log in | Same layout as Sign up. | Plain inputs, primary button, branding panel |
 | Application wizard | `p-stepper`, one step per panel, `max-w-[42rem]` | Stepper, inputs, selects |
 | Documents | Checklist, one row per requirement | `p-fileupload` per row, status chips |
-| Application detail | Header with status chip, checklist below | Chips, checklist rows |
+| Application detail | Two columns on `md:` and up inside `max-w-[64rem]`: the checklist left, finances and affordability right and `sticky`. Single column on mobile, documents first. Header carries the status chip. | Chips, checklist rows, `p-fileupload` per outstanding row |
 
 **UI-069.** Home (`/`): the anonymous visitor's first screen (`T46`). A hero (headline, one-line
 subhead, two CTAs — `/calculator` and `/signup`), a three-step "how it works" section, a short
 benefits grid, and a closing CTA banner. No full-bleed breakout: everything sits inside the same
 `max-w-[72rem]` cap as every other screen (`UI-056`). The simulator itself is unchanged — still
 public, still computed-and-prefilled on load (`UX-009`) — it simply is not the first screen reached.
+
+**UI-073.** One accent per page (`UI-007`), and on the application page it belongs to *Save and
+assess*. The per-row upload controls are outlined, not filled: six filled accent buttons plus the
+save button gave the page seven primary actions and no answer to "what next". Expressed through
+`p-fileupload`'s own `chooseStyleClass` input rather than a stylesheet — `ARC-037` forbids overriding
+a PrimeNG component's styles in CSS, and a per-instance variant is what the component's API is for.
 
 **UI-055.** Header: near-black band, `bg-ink-fixed`, 56px tall, product name and a `Calculator` nav
 link on the left, the theme toggle and account state on the right. It is the one surface whose colour
@@ -495,6 +520,7 @@ Source: `05-ui.md`, superseded by this document.
 | UI-014 | `--color-muted` is safe for body text, not below 12px | 1 Colour | §2 |
 | UI-071 | Dark mode: re-derived palette, applied via `.dark` | 2 Dark mode | §2.1 |
 | UI-072 | The four theme-invariant `-fixed` tokens | 2 The `-fixed` tokens | §2.2 |
+| UI-073 | One accent per page; upload controls are outlined | 7 Screens | §8 |
 | UI-015 | Two families: Plus Jakarta Sans and Figtree | 2 Typography | §3 |
 | UI-016 | The type scale | 2 Typography | §3.1 |
 | UI-017 | Tabular figures on every money element | 2 Typography | §3.1 |

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 
 import { Checklist, DocumentType } from '../documents.models';
 import { UploadFieldComponent, UploadStatus } from './upload-field.component';
@@ -36,6 +36,17 @@ export class ChecklistComponent {
 
   readonly fileSelected = output<FileSelection>();
   readonly documentRemoved = output<DocumentRemoval>();
+
+  /**
+   * One segment per required document, filled up to the satisfied count
+   * (`UX-039`). `aria-hidden` in the template: the count beside it already
+   * says the same thing in words, and two readings of one fact is noise to a
+   * screen reader.
+   */
+  protected readonly progressSegments = computed(() => {
+    const { required_count: required, satisfied_count: satisfied } = this.checklist();
+    return Array.from({ length: required }, (_, index) => index < satisfied);
+  });
 
   protected statusFor(docType: DocumentType): UploadStatus {
     return this.rowStatus()[docType]?.status ?? 'idle';

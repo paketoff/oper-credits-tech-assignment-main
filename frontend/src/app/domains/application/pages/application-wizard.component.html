@@ -74,36 +74,47 @@
       </div>
     </div>
   } @else {
-    <div class="mx-auto flex max-w-[42rem] flex-col gap-6 py-6">
-      <div>
-        <h1 class="text-h2 font-display font-semibold">Application submitted</h1>
-        <p class="text-body-sm text-muted mt-2">
-          Status: <span class="text-ink font-semibold">{{ app.status }}</span>
-        </p>
-      </div>
-      <div>
-        <app-finances-section
-          [form]="financesForm"
-          [financials]="financials()"
-          [saving]="savingFinancials()"
-          (save)="onSaveFinancials($event)"
-        />
-        <app-proposal-prompt
-          [proposals]="proposals()"
-          [currentIncome]="financials()?.net_monthly_income?.amount ?? null"
-          [currentCredit]="financials()?.existing_credit_monthly?.amount ?? null"
-          (accept)="onAcceptProposal($event)"
-        />
+    <!-- T63. Two columns from md: up — the split UI-054 already establishes for
+         the simulator: the long work list left, the short answer right and
+         sticky, so the figure stays visible while the borrower works down the
+         checklist. Documents lead because the status says DOCUMENTS_PENDING:
+         they are what blocks the application, and affordability blocks nothing. -->
+    <div class="mx-auto max-w-[64rem] py-6">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-h2 font-display font-semibold tracking-tighter">Your application</h1>
+        <span
+          class="rounded-pill px-2.5 py-1 text-xs font-semibold"
+          [class]="statusChips[app.status].classes"
+        >
+          {{ statusChips[app.status].label }}
+        </span>
       </div>
 
-      @if (checklist(); as list) {
-        <app-checklist
-          [checklist]="list"
-          [rowStatus]="rowStatus()"
-          (fileSelected)="onFileSelected($event)"
-          (documentRemoved)="onDocumentRemoved($event)"
-        />
-      }
+      <div class="mt-6 grid grid-cols-1 items-start gap-6 md:grid-cols-[1fr_22rem]">
+        @if (checklist(); as list) {
+          <app-checklist
+            [checklist]="list"
+            [rowStatus]="rowStatus()"
+            (fileSelected)="onFileSelected($event)"
+            (documentRemoved)="onDocumentRemoved($event)"
+          />
+        }
+
+        <div class="md:sticky md:top-6">
+          <app-finances-section
+            [form]="financesForm"
+            [financials]="financials()"
+            [saving]="savingFinancials()"
+            (save)="onSaveFinancials($event)"
+          />
+          <app-proposal-prompt
+            [proposals]="proposals()"
+            [currentIncome]="financials()?.net_monthly_income?.amount ?? null"
+            [currentCredit]="financials()?.existing_credit_monthly?.amount ?? null"
+            (accept)="onAcceptProposal($event)"
+          />
+        </div>
+      </div>
     </div>
   }
 }

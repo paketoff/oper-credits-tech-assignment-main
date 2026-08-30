@@ -1,44 +1,84 @@
-<div class="rounded-card border-border flex flex-col gap-2 border p-4">
-  <div class="flex items-start justify-between gap-4">
-    <div>
-      <p class="text-body-sm text-ink font-semibold">
-        {{ item().label_en }}
-        @if (item().required) {
-          <span class="text-muted font-normal">— required</span>
-        }
-      </p>
-      <p class="text-body-sm text-muted">{{ item().label_nl }}</p>
-    </div>
-    @if (item().satisfied) {
-      <span class="bg-success-soft text-success rounded-full px-2 py-0.5 text-xs font-semibold"
-        >Uploaded</span
-      >
-    }
-  </div>
-
-  @if (item().reason) {
-    <p class="text-body-sm text-muted">{{ item().reason }}</p>
+<!-- UI-052: one row, three columns — status icon, label block, action.
+     Satisfied rows sit on bg-success-soft and collapse to a single line; only
+     what is still outstanding stays tall, which is what makes the list
+     scannable at six or more requirements. -->
+<div
+  class="grid grid-cols-[1.25rem_1fr] items-start gap-x-3 gap-y-2 p-4 sm:grid-cols-[1.25rem_1fr_auto]"
+  [class]="item().satisfied ? 'bg-success-soft' : 'bg-surface'"
+>
+  @if (item().satisfied) {
+    <svg
+      viewBox="0 0 20 20"
+      class="text-success mt-0.5 size-5"
+      fill="none"
+      stroke="currentColor"
+      aria-hidden="true"
+    >
+      <circle cx="10" cy="10" r="8" stroke-width="2" />
+      <path
+        d="m6.2 10.3 2.6 2.6 5-5.4"
+        stroke-width="2.2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+    <!-- UI-059: colour never carries meaning alone. The tick is decorative to
+         a screen reader, so the state is said in words it can reach. -->
+    <span class="sr-only">Uploaded</span>
+  } @else {
+    <span
+      class="border-border-strong mt-0.5 size-5 rounded-full border-2"
+      aria-hidden="true"
+    ></span>
   }
 
-  @for (document of item().documents; track document.id) {
-    <div class="flex flex-col gap-1">
-      <div class="flex items-center justify-between gap-4 text-sm">
-        <span>{{ document.filename }}</span>
+  <div class="min-w-0">
+    <p
+      class="text-body-sm font-semibold"
+      [class]="item().satisfied ? 'text-ink-fixed' : 'text-ink'"
+    >
+      {{ item().label_en }}
+      @if (!item().required) {
+        <span class="text-muted font-normal">— optional</span>
+      }
+    </p>
+    <p class="text-body-sm" [class]="item().satisfied ? 'text-muted-fixed' : 'text-muted'">
+      {{ item().label_nl }}
+    </p>
+
+    <!-- UX-038. Only worth saying while the row is still open: once it is
+         satisfied, why it was asked for stops being actionable. -->
+    @if (item().reason && !item().satisfied) {
+      <p class="text-body-sm text-muted mt-1">{{ item().reason }}</p>
+    }
+
+    @for (document of item().documents; track document.id) {
+      <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span
+          class="text-body-sm min-w-0 truncate"
+          [class]="item().satisfied ? 'text-ink-fixed' : 'text-ink'"
+          >{{ document.filename }}</span
+        >
         <button
           type="button"
           (click)="documentRemoved.emit(document.id)"
-          class="text-body-sm text-accent hover:text-accent-hover cursor-pointer font-semibold"
+          class="text-body-sm cursor-pointer font-semibold underline underline-offset-2"
+          [class]="
+            item().satisfied
+              ? 'text-ink-fixed/70 hover:text-ink-fixed'
+              : 'text-accent hover:text-accent-hover'
+          "
         >
           Remove
         </button>
       </div>
 
-      <!-- AI-025, AI-026: a server-composed sentence, or nothing at all. The
-           borrower keeps the document either way — a mismatch is a hint, never
-           a decision (AI-006). -->
+      <!-- AI-025, AI-026: a server-composed sentence, or nothing at all. This
+           stays visible on a satisfied row on purpose — a mismatch warning is
+           the one thing left that still needs the borrower's attention. -->
       @if (document.classification_message; as message) {
         <p
-          class="text-body-sm rounded-control px-2 py-1"
+          class="text-body-sm rounded-control mt-1 px-2 py-1"
           [class]="
             document.classification_status === 'DONE' && message.startsWith('This looks like the')
               ? 'text-muted'
@@ -48,28 +88,34 @@
           {{ message }}
         </p>
       }
+    }
+
+    @if (status() === 'uploading') {
+      <p class="text-body-sm text-muted mt-1">Uploading…</p>
+    }
+    @if (status() === 'error' && errorMessage()) {
+      <p class="text-body-sm text-danger mt-1">{{ errorMessage() }}</p>
+    }
+  </div>
+
+  <!-- Outstanding rows get the control; satisfied ones do not. Six accent
+       buttons plus "Save and assess" gave the page seven primary actions and
+       no answer to "what next" (UI-007, UI-073). -->
+  @if (!item().satisfied) {
+    <div class="col-start-2 sm:col-start-3 sm:row-start-1">
+      <p-fileupload
+        #upload
+        mode="basic"
+        [customUpload]="true"
+        [multiple]="false"
+        [auto]="true"
+        [accept]="acceptedTypes"
+        [maxFileSize]="maxSizeBytes"
+        [disabled]="status() === 'uploading'"
+        chooseStyleClass="p-button-outlined"
+        chooseLabel="Upload"
+        (uploadHandler)="onUploadHandler($event)"
+      />
     </div>
-  }
-
-  <p class="text-body-sm text-muted">PDF, JPEG or PNG, up to 10 MB.</p>
-
-  <p-fileupload
-    #upload
-    mode="basic"
-    [customUpload]="true"
-    [multiple]="false"
-    [auto]="true"
-    [accept]="acceptedTypes"
-    [maxFileSize]="maxSizeBytes"
-    [disabled]="status() === 'uploading'"
-    chooseLabel="Choose file"
-    (uploadHandler)="onUploadHandler($event)"
-  />
-
-  @if (status() === 'uploading') {
-    <p class="text-body-sm text-muted">Uploading…</p>
-  }
-  @if (status() === 'error' && errorMessage()) {
-    <p class="text-body-sm text-danger">{{ errorMessage() }}</p>
   }
 </div>

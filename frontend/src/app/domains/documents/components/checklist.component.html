@@ -1,16 +1,42 @@
-<div class="flex flex-col gap-4">
-  <p class="text-body-sm text-muted" role="status">
-    {{ checklist().satisfied_count }} of {{ checklist().required_count }} required documents
-    uploaded.
-  </p>
+<section class="rounded-card border-border bg-surface overflow-hidden border">
+  <div class="border-border border-b p-5">
+    <div class="flex flex-wrap items-baseline justify-between gap-2">
+      <h2 class="text-h3 font-display font-semibold">Your documents</h2>
+      <p class="text-body-sm text-muted tabular" role="status">
+        {{ checklist().satisfied_count }} of {{ checklist().required_count }} uploaded
+      </p>
+    </div>
 
-  @for (item of checklist().items; track item.doc_type) {
-    <app-upload-field
-      [item]="item"
-      [status]="statusFor(item.doc_type)"
-      [errorMessage]="errorFor(item.doc_type)"
-      (fileSelected)="fileSelected.emit({ docType: item.doc_type, file: $event })"
-      (documentRemoved)="documentRemoved.emit({ docType: item.doc_type, documentId: $event })"
-    />
-  }
-</div>
+    <!-- UX-039. The count is the requirement; this makes it readable without
+         doing the arithmetic. Segmented rather than a continuous bar: a
+         checklist is five to eight items, so one segment per requirement reads
+         as "four of six" directly — and it needs no dynamic width, which
+         UI-029 forbids expressing as a style. -->
+    <div class="mt-3 flex gap-1" aria-hidden="true">
+      @for (filled of progressSegments(); track $index) {
+        <span
+          class="h-1.5 flex-1 rounded-full transition-colors"
+          [class]="filled ? 'bg-accent' : 'bg-surface-3'"
+        ></span>
+      }
+    </div>
+
+    <!-- UX-042. Stated once, before any picker opens — not repeated on all six
+         rows, which is where it turned into noise. -->
+    <p class="text-body-sm text-muted mt-3">
+      PDF, JPEG or PNG, up to 10 MB each. We tell you why each one is asked for.
+    </p>
+  </div>
+
+  <div class="divide-border divide-y">
+    @for (item of checklist().items; track item.doc_type) {
+      <app-upload-field
+        [item]="item"
+        [status]="statusFor(item.doc_type)"
+        [errorMessage]="errorFor(item.doc_type)"
+        (fileSelected)="fileSelected.emit({ docType: item.doc_type, file: $event })"
+        (documentRemoved)="documentRemoved.emit({ docType: item.doc_type, documentId: $event })"
+      />
+    }
+  </div>
+</section>

@@ -1,25 +1,10 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
-import { ApplicationStatus } from '../../../core/models';
 import { MoneyPipe } from '../../../shared/money.pipe';
 import { ApplicationSummary } from '../application.models';
+import { STATUS_CHIPS } from '../status-chip';
 import { ApplicationService } from '../application.service';
-
-interface StatusChip {
-  label: string;
-  classes: string;
-}
-
-const STATUS_CHIPS: Record<ApplicationStatus, StatusChip> = {
-  DRAFT: { label: 'Draft', classes: 'bg-surface-3 text-muted' },
-  SUBMITTED: { label: 'Submitted', classes: 'bg-signal-soft text-ink-fixed' },
-  DOCUMENTS_PENDING: { label: 'Documents pending', classes: 'bg-signal-soft text-ink-fixed' },
-  DOCUMENTS_COMPLETE: { label: 'Documents complete', classes: 'bg-success-soft text-success' },
-  UNDER_REVIEW: { label: 'Under review', classes: 'bg-signal-soft text-ink-fixed' },
-  OFFER_ISSUED: { label: 'Offer issued', classes: 'bg-success-soft text-success' },
-  WITHDRAWN: { label: 'Withdrawn', classes: 'bg-danger-soft text-danger-fixed' },
-};
 
 /**
  * "My applications" (`API-029` – `API-031`): the backend has always listed a
