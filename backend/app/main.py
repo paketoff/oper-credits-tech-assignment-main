@@ -1,9 +1,12 @@
 """Application factory: registers routers, handlers and middleware (ARC-014).
 
-This is the only module that is allowed to know about every domain. At T02 it
-knows about none of them: the skeleton exists to be deployed before any feature
-work, so that the pipeline is proven while it is still cheap to fix
-(5-deployment.md DEP-040).
+This is the only module that is allowed to know about every domain — four of
+them, each contributing one router and one `tables` module. Nothing else in the
+codebase imports across a domain boundary without going through a service
+(ARC-011).
+
+The skeleton behind this file was deployed before any feature work, so that the
+pipeline was proven while it was still cheap to fix (5-deployment.md DEP-040).
 """
 
 from collections.abc import AsyncIterator
@@ -11,13 +14,13 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI
 from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import exception_handlers, telemetry
 from app.core import logging as app_logging
+from app.core import spa as spa_files
 from app.core.database import create_all, get_session
 from app.core.dependencies import get_health_service, get_storage
 from app.core.health import HealthService, LivenessResponse, ReadinessResponse
@@ -36,7 +39,6 @@ from app.domains.simulation import tables as _simulation_tables  # noqa: F401
 from app.domains.simulation.router import router as simulation_router
 
 _STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
-_ASSETS_DIR = _STATIC_DIR / "assets"
 
 
 @asynccontextmanager
@@ -90,27 +92,11 @@ async def ready(
     return await probe.readiness(session, storage)
 
 
-# Mounted after every /api router and both probes, so a real match always wins
-# over the catch-all below (DEP-013). "assets" holds Angular's hashed build
-# output; a missing directory would make mounting fail at import time, so the
-# frontend build always creates it (T26) even before this batch's placeholder
-# static/index.html exists.
-if _ASSETS_DIR.is_dir():
-    app.mount("/assets", StaticFiles(directory=_ASSETS_DIR), name="assets")
-
-
+# Registered after every /api route and both probes, so a real match always
+# wins over this catch-all (DEP-013). It matches literally everything else,
+# which is what makes a refresh on a deep Angular route work (DEP-014) and why
+# `core/spa.py` — not this handler — decides between a built file and the shell.
 @app.get("/{path:path}")
 def spa(path: str) -> FileResponse:
-    """Serve the Angular shell for any non-API route.
-
-    Angular owns client-side routing, so a direct hit or a refresh on a deep
-    route must return `index.html` rather than a 404 — the exact edge a
-    reviewer tries (DEP-014).
-
-    `/api/*` is excluded explicitly: this handler is registered last and
-    matches literally everything else, so an undefined API route would
-    otherwise be served the SPA shell with a 200 instead of a clean 404.
-    """
-    if path.startswith("api/"):
-        raise HTTPException(status_code=404)
-    return FileResponse(_STATIC_DIR / "index.html")
+    """Serve a built asset, or the Angular shell for a client-side route."""
+    return spa_files.response_for(_STATIC_DIR, path)

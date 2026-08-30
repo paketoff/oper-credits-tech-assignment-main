@@ -25,3 +25,36 @@ async def test_unknown_api_route_returns_404_not_index(client):
 
     assert response.status_code == 404
     assert "<app-root>" not in response.text
+
+
+async def test_a_built_bundle_is_served_as_itself_not_as_the_shell(client):
+    # The failure this exists for: Angular's application builder emits
+    # `main-<hash>.js` at the root of the build output, not under `assets/`.
+    # With only an `/assets` mount the bundle fell through to the catch-all
+    # and every browser got `index.html` with a 200 and `text/html`, refused
+    # it on the module MIME check, and rendered a blank page — in the
+    # production container and on the deployed URL alike, while every test
+    # here still passed.
+    from app import main
+
+    bundle = main._STATIC_DIR / "main-P4TEST.js"
+    bundle.write_text("export const built = true;\n")
+    try:
+        response = await client.get("/main-P4TEST.js")
+    finally:
+        bundle.unlink()
+
+    assert response.status_code == 200
+    assert "javascript" in response.headers["content-type"]
+    assert "<app-root>" not in response.text
+
+
+async def test_a_path_escaping_the_static_root_falls_back_to_the_shell():
+    # The catch-all takes an arbitrary URL path. A traversal must not read a
+    # file outside the build output, and there is nothing to 404 on either —
+    # to Angular it is simply a route it does not have.
+    from pathlib import Path
+
+    from app.core import spa
+
+    assert spa._built_file(Path("/tmp"), "../etc/passwd") is None
