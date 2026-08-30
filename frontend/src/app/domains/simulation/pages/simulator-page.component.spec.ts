@@ -173,4 +173,39 @@ describe('SimulatorPageComponent', () => {
       vi.useRealTimers();
     }
   });
+
+  it('renders the server message beside the field the response named (UX-024)', () => {
+    // VAL-027 step 4: a contribution equal to the price is valid to every
+    // client-side rule, so only the server can reject it. Before this, the
+    // 422 was swallowed and the borrower saw the stale result and nothing
+    // else.
+    vi.useFakeTimers();
+    try {
+      const fixture = TestBed.createComponent(SimulatorPageComponent);
+      fixture.detectChanges();
+      httpMock.expectOne('/api/simulations').flush(primarySimulation());
+      fixture.detectChanges();
+
+      fixture.componentInstance.form.controls.own_contribution.setValue(300_000);
+      vi.advanceTimersByTime(300);
+      fixture.detectChanges();
+      httpMock.expectOne('/api/simulations').flush(
+        {
+          code: 'LOAN_AMOUNT_NOT_POSITIVE',
+          message: 'Your own contribution must be less than the property price.',
+          field: 'own_contribution',
+        },
+        { status: 422, statusText: 'Unprocessable Entity' },
+      );
+      fixture.detectChanges();
+
+      const contributionField = (fixture.nativeElement as HTMLElement)
+        .querySelector('#own_contribution')
+        ?.closest('div');
+      expect(contributionField?.textContent).toContain('must be less than the property price');
+      httpMock.verify();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

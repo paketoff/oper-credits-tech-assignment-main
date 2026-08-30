@@ -1,3 +1,5 @@
+import { HttpErrorResponse } from '@angular/common/http';
+
 /**
  * Mirrors `core/errors.py`'s `MESSAGES` keys — the codes only, never the
  * message text (`UX-023`: the message itself always comes from the backend
@@ -34,4 +36,27 @@ export interface ApiError {
   code: ErrorCode;
   message: string;
   field: string | null;
+}
+
+/**
+ * Reads the `{code, message, field}` body out of a failed request, or returns
+ * null when the failure was not one of ours (a network drop, a 502 from a
+ * proxy, anything with no body).
+ *
+ * `UX-023`: the caller renders `message` as it arrived. Nothing here composes
+ * text — a message the frontend wrote is a message that can disagree with the
+ * server about what the rule is.
+ */
+export function apiErrorOf(failure: unknown): ApiError | null {
+  if (!(failure instanceof HttpErrorResponse)) {
+    return null;
+  }
+  const body: unknown = failure.error;
+  if (typeof body !== 'object' || body === null) {
+    return null;
+  }
+  const candidate = body as Partial<ApiError>;
+  return typeof candidate.code === 'string' && typeof candidate.message === 'string'
+    ? { code: candidate.code, message: candidate.message, field: candidate.field ?? null }
+    : null;
 }

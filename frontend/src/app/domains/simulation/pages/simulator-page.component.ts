@@ -13,6 +13,7 @@ import {
   switchMap,
 } from 'rxjs';
 
+import { ApiError, apiErrorOf } from '../../../core/error-codes';
 import { Region } from '../../../core/models';
 import {
   SimulationFormComponent,
@@ -93,6 +94,14 @@ export class SimulatorPageComponent {
 
   protected readonly result = signal<Simulation | null>(null);
   protected readonly loading = signal(false);
+  /**
+   * `UX-023`, `UX-024`, `VAL-027` step 4. A contribution equal to the price
+   * passes every client-side validator — it is only the *server* that knows a
+   * loan of zero is not a loan — so without this the request went out, came
+   * back 422 `LOAN_AMOUNT_NOT_POSITIVE`, and was swallowed: the borrower saw
+   * the previous result sitting there and no explanation at all.
+   */
+  protected readonly error = signal<ApiError | null>(null);
 
   constructor() {
     // The initial value bypasses debounceTime entirely, so first paint never
@@ -121,7 +130,8 @@ export class SimulatorPageComponent {
             // subscribe — an uncaught error there would terminate the whole
             // subscription permanently, silently freezing every future
             // recompute rather than just failing this one request.
-            catchError(() => {
+            catchError((failure: unknown) => {
+              this.error.set(apiErrorOf(failure));
               this.loading.set(false);
               return EMPTY;
             }),
@@ -131,6 +141,7 @@ export class SimulatorPageComponent {
       )
       .subscribe((simulation) => {
         this.result.set(simulation);
+        this.error.set(null);
         this.loading.set(false);
       });
   }

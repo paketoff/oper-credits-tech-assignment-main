@@ -11,6 +11,9 @@
       [max]="10000000"
       class="w-full"
     />
+    @if (fieldMessage()['property_value']; as message) {
+      <span class="text-danger text-body-sm">{{ message }}</span>
+    }
   </div>
 
   <div class="flex flex-col gap-1">
@@ -27,6 +30,9 @@
     <span class="text-body-sm text-muted">Eigen inbreng — what you put in yourself.</span>
     @if (quotiteitHint(); as hint) {
       <span class="text-body-sm text-muted">{{ hint }}</span>
+    }
+    @if (fieldMessage()['own_contribution']; as message) {
+      <span class="text-danger text-body-sm">{{ message }}</span>
     }
   </div>
 
@@ -45,6 +51,9 @@
           : 'border-border'
       "
     />
+    @if (fieldMessage()['term_months']; as message) {
+      <span class="text-danger text-body-sm">{{ message }}</span>
+    }
     @if (form().controls.term_months.invalid && form().controls.term_months.touched) {
       <span class="text-danger text-sm">Between 12 and 360 months.</span>
     } @else {
@@ -70,6 +79,9 @@
     <span class="text-body-sm text-muted"
       >Indicative market rate. Your actual rate depends on your profile and quotiteit.</span
     >
+    @if (fieldMessage()['annual_nominal_rate_percent']; as message) {
+      <span class="text-danger text-body-sm">{{ message }}</span>
+    }
   </div>
 
   <div class="flex flex-col gap-1">

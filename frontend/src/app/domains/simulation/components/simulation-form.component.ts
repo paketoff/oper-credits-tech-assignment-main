@@ -13,6 +13,7 @@ import { ReactiveFormsModule, FormGroup, FormControl } from '@angular/forms';
 import { InputNumber } from 'primeng/inputnumber';
 import { Select } from 'primeng/select';
 
+import { ApiError } from '../../../core/error-codes';
 import { Region } from '../../../core/models';
 
 export interface SimulatorFormControls {
@@ -44,6 +45,17 @@ const QUOTITEIT_FORMAT = new Intl.NumberFormat('nl-BE', {
   maximumFractionDigits: 2,
 });
 
+// UX-024: the backend names the field its code concerns, in the wire's
+// vocabulary. `annual_nominal_rate` crosses as a fraction and the form holds a
+// percentage, so the two names differ; mapping them here is cheaper than
+// renaming a control to match a serialisation detail.
+const FIELD_TO_CONTROL: Record<string, keyof SimulatorFormControls> = {
+  property_value: 'property_value',
+  own_contribution: 'own_contribution',
+  term_months: 'term_months',
+  annual_nominal_rate: 'annual_nominal_rate_percent',
+};
+
 /** `DOM-012`, `DOM-015`: the same formula the backend uses, echoed at the input (`UX-017`). */
 function computeQuotiteitHint(propertyValue: number, ownContribution: number): string | null {
   if (!(propertyValue > 0) || !(ownContribution >= 0)) {
@@ -70,12 +82,25 @@ function computeQuotiteitHint(propertyValue: number, ownContribution: number): s
 })
 export class SimulationFormComponent implements OnInit {
   readonly form = input.required<FormGroup<SimulatorFormControls>>();
+  /**
+   * The last failure from the server, or null. Rendered beside the field the
+   * response named and nowhere else — never a toast, never text this component
+   * wrote (`UX-023`, `UX-024`).
+   */
+  readonly error = input<ApiError | null>(null);
 
   protected readonly regionOptions = REGION_OPTIONS;
   protected readonly Math = Math;
 
   private readonly destroyRef = inject(DestroyRef);
   private readonly contribution = signal({ property_value: 0, own_contribution: 0 });
+
+  /** The server's message, keyed by the control it belongs under. */
+  protected readonly fieldMessage = computed<Partial<Record<string, string>>>(() => {
+    const failure = this.error();
+    const control = failure?.field ? FIELD_TO_CONTROL[failure.field] : undefined;
+    return control && failure ? { [control]: failure.message } : {};
+  });
 
   protected readonly quotiteitHint = computed(() => {
     const raw = this.contribution();
