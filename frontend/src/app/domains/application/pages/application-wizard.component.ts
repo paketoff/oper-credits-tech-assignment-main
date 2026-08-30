@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Step, StepItem, StepList, StepPanel, StepPanels, Stepper } from 'primeng/stepper';
 import { switchMap, tap } from 'rxjs';
 
@@ -17,7 +17,13 @@ import { Checklist, DocumentProposal } from '../../documents/documents.models';
 import { DocumentsService } from '../../documents/documents.service';
 import { Simulation } from '../../simulation/simulation.models';
 import { SimulationService } from '../../simulation/simulation.service';
-import { Application, Financials, FinancialsRequest } from '../application.models';
+import {
+  Application,
+  BorrowerRequest,
+  Financials,
+  FinancialsRequest,
+  PropertyRequest,
+} from '../application.models';
 import { ApplicationService } from '../application.service';
 import { STATUS_CHIPS } from '../status-chip';
 import { BorrowerFormControls, BorrowerStepComponent } from '../components/borrower-step.component';
@@ -40,6 +46,7 @@ const TOTAL_STEPS = 4;
   selector: 'app-application-wizard',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    RouterLink,
     Stepper,
     StepList,
     StepItem,
@@ -81,6 +88,24 @@ export class ApplicationWizardComponent {
       .filter((proposal): proposal is DocumentProposal => proposal !== null),
   );
   protected readonly savingFinancials = signal(false);
+  /**
+   * `VAL-027` step 11, `SCP-022`, `DOC-005`. The checklist is *derived* from
+   * the borrower's answers, so picking the wrong employment type once left
+   * them with the wrong list for good: the wizard renders for `DRAFT` only and
+   * there was no other way back to those fields. The API always allowed the
+   * PATCH — it is refused only from `UNDER_REVIEW` on — so only the way in was
+   * missing.
+   */
+  protected readonly editingAnswers = signal(false);
+  protected readonly savingAnswers = signal(false);
+  /**
+   * `VAL-027` step 15. A URL naming an application that does not exist — or
+   * somebody else's, which the API deliberately makes indistinguishable
+   * (`AUTH-035`) — returned 404 and the page then rendered nothing at all:
+   * a header over an empty white screen, with no way to tell a missing
+   * application from a page that had not finished loading.
+   */
+  protected readonly notFound = signal(false);
 
   // The manual-entry base case (DOM-030). Extraction, once it exists,
   // pre-fills exactly these controls and changes nothing else here.
@@ -122,7 +147,10 @@ export class ApplicationWizardComponent {
             : [null],
         ),
       )
-      .subscribe((simulation) => this.simulation.set(simulation));
+      .subscribe({
+        next: (simulation) => this.simulation.set(simulation),
+        error: () => this.notFound.set(true),
+      });
   }
 
   protected onFileSelected({ docType, file }: FileSelection): void {
@@ -243,22 +271,59 @@ export class ApplicationWizardComponent {
     });
   }
 
+  protected toggleAnswers(): void {
+    this.editingAnswers.update((open) => !open);
+  }
+
+  protected saveAnswers(): void {
+    if (this.borrowerForm.invalid || this.propertyForm.invalid) {
+      this.borrowerForm.markAllAsTouched();
+      this.propertyForm.markAllAsTouched();
+      return;
+    }
+    if (this.savingAnswers()) {
+      return;
+    }
+    this.savingAnswers.set(true);
+    this.applicationService
+      .patch(this.applicationId, {
+        borrowers: [this.borrowerPayload()],
+        property: this.propertyPayload(),
+      })
+      .subscribe({
+        next: (application) => {
+          this.application.set(application);
+          this.savingAnswers.set(false);
+          this.editingAnswers.set(false);
+          // The whole point of the edit: the derived list changes with the
+          // answer that derives it.
+          this.refreshChecklist();
+        },
+        error: () => this.savingAnswers.set(false),
+      });
+  }
+
+  private borrowerPayload(): BorrowerRequest {
+    const raw = this.borrowerForm.getRawValue();
+    return {
+      ...raw,
+      monthly_net_income:
+        raw.monthly_net_income === null ? null : raw.monthly_net_income.toFixed(2),
+    };
+  }
+
+  private propertyPayload(): PropertyRequest {
+    const raw = this.propertyForm.getRawValue();
+    return { ...raw, purchase_price: raw.purchase_price.toFixed(2) };
+  }
+
   private saveBorrower(): void {
     if (this.borrowerForm.invalid) {
       this.borrowerForm.markAllAsTouched();
       return;
     }
-    const raw = this.borrowerForm.getRawValue();
     this.applicationService
-      .patch(this.applicationId, {
-        borrowers: [
-          {
-            ...raw,
-            monthly_net_income:
-              raw.monthly_net_income === null ? null : raw.monthly_net_income.toFixed(2),
-          },
-        ],
-      })
+      .patch(this.applicationId, { borrowers: [this.borrowerPayload()] })
       .subscribe((application) => {
         this.application.set(application);
         this.activeStep.set(2);
@@ -270,11 +335,8 @@ export class ApplicationWizardComponent {
       this.propertyForm.markAllAsTouched();
       return;
     }
-    const raw = this.propertyForm.getRawValue();
     this.applicationService
-      .patch(this.applicationId, {
-        property: { ...raw, purchase_price: raw.purchase_price.toFixed(2) },
-      })
+      .patch(this.applicationId, { property: this.propertyPayload() })
       .subscribe((application) => {
         this.application.set(application);
         this.activeStep.set(3);

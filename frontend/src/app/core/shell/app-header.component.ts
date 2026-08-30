@@ -23,10 +23,15 @@ import { User } from '../auth-state.service';
   imports: [RouterLink, LogoMarkComponent, ThemeToggleComponent],
   template: `
     <header class="bg-ink-fixed flex h-14 items-center justify-between px-4 md:px-8">
-      <div class="flex items-center gap-6">
+      <div class="flex items-center gap-4 sm:gap-6">
         <a routerLink="/" class="text-surface-fixed flex items-center gap-2">
           <app-logo-mark tone="inverted" [size]="24" />
-          <span class="font-display text-h3 tracking-tight-1 font-semibold">Borrower Portal</span>
+          <!-- text-body until sm: the two words wrapped onto a second line at
+               375px and the 56px band (UI-055) grew with them. -->
+          <span
+            class="font-display text-body sm:text-h3 tracking-tight-1 font-semibold whitespace-nowrap"
+            >Borrower Portal</span
+          >
         </a>
         <a
           routerLink="/calculator"
@@ -36,13 +41,13 @@ import { User } from '../auth-state.service';
         </a>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 sm:gap-3">
         <app-theme-toggle />
         @if (!minimal()) {
           @if (user(); as currentUser) {
             <a
               routerLink="/applications"
-              class="rounded-control text-body-sm text-surface-fixed px-3 py-1.5 font-semibold whitespace-nowrap transition-colors hover:bg-white/10"
+              class="rounded-control text-body-sm text-surface-fixed px-2 py-1.5 font-semibold whitespace-nowrap transition-colors hover:bg-white/10 sm:px-3"
             >
               My applications
             </a>
@@ -57,20 +62,20 @@ import { User } from '../auth-state.service';
             <button
               type="button"
               (click)="logout.emit()"
-              class="rounded-control text-body-sm text-surface-fixed px-3 py-1.5 font-semibold transition-colors hover:bg-white/10"
+              class="rounded-control text-body-sm text-surface-fixed px-3 py-1.5 font-semibold whitespace-nowrap transition-colors hover:bg-white/10"
             >
               Log out
             </button>
           } @else {
             <a
               routerLink="/login"
-              class="rounded-control text-body-sm text-surface-fixed px-3 py-1.5 font-semibold transition-colors hover:bg-white/10"
+              class="rounded-control text-body-sm text-surface-fixed px-3 py-1.5 font-semibold whitespace-nowrap transition-colors hover:bg-white/10"
             >
               Log in
             </a>
             <a
               routerLink="/signup"
-              class="rounded-control bg-accent hover:bg-accent-hover text-body-sm px-3 py-1.5 font-semibold text-white transition-colors"
+              class="rounded-control bg-accent hover:bg-accent-hover text-body-sm px-3 py-1.5 font-semibold whitespace-nowrap text-white transition-colors"
             >
               Sign up
             </a>
