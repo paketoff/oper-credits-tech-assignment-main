@@ -1,30 +1,47 @@
 @if (rows().length > 0) {
-  <div class="rounded-card border-signal bg-signal-soft mt-5 border-l-4 p-4">
-    <h3 class="text-body-sm text-ink-fixed font-semibold">We read something from your documents</h3>
+  <div
+    class="rounded-card mt-5 border-l-4 p-4"
+    [class]="allReconciled() ? 'border-success bg-success-soft' : 'border-signal bg-signal-soft'"
+  >
+    <h3 class="text-body-sm text-ink-fixed font-semibold">
+      {{
+        allReconciled() ? 'Checked against your documents' : 'We read something from your documents'
+      }}
+    </h3>
     <p class="text-body-sm text-muted-fixed mt-1">
-      Nothing has changed yet. Check each figure and accept it if it looks right.
+      {{
+        allReconciled()
+          ? 'Every figure below is the one printed on the document it came from, and it is what the assessment above is running on.'
+          : 'Nothing has changed yet. Check each figure and accept it if it looks right.'
+      }}
     </p>
 
     <div class="mt-3 flex flex-col gap-3">
       @for (row of rows(); track row.field + row.source) {
         <div class="flex flex-wrap items-center justify-between gap-3">
           <p class="text-body-sm text-ink-fixed">
-            We read
+            @if (row.matches) {
+              <span aria-hidden="true">✓</span>
+              <span class="sr-only">Confirmed:</span>
+            }
+            {{ row.label }} —
             <span class="tabular font-semibold">{{ row.proposed | money }}</span>
             from {{ row.source }}
-            @if (row.current) {
-              — you entered <span class="tabular font-semibold">{{ row.current | money }}</span>
-            } @else {
-              for {{ row.label.toLowerCase() }}
+            @if (row.matches) {
+              <span class="text-muted-fixed">, confirmed unchanged</span>
+            } @else if (row.current) {
+              — you have <span class="tabular font-semibold">{{ row.current | money }}</span> saved
             }
           </p>
-          <button
-            type="button"
-            (click)="accept.emit(row)"
-            class="rounded-control bg-accent hover:bg-accent-hover h-8 cursor-pointer px-3 text-xs font-semibold text-white transition-colors"
-          >
-            Use this figure
-          </button>
+          @if (!row.matches) {
+            <button
+              type="button"
+              (click)="accept.emit(row)"
+              class="rounded-control bg-accent hover:bg-accent-hover h-8 cursor-pointer px-3 text-xs font-semibold text-white transition-colors"
+            >
+              Use this figure
+            </button>
+          }
         </div>
       }
     </div>

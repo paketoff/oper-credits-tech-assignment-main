@@ -30,11 +30,17 @@ describe('ProposalPromptComponent', () => {
     expect(text).toContain('your payslip');
   });
 
-  it('says nothing when the document agrees with what is already confirmed', async () => {
-    // Proposing a figure the borrower already has is noise, not help.
+  it('shows a confirmed figure as reconciled, with nothing left to accept', async () => {
+    // Agreement is the thing worth demonstrating. Hiding a row the moment it
+    // matched removed the evidence exactly when it became meaningful: the
+    // borrower had no way to see that the assessment was running on the figure
+    // their payslip actually stated.
     const fixture = await render([payslipProposal('3200.00')], '3200.00');
 
-    expect(fixture.nativeElement.textContent.trim()).toBe('');
+    const rendered = fixture.nativeElement.textContent;
+    expect(rendered).toContain('Checked against your documents');
+    expect(rendered).toContain('confirmed unchanged');
+    expect(fixture.nativeElement.querySelector('button')).toBeNull();
   });
 
   it('says nothing when a document read no figure at all', async () => {

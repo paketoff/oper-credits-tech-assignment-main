@@ -10,6 +10,8 @@ export interface ProposalRow {
   proposed: string;
   current: string | null;
   source: string;
+  /** Whether what the borrower confirmed equals what the document said. */
+  matches: boolean;
 }
 
 /**
@@ -37,9 +39,21 @@ export class ProposalPromptComponent {
   readonly accept = output<ProposalRow>();
 
   /**
-   * Only figures that actually disagree with what is already confirmed.
-   * Proposing what the borrower already has is noise, not help.
+   * Every figure a document offered — the ones still open *and* the ones
+   * already confirmed.
+   *
+   * This used to drop a row the moment it agreed with what was saved, which
+   * meant the evidence disappeared exactly when it started being worth
+   * something: a borrower who accepted €2 500 from their payslip and saved it
+   * had no way left to see that the assessment was running on the figure the
+   * document actually stated. Agreement is the thing being demonstrated, so it
+   * is shown rather than hidden.
    */
+  /** True once every figure a document offered has been confirmed unchanged. */
+  protected readonly allReconciled = computed(
+    () => this.rows().length > 0 && this.rows().every((row) => row.matches),
+  );
+
   protected readonly rows = computed<ProposalRow[]>(() => {
     const rows: ProposalRow[] = [];
     for (const proposal of this.proposals()) {
@@ -69,9 +83,16 @@ export class ProposalPromptComponent {
     current: string | null,
   ): void {
     const proposed = proposal[field];
-    if (proposed === null || proposed === current) {
+    if (proposed === null) {
       return;
     }
-    rows.push({ field, label, proposed, current, source: proposal.source });
+    rows.push({
+      field,
+      label,
+      proposed,
+      current,
+      source: proposal.source,
+      matches: proposed === current,
+    });
   }
 }
